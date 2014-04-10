@@ -65,16 +65,18 @@ Timestream Manifests
 The timestream manifest is a valid JSON format, contaning a single object. The
 fields of this object are layed out below. Bolded fields are required.
 
-* **``name``**: ``string`` -- The name of the timestream. May contain any ASCII
+* **name**: ``string`` -- The name of the timestream. May contain any ASCII
   character except ' ' and '_' and any character which requires escaping on
   NTFS or EXT4 filesystems (mostly these: ``/\$()[]{}^"'```) and all
   non-printing characters.
-* **``version``**: ``integer`` -- The timestreams' version. Valid values are 1
+* **version**: ``integer`` -- The timestreams' version. Valid values are 1
   and 2.
-* **``start_datetime``**: ``string`` -- The first timepoint in the time series.
+* **start_datetime**: ``string`` -- The first timepoint in the time series.
   This is encoded as a string using the following ISO 8601 format string:
   ``%Y-%m-%dT%H:%M:%S%z``
-* **``end_datetime``**: ``string`` -- The final timepoint in the time series.
+* **end_datetime**: ``string`` -- The final timepoint in the time series.
   Encoded as a string per ``start_datetime`` above.
-* **``image_type``**: ``string`` -- The image type of timestreams. This
+* **image_type**: ``string`` -- The image type of timestreams. This
   corresponds to the ``<ext>`` field discussed in :ref:`spec-ts-v1-folders` .
+* missing_images: ``array`` -- An optional array of timepoints at which no
+  image exists, encoded as a string per ``start_datetime`` above.
