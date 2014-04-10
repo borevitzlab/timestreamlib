@@ -1,3 +1,4 @@
+***************************
 Timestreamlib API Reference
 ***************************
 
@@ -12,9 +13,8 @@ TimeStreams.
 .. automodule:: timestream
     :members:
 
-
-``timestream.parse``
-====================
-
 .. automodule:: timestream.parse
+    :members:
+
+.. automodule:: timestream.parse.validate
     :members:

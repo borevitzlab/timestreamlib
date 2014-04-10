@@ -7,7 +7,7 @@ Contents:
     :maxdepth: 2
 
     spec
-    api
+..    api
 ..    todo
 ..    tutorial
 
