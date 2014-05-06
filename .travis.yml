@@ -20,5 +20,5 @@ install:
 script:
  - ./run_tests
 
-after_success:
+after_script:
  - coveralls
