@@ -10,7 +10,13 @@ try:
     library = "exifread"
 except ImportError:
     library = "wand"
+from string import (
+        digits,
+        )
 
+from timestream.util import (
+        dict_unicode_to_str,
+        )
 
 def get_exif_tags(image, mode="silent"):
     """Get a dictionary of exif tags from image exif header
@@ -34,20 +40,21 @@ def get_exif_tags(image, mode="silent"):
     elif library == "exifread":
         with open(image, "rb") as fh:
             tags = er.process_file(fh, details=False)
+        tags = dict_unicode_to_str(tags)
         # remove the first bit off the tags
         exif = {}
         for k, v in tags.items():
-            k = unicode(" ".join(k.split(" ")[1:]))
-            v = v.values
-            if isinstance(v, list):
-                v = [unicode(x) for x in v]
-                v = ", ".join(v)
+            # Remove the EXIF/Image category from the keys
+            k = " ".join(k.split(" ")[1:])
+            # weird exif tags in CR2s start with a 2/3, or have hex in them
+            if k[0] in digits or "0x" in k:
+                continue
+            v = str(v)
             exif[k] = v
     else:
         raise ValueError(
             "Library '{0}' not supported (only wand and exifread are")
     return exif
-
 
 def get_exif_tag(image, tag, mode="silent"):
     """Get a tag from image exif header

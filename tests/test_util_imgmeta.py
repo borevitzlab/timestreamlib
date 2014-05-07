@@ -1,7 +1,11 @@
-from tests import helpers
-from unittest import TestCase, skip, skipIf, skipUnless
-from timestream.util import imgmeta
 import json
+from unittest import TestCase, skip, skipIf, skipUnless
+
+from tests import helpers
+from timestream.util import (
+        imgmeta, # module
+        dict_unicode_to_str,
+        )
 
 
 class TestGetExifTag(TestCase):
@@ -48,11 +52,13 @@ class TestGetExifTags(TestCase):
 
     def setUp(self):
         with open(helpers.FILES["basic_jpg_exif"]) as fh:
-            self.exif_data = json.load(fh)
+            self.exif_data_jpg = dict_unicode_to_str(json.load(fh))
+        with open(helpers.FILES["basic_cr2_exif"]) as fh:
+            self.exif_data_cr2 = dict_unicode_to_str(json.load(fh))
 
     def test_get_exif_tags_jpg(self):
         r = imgmeta.get_exif_tags(helpers.FILES["basic_jpg"])
-        self.assertDictEqual(r, self.exif_data)
+        self.assertDictEqual(r, self.exif_data_jpg)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -63,7 +69,7 @@ class TestGetExifTags(TestCase):
                 helpers.FILES["basic_jpg"],
                 mode="raise"
                 )
-        self.assertDictEqual(r, self.exif_data)
+        self.assertDictEqual(r, self.exif_data_jpg)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -71,7 +77,7 @@ class TestGetExifTags(TestCase):
 
     def test_get_exif_tags_cr2(self):
         r = imgmeta.get_exif_tags(helpers.FILES["basic_cr2"])
-        self.assertDictEqual(r, self.exif_data)
+        self.assertDictEqual(r, self.exif_data_cr2)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -82,7 +88,7 @@ class TestGetExifTags(TestCase):
                 helpers.FILES["basic_cr2"],
                 mode="raise"
                 )
-        self.assertDictEqual(r, self.exif_data)
+        self.assertDictEqual(r, self.exif_data_cr2)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
