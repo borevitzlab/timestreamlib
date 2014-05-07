@@ -107,7 +107,7 @@ def _all_files_with_exts(topdir, exts, cs=False):
         raise ValueError("Exts must be a list of strings")
     ext_dict = {}
     for ext in exts:
-        ext_dict[ext] = list(_all_files_with_ext(topdir, ext, cs))
+        ext_dict[ext] = sorted(list(_all_files_with_ext(topdir, ext, cs)))
     return ext_dict
 
 def get_timestream_manifest(ts_path):
