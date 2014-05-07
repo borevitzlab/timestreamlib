@@ -72,15 +72,14 @@ class TestAllFilesWithExt(TestCase):
 
     def test_with_bad_param_types(self):
         # test with bad topdir
-        a = _all_files_with_ext(12, "xyz")
         with self.assertRaises(ValueError):
-            a = _all_files_with_ext(12, "xyz")
+            list(_all_files_with_ext(12, "xyz"))
         # test with bad topdir
         with self.assertRaises(ValueError):
-            _all_files_with_ext(".", 31)
+            list(_all_files_with_ext(".", 31))
         # test with bad cs
         with self.assertRaises(ValueError):
-            _all_files_with_ext(".", "jpg", cs="No")
+            list(_all_files_with_ext(".", "jpg", cs="No"))
 
 class TestAllFilesWithExts(TestCase):
     """Test function timestream.parse._all_files_with_exts"""
