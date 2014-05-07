@@ -38,42 +38,43 @@ class TestAllFilesWithExt(TestCase):
     def test_with_timestream_ext_jpg(self):
         res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg")
         self.assertTrue(isgenerator(res))
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_jpg_allcaps(self):
         res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG")
         self.assertTrue(isgenerator(res))
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_jpg_cs(self):
         res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg",
                 cs=True)
         self.assertTrue(isgenerator(res))
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, [])
         res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG",
                 cs=True)
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_xyz(self):
         res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, [])
 
     def test_with_emptydir_ext_xyz(self):
         res = _all_files_with_ext(helpers.FILES["empty_dir"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = list(res)
+        res = sorted(list(res))
         self.assertListEqual(res, [])
 
     def test_with_bad_param_types(self):
         # test with bad topdir
+        a = _all_files_with_ext(12, "xyz")
         with self.assertRaises(ValueError):
-            _all_files_with_ext(12, "xyz")
+            a = _all_files_with_ext(12, "xyz")
         # test with bad topdir
         with self.assertRaises(ValueError):
             _all_files_with_ext(".", 31)
@@ -123,5 +124,5 @@ class TestIterTimestreamImages(TestCase):
         """Test iter_timestream_images with a timestream with a manifold"""
         res = iter_timestream_images(helpers.FILES["timestream_manifold"])
         self.assertTrue(isgenerator(res))
-        self.assertListEqual(list(res), helpers.TS_MANIFOLD_FILES_JPG)
+        self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
 
