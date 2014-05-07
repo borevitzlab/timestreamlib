@@ -30,7 +30,8 @@ class TestGetExifTag(TestCase):
 
     def test_get_exif_tag_bad_tag_raise(self):
         with self.assertRaises(KeyError):
-            r = imgmeta.get_exif_tag(helpers.FILES["basic_jpg"], "NOTATAG")
+            r = imgmeta.get_exif_tag(helpers.FILES["basic_jpg"], "NOTATAG",
+                    mode="raise")
             self.assertIsNone(r)
 
     def test_get_exif_tag_cr2(self):
