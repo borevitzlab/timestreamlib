@@ -23,3 +23,6 @@ MANIFEST*
 
 # Installer logs
 pip-log.txt
+
+# ctags
+tags
