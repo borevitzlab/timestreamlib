@@ -6,7 +6,7 @@ timestream: Utilities and a python library for manipulating timelapses in the
 """
 
 install_requires = [
-        "Wand==0.3.5",
+        "ExifRead==1.4.2",
         "docopt==0.6.1",
         "voluptuous==0.8.4",
         ]
