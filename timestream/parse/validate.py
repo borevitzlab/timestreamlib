@@ -43,7 +43,7 @@ def validate_timestream_manifest(manifest):
     :param dict manifest: The raw json manifest from ``json.load`` or similar.
     :returns: The validated and type-converted manifest as a ``dict``
     :rtype: dict
-    :raises: TypeError, ValueError
+    :raises: TypeError, MultipleInvalidError
     """
     if not isinstance(manifest, dict):
         raise TypeError("Manfiest should be in ``dict`` form.")
@@ -57,8 +57,4 @@ def validate_timestream_manifest(manifest):
         Required("interval", default=1): All(int, Range(min=1)),
         "missing": list,
         })
-    try:
-        return sch(manifest)
-    except Exception as e:
-        raise e
-        raise ValueError("Manifest is invalid")
+    return sch(manifest)
