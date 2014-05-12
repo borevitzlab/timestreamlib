@@ -36,6 +36,22 @@ RAW_FORMATS = ["cr2", "nef", "tif", "tiff"]
 IMAGE_EXT_CONSTANTS = ["jpg", "png"]
 IMAGE_EXT_CONSTANTS.extend(RAW_FORMATS)
 IMAGE_EXT_CONSTANTS.extend([x.upper() for x in IMAGE_EXT_CONSTANTS])
+IMAGE_EXT_TO_TYPE = {
+        "jpg": "jpg",
+        "png": "png",
+        "cr2": "raw",
+        "nef": "raw",
+        "tif": "raw",
+        "tiff": "raw",
+        "JPG": "jpg",
+        "PNG": "png",
+        "CR2": "raw",
+        "NEF": "raw",
+        "TIF": "raw",
+        "TIFF": "raw",
+        }
+TS_DATE_FORMAT = "%Y_%m_%d_%H_%M_%S"
+
 
 def validate_timestream_manifest(manifest):
     """Validtes a json manifest, and returns the validated ``dict``
