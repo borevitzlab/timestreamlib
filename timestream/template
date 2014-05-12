@@ -14,9 +14,9 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-.. module:: timestream
+.. module:: <++>
     :platform: Unix, Windows
-    :synopsis: A python library to manipulate TimeStreams
-
+    :synopsis: <++>
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+
 """
