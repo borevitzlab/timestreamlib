@@ -19,6 +19,8 @@ def dict_unicode_to_str(dct):
         uc = str
     output = {}
     for key, val in dct.items():
+        if isinstance(key, uc):
+            key = str(key)
         if isinstance(val, uc):
             val = str(val)
         elif isinstance(val, tuple):
