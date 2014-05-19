@@ -46,7 +46,7 @@ from timestream.util import (
 
 #: Default timestream manifest extension
 MANIFEST_EXT = ".tsm"
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger("timestreamlib")
 
 
 def _ts_has_manifest(ts_path):
@@ -177,6 +177,7 @@ def get_timestream_manifest(ts_path):
     """
     manifest = _ts_has_manifest(ts_path)
     if manifest:
+        LOG.debug("Manifest for {} exists at {}".format(ts_path, manifest))
         with open(manifest) as ifh:
             manifest = json.load(ifh)
         if isinstance(manifest, list):
@@ -184,7 +185,16 @@ def get_timestream_manifest(ts_path):
             manifest = dict_unicode_to_str(manifest[0])
         manifest = validate_timestream_manifest(manifest)
     else:
-        manifest = _guess_manifest_info(ts_path)
+        LOG.debug("Manifest for {} doesn't exist (yet)".format(ts_path))
+        manifest = guess_manifest_info(ts_path)
+        try:
+            mfname = "{}.{}".format(manifest["name"], MANIFEST_EXT)
+            mfname = path.join(ts_path, mfname)
+            with open(mfname, "w") as mffh:
+                json.dump(manifest, mffh)
+        except:
+            LOG.warn("Couldn't write JSON manifest for ts {}".format(ts_path))
+    LOG.debug("Manifest for {} is {!r}".format(ts_path, manifest))
     return manifest
 
 def iter_timestream_images(ts_path):
