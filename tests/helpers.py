@@ -1,6 +1,15 @@
+import logging
 import os
 from os import path
 import shutil
+
+
+LOG = logging.getLogger("timestreamlib")
+LGHNDLR = logging.NullHandler()
+#LGHNDLR = logging.StreamHandler()
+LGHNDLR.setLevel(logging.INFO)
+LOG.addHandler(LGHNDLR)
+LOG.setLevel(logging.INFO)
 
 # SKIP messages
 SKIP_NEED_INTERNET = "Test requires internet access"
@@ -48,6 +57,15 @@ TS_MANIFOLD_FILES_TSM = [
         ]
 
 TS_MANIFOLD_FILES = TS_MANIFOLD_FILES_JPG + TS_MANIFOLD_FILES_TSM
+TS_MANIFOLD_DATES = [
+        "2013_10_30_03_00_00",
+        "2013_10_30_03_30_00",
+        "2013_10_30_04_00_00",
+        "2013_10_30_04_30_00",
+        "2013_10_30_05_00_00",
+        "2013_10_30_05_30_00",
+        "2013_10_30_06_00_00",
+        ]
 
 if path.exists(FILES["empty_dir"]):
     shutil.rmtree(FILES["empty_dir"])

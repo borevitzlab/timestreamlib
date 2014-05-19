@@ -212,3 +212,42 @@ def ts_iter_images(ts_path):
     for fpath in all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
 
+
+def ts_get_image(ts_path, date, n=0):
+    """Get the image path of the image in ``ts_path`` at ``date``
+    """
+    if isinstance(date, datetime):
+        date = ts_format_date(date)
+    if not isinstance(date, str):
+        msg = PARAM_TYPE_ERR.format(param="date",
+                func="ts_get_image",  type="datetime.datetime or str")
+        LOG.error(msg)
+        raise ValueError(msg)
+    if not isinstance(ts_path, str):
+        msg = PARAM_TYPE_ERR.format(param="ts_path",
+                func="all_files_with_ext",  type="str")
+        LOG.error(msg)
+        raise ValueError(msg)
+    # Get ts_info from manifest
+    ts_info = ts_get_manifest(ts_path)
+    # Format the path below the ts root (ts_path)
+    relpath = _ts_date_to_path(ts_info, ts_parse_date(date), n)
+    # Join to make "absolute" path, i.e. path including ts_path
+    abspath = path.join(ts_path, relpath)
+    # not-so-silently fail if we can't find the image
+    if path.exists(abspath):
+        LOG.debug("Image at {} in {} is {}.".format(date, ts_path, abspath))
+        return abspath
+    else:
+        LOG.warn("Expected image {} at {} in {} did not exist.".format(
+                abspath, date, ts_path))
+        return None
+
+
+def _ts_date_to_path(ts_info, date, n=0):
+    """Formats a string that should correspond to the relative (from
+    ``ts_path``) path to the image at the given ``time``.
+    """
+    pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
+            n=n)
+    return date.strftime(pth)

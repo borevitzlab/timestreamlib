@@ -12,6 +12,7 @@ from timestream.parse import (
         all_files_with_ext,
         all_files_with_exts,
         ts_iter_images,
+        ts_get_image,
         ts_parse_date,
         ts_parse_date_path,
         ts_format_date,
@@ -148,3 +149,53 @@ class TestGuessManifest(TestCase):
         self.assertTrue(isinstance(got, dict))
         self.assertDictEqual(got, expect)
 
+class TestGetImage(TestCase):
+    """Test function timestream.parse.ts_get_image"""
+    _multiprocess_can_split_ = True
+    maxDiff = None
+
+    def test_get_image_good_str(self):
+        """Test ts_get_image with a str date on a good timestream"""
+        for iii in range(len(helpers.TS_MANIFOLD_DATES)):
+            date = helpers.TS_MANIFOLD_DATES[iii]
+            ts = helpers.FILES["timestream_manifold"]
+            res = ts_get_image(ts, date)
+            self.assertEqual(res, helpers.TS_MANIFOLD_FILES_JPG[iii])
+
+    def test_get_image_good_datetime(self):
+        """Test ts_get_image with a datetime obj on a good timestream"""
+        for iii in range(len(helpers.TS_MANIFOLD_DATES)):
+            date = ts_parse_date(helpers.TS_MANIFOLD_DATES[iii])
+            ts = helpers.FILES["timestream_manifold"]
+            res = ts_get_image(ts, date)
+            self.assertEqual(res, helpers.TS_MANIFOLD_FILES_JPG[iii])
+
+    def test_get_image_missing_str(self):
+        """Test ts_get_image with a missing str date on a good timestream"""
+        date = "2010_10_10_10_10_10"
+        ts = helpers.FILES["timestream_manifold"]
+        res = ts_get_image(ts, date)
+        self.assertEqual(res, None)
+
+    def test_get_image_missing_datetime(self):
+        """Test ts_get_image with a missing datetime on a good timestream"""
+        date = ts_parse_date("2010_10_10_10_10_10")
+        ts = helpers.FILES["timestream_manifold"]
+        res = ts_get_image(ts, date)
+        self.assertEqual(res, None)
+
+    def test_get_image_bad_params(self):
+        """Test giving bad paramters to ts_get_image raises ValueError"""
+        with self.assertRaises(ValueError):
+            # bad ts_path param
+            ts_get_image(None, helpers.TS_MANIFOLD_DATES[0])
+        with self.assertRaises(ValueError):
+            # bad date param
+            ts_get_image(helpers.FILES["timestream_manifold"], None)
+        with self.assertRaises(ValueError):
+            # unparseable str date param
+            ts_get_image(helpers.FILES["timestream_manifold"], "NOTADATE")
+        with self.assertRaises(ValueError):
+            # bad subsecond param
+            ts_get_image(helpers.FILES["timestream_manifold"],
+                    helpers.TS_MANIFOLD_DATES[0], n="this should be an int")
