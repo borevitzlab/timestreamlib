@@ -23,14 +23,9 @@ OPTIONS:
     -t THREADS          Number of concurrent worker processes.
 """
 
-def resize_image(src, dest, size=(640, 480), ext="JPEG"):
-    img = cv2.imread(src)
-    res = cv2.resize(img, size)
-    cv2.imwrite(dest, res)
 
-def process_image((img, out_ts, xy)):
-    sys.stderr.write(".")
-    sys.stderr.flush()
+def process_image((img, out_ts, size=(640, 480), ext="JPEG")):
+    # get output path
     split = path.basename(img).split('_')[1:]
     dest = path.join(
             out_ts,
@@ -40,13 +35,29 @@ def process_image((img, out_ts, xy)):
             "_".join(split[0:4]),
             path.basename(out_ts) + "_" + "_".join(split),
             )
+    # make output dir if not exists
     if not path.exists(path.dirname(dest)):
         try:
             os.makedirs(path.dirname(dest))
         except IOError as e:
             if not path.exists(path.dirname(dest)):
                 raise e
-    resize_image(img, dest, xy)
+    # Skip or not skip
+    if not path.exists(dest):
+        sys.stderr.write(".")
+        sys.stderr.flush()
+        resize_image(img, dest, xy)
+        x, y = size
+        if y =
+        try:
+            img = cv2.imread(src)
+            res = cv2.resize(img, size)
+            cv2.imwrite(dest, res)
+        except cv2.error:
+            print("\n[resize_image] ERROR: something weird in {}\n".format(src))
+    else:
+        sys.stderr.write("S")
+        sys.stderr.flush()
 
 def main(opts):
     pool = mp.Pool()
