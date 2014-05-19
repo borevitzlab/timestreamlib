@@ -24,12 +24,11 @@ def get_exif_tags(image, mode="silent"):
     :param str image: Path to image file.
     :param str mode: Behaviour on missing exif tag. If `"silent"`, `None` is
                      returned. If `"raise"`, a `KeyError` is raised.
-    :returns: dict -- The EXIF tag dictionary.
-    :raises: KeyError, ValueError
-
+    :returns: dict -- The EXIF tag dictionary, or None
+    :raises: ValueError
     """
     if mode not in {"silent", "raise"}:
-        raise ValueError("Bad get_exif_tag mode '{0}'".format(mode))
+        raise ValueError("Bad get_exif_tags mode '{}'".format(mode))
     if library == "wand":
         # use the wand library, as either we've been told to or the faster
         # exifread isn't available
@@ -38,6 +37,7 @@ def get_exif_tags(image, mode="silent"):
             exif = {k[5:]: v for k, v in img.metadata.items() if
                     k.startswith('exif:')}
     elif library == "exifread":
+        import exifread as er
         with open(image, "rb") as fh:
             tags = er.process_file(fh, details=False)
         tags = dict_unicode_to_str(tags)
@@ -53,7 +53,8 @@ def get_exif_tags(image, mode="silent"):
             exif[k] = v
     else:
         raise ValueError(
-            "Library '{0}' not supported (only wand and exifread are")
+            "Library '{}' not supported (only wand and exifread are".format(
+                library))
     return exif
 
 def get_exif_tag(image, tag, mode="silent"):
@@ -65,7 +66,6 @@ def get_exif_tag(image, tag, mode="silent"):
                      returned. If `"raise"`, a `KeyError` is raised.
     :returns: str -- The EXIF tag value.
     :raises: KeyError, ValueError
-
     """
     if mode not in {"silent", "raise"}:
         raise ValueError("Bad get_exif_tag mode '{0}'".format(mode))
