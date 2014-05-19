@@ -71,9 +71,11 @@ def ts_parse_date(img):
 def ts_format_date(dt):
     return dt.strftime(TS_DATE_FORMAT)
 
-def _guess_manifest_info(ts_path):
+def guess_manifest_info(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
+    # This whole thing's one massive fucking kludge. But it seems to work
+    # pretty good so, well, whoop.
     retval = {}
     # get a sorted list of all files
     all_files = []

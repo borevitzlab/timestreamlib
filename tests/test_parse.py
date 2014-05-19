@@ -8,7 +8,7 @@ from unittest import TestCase, skip, skipIf, skipUnless
 from tests import helpers
 from timestream.parse import (
         _ts_has_manifest,
-        _guess_manifest_info,
+        guess_manifest_info,
         _all_files_with_ext,
         _all_files_with_exts,
         iter_timestream_images,
@@ -126,7 +126,7 @@ class TestIterTimestreamImages(TestCase):
         self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
 
 class TestGuessManifest(TestCase):
-    """Tests for timestream.parse._guess_manifest_info"""
+    """Tests for timestream.parse.guess_manifest_info"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
@@ -141,7 +141,7 @@ class TestGuessManifest(TestCase):
                 "interval": 30,
                 "missing": [],
                 }
-        got = _guess_manifest_info(helpers.FILES["timestream_manifold"])
+        got = guess_manifest_info(helpers.FILES["timestream_manifold"])
         self.assertTrue(isinstance(got, dict))
         self.assertDictEqual(got, expect)
 
