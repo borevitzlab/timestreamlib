@@ -24,7 +24,7 @@ OPTIONS:
 """
 
 
-def process_image((img, out_ts, size=(640, 480), ext="JPEG")):
+def process_image((img, out_ts, size=(640, 480)):
     # get output path
     split = path.basename(img).split('_')[1:]
     dest = path.join(
@@ -46,9 +46,6 @@ def process_image((img, out_ts, size=(640, 480), ext="JPEG")):
     if not path.exists(dest):
         sys.stderr.write(".")
         sys.stderr.flush()
-        resize_image(img, dest, xy)
-        x, y = size
-        if y =
         try:
             img = cv2.imread(src)
             res = cv2.resize(img, size)
