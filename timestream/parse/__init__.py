@@ -38,6 +38,7 @@ from timestream.parse.validate import (
         IMAGE_EXT_CONSTANTS,
         IMAGE_EXT_TO_TYPE,
         TS_DATE_FORMAT,
+        TS_V1_FMT,
         )
 from timestream.util import (
         PARAM_TYPE_ERR,
@@ -62,16 +63,20 @@ def _ts_has_manifest(ts_path):
     else:
         return False
 
-def ts_parse_date(img):
+def ts_parse_date_path(img):
     basename = path.basename(img)
     fields = basename.split("_")[1:7]
     string_time = "_".join(fields)
-    return datetime.strptime(string_time, TS_DATE_FORMAT)
+    return ts_parse_date(string_time)
+
+def ts_parse_date(string):
+    return datetime.strptime(string, TS_DATE_FORMAT)
 
 def ts_format_date(dt):
+    print(dt)
     return dt.strftime(TS_DATE_FORMAT)
 
-def guess_manifest_info(ts_path):
+def ts_guess_manifest(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
     # This whole thing's one massive fucking kludge. But it seems to work
@@ -103,7 +108,7 @@ def guess_manifest_info(ts_path):
             lambda x: path.splitext(x)[1][1:] == retval["extension"],
             all_files)
     # decode times from images:
-    times = map(ts_parse_date, sorted(images))
+    times = map(ts_parse_date_path, sorted(images))
     # get first and last dates:
     retval["start_datetime"] = ts_format_date(times[0])
     retval["end_datetime"] = ts_format_date(times[-1])

@@ -21,7 +21,9 @@
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
 
+from os import path
 from voluptuous import Schema, Required, Range, All, Length, Any
+
 from timestream.util.validation import (
         v_datetime,
         v_date,
@@ -51,6 +53,14 @@ IMAGE_EXT_TO_TYPE = {
         "TIFF": "raw",
         }
 TS_DATE_FORMAT = "%Y_%m_%d_%H_%M_%S"
+__TS_V1_LEVELS = [
+        '%Y',
+        '%Y_%m',
+        '%Y_%m_%d',
+        '%Y_%m_%d_%H',
+        '{tsname:s}_%Y_%m_%d_%H_%M_%S_{n:02d}.{ext:s}',
+        ]
+TS_V1_FMT = path.join(*__TS_V1_LEVELS)
 
 
 def validate_timestream_manifest(manifest):
