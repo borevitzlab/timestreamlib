@@ -21,7 +21,13 @@
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
 
+import collections
+from datetime import datetime
 import glob
+from itertools import (
+        ifilter,
+        imap,
+        )
 import json
 import logging
 import os
@@ -29,16 +35,17 @@ from os import path
 
 from timestream.parse.validate import (
         validate_timestream_manifest,
+        IMAGE_EXT_CONSTANTS,
+        IMAGE_EXT_TO_TYPE,
+        TS_DATE_FORMAT,
         )
 from timestream.util import (
         PARAM_TYPE_ERR,
         dict_unicode_to_str,
         )
 
-
 #: Default timestream manifest extension
 MANIFEST_EXT = ".tsm"
-
 LOG = logging.getLogger(__name__)
 
 
@@ -55,10 +62,62 @@ def _ts_has_manifest(ts_path):
     else:
         return False
 
+def ts_parse_date(img):
+    basename = path.basename(img)
+    fields = basename.split("_")[1:7]
+    string_time = "_".join(fields)
+    return datetime.strptime(string_time, TS_DATE_FORMAT)
+
+def ts_format_date(dt):
+    return dt.strftime(TS_DATE_FORMAT)
+
 def _guess_manifest_info(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
-    pass
+    retval = {}
+    # get a sorted list of all files
+    all_files = []
+    for root, dirs, files in os.walk(ts_path):
+        for fle in files:
+            all_files.append(path.join(root, fle))
+    all_files = sorted(all_files)
+    # find most common extension, and assume this is the ext
+    exts = collections.Counter(IMAGE_EXT_CONSTANTS)
+    our_exts = map(lambda x: path.splitext(x)[1][1:], all_files)
+    for ext in our_exts:
+        try:
+            exts[ext] += 1
+        except KeyError:
+            pass
+    ## most common gives list of tuples. [0] = (ext, count), [0][0] = ext
+    retval["extension"] = exts.most_common(1)[0][0]
+    # get image type from extension:
+    try:
+        retval["image_type"] = IMAGE_EXT_TO_TYPE[retval["extension"]]
+    except KeyError:
+        retval["image_type"] = None
+    # Get list of images:
+    images = ifilter(
+            lambda x: path.splitext(x)[1][1:] == retval["extension"],
+            all_files)
+    # decode times from images:
+    times = map(ts_parse_date, sorted(images))
+    # get first and last dates:
+    retval["start_datetime"] = ts_format_date(times[0])
+    retval["end_datetime"] = ts_format_date(times[-1])
+    # Get time intervals between images
+    intervals = collections.Counter()
+    for iii in range(len(times) - 1):
+        interval = times[iii + 1] - times[iii]
+        intervals[interval.seconds/60] += 1
+    ## most common gives list of tuples. [0] = (ext, count), [0][0] = ext
+    retval["interval"] = intervals.most_common(1)[0][0]
+    retval["name"] = path.basename(ts_path)
+    # This is dodgy isn't it :S
+    retval["missing"] = []
+    # If any of this worked, it must be version 1
+    retval["version"] = 1
+    return retval
 
 def _all_files_with_ext(topdir, ext, cs=False):
     """Iterates over all files with extension ``ext`` recursively from ``topdir``
@@ -133,5 +192,4 @@ def iter_timestream_images(ts_path):
 
     for fpath in _all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
-    #LOG.debug("Found {} files with ext {} in {}".format(n, ext, topdir))
 

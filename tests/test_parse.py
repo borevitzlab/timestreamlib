@@ -125,3 +125,23 @@ class TestIterTimestreamImages(TestCase):
         self.assertTrue(isgenerator(res))
         self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
 
+class TestGuessManifest(TestCase):
+    """Tests for timestream.parse._guess_manifest_info"""
+    _multiprocess_can_split_ = True
+    maxDiff = None
+
+    def test_good_ts(self):
+        expect = {
+                "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
+                "start_datetime": "2013_10_30_03_00_00",
+                "end_datetime": "2013_10_30_06_00_00",
+                "version": 1,
+                "image_type": "jpg",
+                "extension": "JPG",
+                "interval": 30,
+                "missing": [],
+                }
+        got = _guess_manifest_info(helpers.FILES["timestream_manifold"])
+        self.assertTrue(isinstance(got, dict))
+        self.assertDictEqual(got, expect)
+
