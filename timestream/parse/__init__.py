@@ -126,22 +126,22 @@ def ts_guess_manifest(ts_path):
     retval["version"] = 1
     return retval
 
-def _all_files_with_ext(topdir, ext, cs=False):
+def all_files_with_ext(topdir, ext, cs=False):
     """Iterates over all files with extension ``ext`` recursively from ``topdir``
     """
     if not isinstance(topdir, str):
         msg = PARAM_TYPE_ERR.format(param="topdir",
-                func="_all_files_with_ext",  type="str")
+                func="all_files_with_ext",  type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(ext, str):
         msg = PARAM_TYPE_ERR.format(param="ext",
-                func="_all_files_with_ext",  type="str")
+                func="all_files_with_ext",  type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(cs, bool):
         msg = PARAM_TYPE_ERR.format(param="cs",
-                func="_all_files_with_ext",  type="bool")
+                func="all_files_with_ext",  type="bool")
         LOG.error(msg)
         raise ValueError(msg)
     # Trim any leading spaces from the extension we've been given
@@ -165,18 +165,20 @@ def _all_files_with_ext(topdir, ext, cs=False):
                 # we give the whole path to  the file
                 yield path.join(root, fpath)
 
-def _all_files_with_exts(topdir, exts, cs=False):
+def all_files_with_exts(topdir, exts, cs=False):
     """Creates a dictionary of {"ext": [files]} for each ext in exts
     """
     if not isinstance(exts, list):
-        LOG.error("Exts must be a list of strings")
-        raise ValueError("Exts must be a list of strings")
+        msg = PARAM_TYPE_ERR.format(param="exts",
+                func="all_files_with_exts",  type="list")
+        LOG.error(msg)
+        raise ValueError(msg)
     ext_dict = {}
     for ext in exts:
-        ext_dict[ext] = sorted(list(_all_files_with_ext(topdir, ext, cs)))
+        ext_dict[ext] = sorted(list(all_files_with_ext(topdir, ext, cs)))
     return ext_dict
 
-def get_timestream_manifest(ts_path):
+def ts_get_manifest(ts_path):
     """Reads in or makes up a manifest for the timestream at ``ts_path``, and
     returns it as a ``dict``
     """
@@ -191,7 +193,7 @@ def get_timestream_manifest(ts_path):
         manifest = validate_timestream_manifest(manifest)
     else:
         LOG.debug("Manifest for {} doesn't exist (yet)".format(ts_path))
-        manifest = guess_manifest_info(ts_path)
+        manifest = ts_guess_manifest(ts_path)
         try:
             mfname = "{}.{}".format(manifest["name"], MANIFEST_EXT)
             mfname = path.join(ts_path, mfname)
@@ -202,11 +204,11 @@ def get_timestream_manifest(ts_path):
     LOG.debug("Manifest for {} is {!r}".format(ts_path, manifest))
     return manifest
 
-def iter_timestream_images(ts_path):
+
+def ts_iter_images(ts_path):
     """Iterate over a ``timestream`` in chronological order
     """
-    manifest = get_timestream_manifest(ts_path)
-
-    for fpath in _all_files_with_ext(ts_path, manifest["extension"], cs=False):
+    manifest = ts_get_manifest(ts_path)
+    for fpath in all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
 

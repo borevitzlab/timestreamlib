@@ -8,10 +8,13 @@ from unittest import TestCase, skip, skipIf, skipUnless
 from tests import helpers
 from timestream.parse import (
         _ts_has_manifest,
-        guess_manifest_info,
-        _all_files_with_ext,
-        _all_files_with_exts,
-        iter_timestream_images,
+        ts_guess_manifest,
+        all_files_with_ext,
+        all_files_with_exts,
+        ts_iter_images,
+        ts_parse_date,
+        ts_parse_date_path,
+        ts_format_date,
         )
 
 class TestTSHasManifest(TestCase):
@@ -31,41 +34,41 @@ class TestTSHasManifest(TestCase):
         self.assertFalse(res)
 
 class TestAllFilesWithExt(TestCase):
-    """Test function timestream.parse._all_files_with_ext"""
+    """Test function timestream.parse.all_files_with_ext"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
     def test_with_timestream_ext_jpg(self):
-        res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg")
+        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg")
         self.assertTrue(isgenerator(res))
         res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
-    def test_with_timestream_ext_jpg_allcaps(self):
-        res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG")
+    def test_with_timestream_ext_jpggccaps(self):
+        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG")
         self.assertTrue(isgenerator(res))
         res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_jpg_cs(self):
-        res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg",
+        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg",
                 cs=True)
         self.assertTrue(isgenerator(res))
         res = sorted(list(res))
         self.assertListEqual(res, [])
-        res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG",
+        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG",
                 cs=True)
         res = sorted(list(res))
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_xyz(self):
-        res = _all_files_with_ext(helpers.FILES["timestream_manifold"], "xyz")
+        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "xyz")
         self.assertTrue(isgenerator(res))
         res = sorted(list(res))
         self.assertListEqual(res, [])
 
     def test_with_emptydir_ext_xyz(self):
-        res = _all_files_with_ext(helpers.FILES["empty_dir"], "xyz")
+        res = all_files_with_ext(helpers.FILES["empty_dir"], "xyz")
         self.assertTrue(isgenerator(res))
         res = sorted(list(res))
         self.assertListEqual(res, [])
@@ -73,27 +76,27 @@ class TestAllFilesWithExt(TestCase):
     def test_with_bad_param_types(self):
         # test with bad topdir
         with self.assertRaises(ValueError):
-            list(_all_files_with_ext(12, "xyz"))
+            list(all_files_with_ext(12, "xyz"))
         # test with bad topdir
         with self.assertRaises(ValueError):
-            list(_all_files_with_ext(".", 31))
+            list(all_files_with_ext(".", 31))
         # test with bad cs
         with self.assertRaises(ValueError):
-            list(_all_files_with_ext(".", "jpg", cs="No"))
+            list(all_files_with_ext(".", "jpg", cs="No"))
 
 class TestAllFilesWithExts(TestCase):
-    """Test function timestream.parse._all_files_with_exts"""
+    """Test function timestream.parse.all_files_with_exts"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
     def test_with_timestream_ext_jpg(self):
-        res = _all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
                 ["jpg",])
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"jpg": helpers.TS_MANIFOLD_FILES_JPG})
 
     def test_with_timestream_ext_jpg_tsm(self):
-        res = _all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
                 ["jpg", "tsm"])
         self.assertTrue(isinstance(res, dict))
         expt = {
@@ -104,29 +107,29 @@ class TestAllFilesWithExts(TestCase):
 
     def test_with_timestream_ext_jpg_cs(self):
         # with incorrect capitialisation
-        res = _all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
                 ["jpg",], cs=True)
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"jpg": []})
         # With correct capitilisation
-        res = _all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
                 ["JPG",], cs=True)
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"JPG": helpers.TS_MANIFOLD_FILES_JPG})
 
-class TestIterTimestreamImages(TestCase):
-    """Test function timestream.parse.iter_timestream_images"""
+class TestIterImages(TestCase):
+    """Test function timestream.parse.ts_iter_images"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
     def test_good_timestream_manifold(self):
-        """Test iter_timestream_images with a timestream with a manifold"""
-        res = iter_timestream_images(helpers.FILES["timestream_manifold"])
+        """Test ts_iter_images with a timestream with a manifold"""
+        res = ts_iter_images(helpers.FILES["timestream_manifold"])
         self.assertTrue(isgenerator(res))
         self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
 
 class TestGuessManifest(TestCase):
-    """Tests for timestream.parse.guess_manifest_info"""
+    """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
@@ -141,7 +144,7 @@ class TestGuessManifest(TestCase):
                 "interval": 30,
                 "missing": [],
                 }
-        got = guess_manifest_info(helpers.FILES["timestream_manifold"])
+        got = ts_guess_manifest(helpers.FILES["timestream_manifold"])
         self.assertTrue(isinstance(got, dict))
         self.assertDictEqual(got, expect)
 
