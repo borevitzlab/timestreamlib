@@ -22,7 +22,10 @@
 """
 
 import collections
-from datetime import datetime
+from datetime import (
+        datetime,
+        timedelta,
+        )
 import glob
 from itertools import (
         ifilter,
@@ -212,6 +215,24 @@ def ts_iter_images(ts_path):
     manifest = ts_get_manifest(ts_path)
     for fpath in all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
+
+def ts_iter_images_all_times(ts_path):
+    """Iterate over a ``timestream`` in chronological order
+    """
+    for time in ts_iter_times(ts_path):
+        yield ts_get_image(ts_path, time)
+
+def ts_iter_times(ts_path):
+    """Iterate over a ``timestream`` in chronological order
+    """
+    manifest = ts_get_manifest(ts_path)
+    start = manifest["start_datetime"]
+    end = manifest["end_datetime"]
+    ts_range = end - start
+    ts_range = int(ts_range.total_seconds())
+    interval_secs = manifest["interval"] * 60
+    for offset in range(0, ts_range + 1, interval_secs):
+        yield start + timedelta(seconds=offset)
 
 
 def ts_get_image(ts_path, date, n=0):
