@@ -189,6 +189,8 @@ def ts_get_manifest(ts_path):
         if isinstance(manifest, list):
             # it comes in as a list, we want a dict
             manifest = dict_unicode_to_str(manifest[0])
+        else:
+            manifest = dict_unicode_to_str(manifest)
         manifest = validate_timestream_manifest(manifest)
     else:
         LOG.debug("Manifest for {} doesn't exist (yet)".format(ts_path))
