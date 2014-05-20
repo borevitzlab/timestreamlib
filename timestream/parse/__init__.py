@@ -73,7 +73,6 @@ def ts_parse_date(string):
     return datetime.strptime(string, TS_DATE_FORMAT)
 
 def ts_format_date(dt):
-    print(dt)
     return dt.strftime(TS_DATE_FORMAT)
 
 def ts_guess_manifest(ts_path):
