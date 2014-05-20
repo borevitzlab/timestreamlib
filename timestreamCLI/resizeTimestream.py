@@ -9,7 +9,7 @@ import os
 from os import path
 import cv2
 import sys
-from timestream.parse import iter_timestream_images
+from timestream.parse import ts_iter_images
 
 CLI = """
 USAGE:
@@ -24,7 +24,7 @@ OPTIONS:
 """
 
 
-def process_image((img, out_ts, size=(640, 480)):
+def process_image((img, out_ts, size)):
     # get output path
     split = path.basename(img).split('_')[1:]
     dest = path.join(
@@ -39,7 +39,7 @@ def process_image((img, out_ts, size=(640, 480)):
     if not path.exists(path.dirname(dest)):
         try:
             os.makedirs(path.dirname(dest))
-        except IOError as e:
+        except (OSError, IOError) as e:
             if not path.exists(path.dirname(dest)):
                 raise e
     # Skip or not skip
@@ -47,11 +47,20 @@ def process_image((img, out_ts, size=(640, 480)):
         sys.stderr.write(".")
         sys.stderr.flush()
         try:
-            img = cv2.imread(src)
-            res = cv2.resize(img, size)
+            w_final, h_final = size
+            imgmat = cv2.imread(img)
+            if imgmat is None:
+                raise cv2.error;
+            if h_final < 1:
+                h, w, d = imgmat.shape
+                scale = w_final / float(w)
+                h_final = int(h * scale)
+            res = cv2.resize(imgmat, (w_final, h_final))
             cv2.imwrite(dest, res)
         except cv2.error:
-            print("\n[resize_image] ERROR: something weird in {}\n".format(src))
+            sys.stderr.write(
+                "\n[resize_image] ERROR: something weird in {}\n".format(img))
+            sys.stderr.flush()
     else:
         sys.stderr.write("S")
         sys.stderr.flush()
@@ -60,12 +69,15 @@ def main(opts):
     pool = mp.Pool()
     if opts['-t']:
         pool = mp.Pool(opts['-t'])
-    xy = [tuple(map(int, opts['-s'].replace('x', ',').split(','))), ]
+    xy = tuple(map(int, opts['-s'].replace('x', ',').split(',')))
+    if len(xy) == 1:
+        xy = (xy[0], 0)
+    xy = [xy, ]
     out = [opts['-o'],]
-    args = izip(iter_timestream_images(opts['-i']), cycle(out), cycle(xy))
-    args = izip(iter_timestream_images(opts['-i']), cycle(out), cycle(xy))
+    args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
+    args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
     num = len(pool.map(process_image, args))
-    sys.stderr.write("\nProcessed {} Images!".format(num))
+    sys.stderr.write("\nProcessed {} Images!\n\n".format(num))
     sys.stderr.flush()
     pool.close()
     pool.join()
