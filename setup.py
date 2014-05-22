@@ -20,8 +20,12 @@ test_requires = [
 
 setup(
     name="timestream",
-    packages=['timestream', ],
-    version="0.1a1",
+    packages=[
+        'timestream',
+        'timestream.parse',
+        'timestream.util',
+        ],
+    version="0.1a2",
     install_requires=install_requires,
     tests_require=test_requires,
     description=desc,
