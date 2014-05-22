@@ -6,8 +6,8 @@ timestreamCLI: Tools for working with timelapse imagery in the TimeStream
 """
 
 install_requires = [
-    "docopt"
-    "timestream",
+    "docopt",
+    "timestream==0.1a1",
 ]
 
 test_requires = [
