@@ -6,8 +6,8 @@ timestreamCLI: Tools for working with timelapse imagery in the TimeStream
 """
 
 install_requires = [
+    "docopt"
     "timestream",
-    "pyopencv==2.1.0.wr1.2.0",
 ]
 
 test_requires = [
