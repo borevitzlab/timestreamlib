@@ -1,4 +1,3 @@
 #!/bin/bash
 
-nosetests $@ --nologcapture --with-coverage --cover-package timestreamCLI
-exit $?
+set -x
