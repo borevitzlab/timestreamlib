@@ -49,7 +49,7 @@ from timestream.util import (
         )
 
 #: Default timestream manifest extension
-MANIFEST_EXT = ".tsm"
+MANIFEST_EXT = "tsm"
 LOG = logging.getLogger("timestreamlib")
 
 
@@ -59,7 +59,7 @@ def _ts_has_manifest(ts_path):
     :param str ts_path: Path to the root of a timestream.
     :returns: The path to the manifest, or ``False``.
     """
-    pattern = "{}{}*{}".format(ts_path, os.sep, MANIFEST_EXT)
+    pattern = "{}{}*.{}".format(ts_path, os.sep, MANIFEST_EXT)
     manifest = glob.glob(pattern)
     if len(manifest):
         return manifest[0]
@@ -186,28 +186,33 @@ def ts_get_manifest(ts_path):
     """
     manifest = _ts_has_manifest(ts_path)
     if manifest:
-        LOG.debug("Manifest for {} exists at {}".format(ts_path, manifest))
-        with open(manifest) as ifh:
-            manifest = json.load(ifh)
-        if isinstance(manifest, list):
-            # it comes in as a list, we want a dict
-            manifest = dict_unicode_to_str(manifest[0])
-        else:
-            manifest = dict_unicode_to_str(manifest)
-        manifest = validate_timestream_manifest(manifest)
-    else:
+        try:
+            LOG.debug("Manifest for {} exists at {}".format(ts_path, manifest))
+            with open(manifest) as ifh:
+                manifest = json.load(ifh)
+            if isinstance(manifest, list):
+                # it comes in as a list, we want a dict
+                manifest = dict_unicode_to_str(manifest[0])
+            else:
+                manifest = dict_unicode_to_str(manifest)
+            manifest = validate_timestream_manifest(manifest)
+        except:
+            manifest = None
+    if not manifest:
         LOG.debug("Manifest for {} doesn't exist (yet)".format(ts_path))
         manifest = ts_guess_manifest(ts_path)
-        try:
-            mfname = "{}.{}".format(manifest["name"], MANIFEST_EXT)
-            mfname = path.join(ts_path, mfname)
-            with open(mfname, "w") as mffh:
-                json.dump(manifest, mffh)
-        except:
-            LOG.warn("Couldn't write JSON manifest for ts {}".format(ts_path))
+        manifest = validate_timestream_manifest(manifest)
     LOG.debug("Manifest for {} is {!r}".format(ts_path, manifest))
     return manifest
 
+def ts_update_manifest(ts_path, ts_info):
+    try:
+        mfname = "{}.{}".format(ts_info["name"], MANIFEST_EXT)
+        mfname = path.join(ts_path, mfname)
+        with open(mfname, "w") as mffh:
+            json.dump(ts_info, mffh)
+    except:
+        LOG.warn("Couldn't write JSON manifest for ts {}".format(ts_path))
 
 def ts_iter_images(ts_path):
     """Iterate over a ``timestream`` in chronological order
@@ -252,6 +257,9 @@ def ts_get_image(ts_path, date, n=0):
         raise ValueError(msg)
     # Get ts_info from manifest
     ts_info = ts_get_manifest(ts_path)
+    # Bail early if we know it's missing
+    if date in ts_info["missing"]:
+        return None
     # Format the path below the ts root (ts_path)
     relpath = _ts_date_to_path(ts_info, ts_parse_date(date), n)
     # Join to make "absolute" path, i.e. path including ts_path
@@ -263,6 +271,9 @@ def ts_get_image(ts_path, date, n=0):
     else:
         LOG.warn("Expected image {} at {} in {} did not exist.".format(
                 abspath, date, ts_path))
+        ts_info["missing"].append(date)
+        ts_update_manifest(ts_path, ts_info)
+        ts_info = ts_get_manifest(ts_path)
         return None
 
 
