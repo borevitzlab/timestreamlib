@@ -121,7 +121,7 @@ def ts_guess_manifest(ts_path):
         intervals[interval.seconds/60] += 1
     ## most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["interval"] = intervals.most_common(1)[0][0]
-    retval["name"] = path.basename(ts_path)
+    retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
     # If any of this worked, it must be version 1
