@@ -42,10 +42,8 @@ def process_image((img, out_ts, size)):
         except (OSError, IOError) as e:
             if not path.exists(path.dirname(dest)):
                 raise e
-    # Skip or not skip
+    # Skip if exists
     if not path.exists(dest):
-        sys.stderr.write(".")
-        sys.stderr.flush()
         try:
             w_final, h_final = size
             imgmat = cv2.imread(img)
@@ -61,9 +59,7 @@ def process_image((img, out_ts, size)):
             sys.stderr.write(
                 "\n[resize_image] ERROR: something weird in {}\n".format(img))
             sys.stderr.flush()
-    else:
-        sys.stderr.write("S")
-        sys.stderr.flush()
+
 
 def main(opts):
     pool = mp.Pool()
@@ -75,9 +71,12 @@ def main(opts):
     xy = [xy, ]
     out = [opts['-o'],]
     args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
-    args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
-    num = len(pool.map(process_image, args))
-    sys.stderr.write("\nProcessed {} Images!\n\n".format(num))
+    count = 0
+    for _ in pool.imap(process_image, args):
+        if count % 10 == 0:
+            print("Renamed {: 5d} images!", end="\r")
+        count += 1
+    sys.stderr.write("\nProcessed {} Images!\n\n".format(count))
     sys.stderr.flush()
     pool.close()
     pool.join()
