@@ -2,6 +2,7 @@ from inspect import (
         isgenerator,
         )
 import json
+import os
 from os import path
 from unittest import TestCase, skip, skipIf, skipUnless
 
@@ -133,21 +134,26 @@ class TestGuessManifest(TestCase):
     """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
+    expect_good = {
+            "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
+            "start_datetime": "2013_10_30_03_00_00",
+            "end_datetime": "2013_10_30_06_00_00",
+            "version": 1,
+            "image_type": "jpg",
+            "extension": "JPG",
+            "interval": 30,
+            "missing": [],
+            }
 
     def test_good_ts(self):
-        expect = {
-                "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
-                "start_datetime": "2013_10_30_03_00_00",
-                "end_datetime": "2013_10_30_06_00_00",
-                "version": 1,
-                "image_type": "jpg",
-                "extension": "JPG",
-                "interval": 30,
-                "missing": [],
-                }
         got = ts_guess_manifest(helpers.FILES["timestream_manifold"])
         self.assertTrue(isinstance(got, dict))
-        self.assertDictEqual(got, expect)
+        self.assertDictEqual(got, self.expect_good)
+
+    def test_trailing_slash(self):
+        got = ts_guess_manifest(helpers.FILES["timestream_manifold"] + os.sep)
+        self.assertTrue(isinstance(got, dict))
+        self.assertDictEqual(got, self.expect_good)
 
 class TestGetImage(TestCase):
     """Test function timestream.parse.ts_get_image"""
