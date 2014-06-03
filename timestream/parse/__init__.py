@@ -22,6 +22,7 @@
 """
 
 import collections
+import cv2
 from datetime import (
         datetime,
         timedelta,
@@ -284,3 +285,12 @@ def _ts_date_to_path(ts_info, date, n=0):
     pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
             n=n)
     return date.strftime(pth)
+
+
+def ts_iter_numpy(fname_iter):
+    """Take each image filename from ``fname_iter`` and yield the image as a
+    numpy array, via ``cv2.imread``. The image is returned as a tuple of
+    ``(img_path, img_matrix)``.
+    """
+    for img in fname_iter:
+        yield (img, cv2.imread(img))
