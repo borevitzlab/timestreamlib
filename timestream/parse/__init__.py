@@ -223,10 +223,17 @@ def ts_iter_images(ts_path):
         yield fpath
 
 def ts_iter_images_all_times(ts_path):
-    """Iterate over a ``timestream`` in chronological order
+    """Iterate over a ``timestream`` in chronological order, returning a tuple
+    of (time, image)
     """
     for time in ts_iter_times(ts_path):
-        yield ts_get_image(ts_path, time)
+        yield (time, ts_get_image(ts_path, time))
+
+def iter_date_range(start, end, interval):
+    ts_range = end - start
+    ts_range = int(ts_range.total_seconds())
+    for offset in range(0, ts_range + 1, interval):
+        yield start + timedelta(seconds=offset)
 
 def ts_iter_times(ts_path):
     """Iterate over a ``timestream`` in chronological order
@@ -234,14 +241,12 @@ def ts_iter_times(ts_path):
     manifest = ts_get_manifest(ts_path)
     start = manifest["start_datetime"]
     end = manifest["end_datetime"]
-    ts_range = end - start
-    ts_range = int(ts_range.total_seconds())
-    interval_secs = manifest["interval"] * 60
-    for offset in range(0, ts_range + 1, interval_secs):
-        yield start + timedelta(seconds=offset)
+    interval = manifest['inteval'] * 60
+    for time in iter_date_range(start, end, interval):
+        yield time
 
 
-def ts_get_image(ts_path, date, n=0):
+def ts_get_image(ts_path, date, n=0, write_manifest=False):
     """Get the image path of the image in ``ts_path`` at ``date``
     """
     if isinstance(date, datetime):
@@ -272,9 +277,10 @@ def ts_get_image(ts_path, date, n=0):
     else:
         LOG.warn("Expected image {} at {} in {} did not exist.".format(
                 abspath, date, ts_path))
-        ts_info["missing"].append(date)
-        ts_update_manifest(ts_path, ts_info)
-        ts_info = ts_get_manifest(ts_path)
+        if write_manifest:
+            ts_info["missing"].append(date)
+            ts_update_manifest(ts_path, ts_info)
+            ts_info = ts_get_manifest(ts_path)
         return None
 
 
