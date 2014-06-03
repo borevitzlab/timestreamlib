@@ -9,7 +9,6 @@ install_requires = [
         "ExifRead==1.4.2",
         "docopt==0.6.1",
         "voluptuous==0.8.4",
-        "pyopencv",
         ]
 
 test_requires = [
