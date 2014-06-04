@@ -229,7 +229,7 @@ def ts_update_manifest(ts_path, ts_info):
 def ts_iter_images(ts_path):
     """Iterate over a ``timestream`` in chronological order
     """
-    manifest = ts_get_manifest(ts_path)
+    manifest = ts_guess_manifest(ts_path)
     for fpath in all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
 
@@ -242,8 +242,8 @@ def ts_iter_images_all_times(ts_path):
 
 def iter_date_range(start, end, interval):
     ts_range = end - start
-    ts_range = int(ts_range.total_seconds())
-    for offset in range(0, ts_range + 1, interval):
+    range_secs = int(ts_range.total_seconds())
+    for offset in range(0, range_secs + 1, interval):
         yield start + timedelta(seconds=offset)
 
 def ts_iter_times(ts_path):
