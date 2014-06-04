@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from __future__ import print_function
 import docopt
 from itertools import (
         cycle,
@@ -74,10 +75,9 @@ def main(opts):
     count = 0
     for _ in pool.imap(process_image, args):
         if count % 10 == 0:
-            print("Renamed {: 5d} images!", end="\r")
+            print("Resized {: 5d} images!".format(count), end="\r")
         count += 1
-    sys.stderr.write("\nProcessed {} Images!\n\n".format(count))
-    sys.stderr.flush()
+    print("Resized {: 5d} images!\n Done!".format(count))
     pool.close()
     pool.join()
 
