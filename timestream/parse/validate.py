@@ -27,6 +27,7 @@ from voluptuous import Schema, Required, Range, All, Length, Any
 from timestream.util.validation import (
         v_datetime,
         v_date,
+        v_num_str,
         )
 
 #: Acceptable constants for image filetypes
@@ -75,12 +76,12 @@ def validate_timestream_manifest(manifest):
         raise TypeError("Manfiest should be in ``dict`` form.")
     sch = Schema({
         Required("name"): All(str, Length(min=1)),
-        Required("version"): All(int, Range(min=1, max=2)),
+        Required("version"): All(v_num_str, Range(min=1, max=2)),
         Required("start_datetime"): v_datetime,
         Required("end_datetime"): v_datetime,
         Required("image_type"): Any(*IMAGE_TYPE_CONSTANTS),
         Required("extension"): Any(*IMAGE_EXT_CONSTANTS),
-        Required("interval", default=1): All(int, Range(min=1)),
+        Required("interval", default=1): All(v_num_str, Range(min=1)),
         "missing": list,
         })
     return sch(manifest)
