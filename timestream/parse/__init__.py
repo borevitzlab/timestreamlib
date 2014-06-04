@@ -73,11 +73,22 @@ def ts_parse_date_path(img):
     string_time = "_".join(fields)
     return ts_parse_date(string_time)
 
-def ts_parse_date(string):
-    return datetime.strptime(string, TS_DATE_FORMAT)
+def ts_parse_date(dt):
+    if isinstance(dt, datetime):
+        return dt
+    else:
+        return datetime.strptime(dt, TS_DATE_FORMAT)
 
 def ts_format_date(dt):
-    return dt.strftime(TS_DATE_FORMAT)
+    if isinstance(dt, str):
+        return dt
+    elif isinstance(dt, datetime):
+        return dt.strftime(TS_DATE_FORMAT)
+    else:
+        msg = PARAM_TYPE_ERR.format(param="dt", func="ts_format_date",
+                type="datetime.datetime")
+        LOG.error(msg)
+        raise TypeError(msg)
 
 def ts_guess_manifest(ts_path):
     """Guesses the values of manifest fields in a timestream

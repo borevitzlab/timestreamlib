@@ -1,3 +1,4 @@
+import datetime as dt
 from inspect import (
         isgenerator,
         )
@@ -205,3 +206,29 @@ class TestGetImage(TestCase):
             # bad subsecond param
             ts_get_image(helpers.FILES["timestream_manifold"],
                     helpers.TS_MANIFOLD_DATES[0], n="this should be an int")
+
+class TestParseDate(TestCase):
+    """Test function timestream.parse.ts_parse_date"""
+    def test_parse_date_valid(self):
+        """Test timestream.parse.ts_parse_date with a valid date"""
+        date_str = "2013_12_11_10_09_08"
+        date_obj = dt.datetime(2013, 12, 11, 10, 9, 8)
+        self.assertEqual(ts_parse_date(date_str), date_obj)
+        # ensure we can pass a datetime and have it silently returned.
+        self.assertEqual(ts_parse_date(date_obj), date_obj)
+
+    def test_parse_date_invalid(self):
+        """Test timestream.parse.ts_parse_date with a valid date"""
+        # Bad format
+        date_str = "2013-12-11-10-09-08"
+        with self.assertRaises(ValueError):
+            ts_parse_date(date_str)
+        # Bad date
+        date_str = "2013_14_11_10_09_08"
+        with self.assertRaises(ValueError):
+            ts_parse_date(date_str)
+        # Missing time
+        date_str = "2013_12_11"
+        with self.assertRaises(ValueError):
+            ts_parse_date(date_str)
+
