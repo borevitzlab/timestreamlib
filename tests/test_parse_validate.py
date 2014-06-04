@@ -5,6 +5,9 @@ from voluptuous import MultipleInvalid
 from tests import helpers
 from timestream.parse.validate import (
     validate_timestream_manifest,
+    v_date,
+    v_datetime,
+    v_num_str,
 )
 
 
@@ -45,3 +48,29 @@ class TestValidateTimestreamManfiest(TestCase):
             validate_timestream_manifest(None)
         with self.assertRaises(MultipleInvalid):
             validate_timestream_manifest({"A": "b", })
+
+class TestDateValidators(TestCase):
+    """Tests for misc date format validators"""
+
+    def test_v_date_invalid(self):
+        """Test v_date validator with invalid dates"""
+        # standard date format
+        date_str = "2013_44_01"
+        with self.assertRaises(ValueError):
+            v_date(date_str)
+        # with different date format
+        date_str = "2013-44-01"
+        with self.assertRaises(ValueError):
+            v_date(date_str)
+
+    def test_v_date_valid(self):
+        """Test v_date validator with valid dates"""
+        # standard date format
+        date_str = "2013_03_01"
+        self.assertEqual(v_date(date_str), dt.datetime(2013, 03, 01))
+        date_obj = dt.datetime(2013, 03, 01)
+        self.assertEqual(v_date(date_obj), date_obj)
+        # with different date format
+        date_str = "2013-03-01"
+        self.assertEqual(v_date(date_str, format="%Y-%m-%d"),
+                         dt.datetime(2013, 03, 01))

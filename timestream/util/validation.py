@@ -27,7 +27,7 @@ import datetime
 # All are prefixed with v_ to indicate this intended usage
 
 
-def v_date(x, fmt="%Y-%m-%d"):
+def v_date(x, format="%Y_%m_%d"):
     """Validate string contains a date in ``fmt`` strptime-compatible format,
     and coerce to a ``datetime.datetime`` object.
 
@@ -40,10 +40,10 @@ def v_date(x, fmt="%Y-%m-%d"):
     if isinstance(x, datetime.datetime):
         return x
     else:
-        return datetime.datetime.strptime(x, fmt)
+        return datetime.datetime.strptime(x, format)
 
 
-def v_datetime(x, fmt="%Y_%m_%d_%H_%M_%S"):
+def v_datetime(x, format="%Y_%m_%d_%H_%M_%S"):
     """Validate string contains a date in ``fmt`` strptime-compatible format,
     and coerce to a ``datetime.datetime`` object.
 
@@ -56,7 +56,7 @@ def v_datetime(x, fmt="%Y_%m_%d_%H_%M_%S"):
     if isinstance(x, datetime.datetime):
         return x
     else:
-        return datetime.datetime.strptime(x, fmt)
+        return datetime.datetime.strptime(x, format)
 
 
 def v_num_str(x):
