@@ -30,12 +30,12 @@ from datetime import (
 import glob
 from itertools import (
         ifilter,
-        imap,
         )
 import json
 import logging
 import os
 from os import path
+from voluptuous import MultipleInvalid
 
 from timestream.parse.validate import (
         validate_timestream_manifest,
@@ -98,7 +98,7 @@ def ts_guess_manifest(ts_path):
     retval = {}
     # get a sorted list of all files
     all_files = []
-    for root, dirs, files in os.walk(ts_path):
+    for root, _, files in os.walk(ts_path):
         for fle in files:
             all_files.append(path.join(root, fle))
     all_files = sorted(all_files)
@@ -208,7 +208,8 @@ def ts_get_manifest(ts_path):
             else:
                 manifest = dict_unicode_to_str(manifest)
             manifest = validate_timestream_manifest(manifest)
-        except:
+        except (IOError, OSError, ValueError, MultipleInvalid):
+            # We can't read manifest or it's invalid
             manifest = None
     if not manifest:
         LOG.debug("Manifest for {} doesn't exist (yet)".format(ts_path))

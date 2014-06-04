@@ -38,10 +38,7 @@ def v_date(x, fmt="%Y-%m-%d"):
     if isinstance(x, datetime.datetime):
         return x
     else:
-        try:
-           return datetime.datetime.strptime(x, fmt)
-        except:
-            raise ValueError
+       return datetime.datetime.strptime(x, fmt)
 
 def v_datetime(x, fmt="%Y_%m_%d_%H_%M_%S"):
     """Validate string contains a date in ``fmt`` strptime-compatible format,
@@ -56,10 +53,7 @@ def v_datetime(x, fmt="%Y_%m_%d_%H_%M_%S"):
     if isinstance(x, datetime.datetime):
         return x
     else:
-        try:
-           return datetime.datetime.strptime(x, fmt)
-        except:
-            raise ValueError
+       return datetime.datetime.strptime(x, fmt)
 
 def v_num_str(x):
     """Validate an object that can be coerced to an ``int``."""

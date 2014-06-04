@@ -37,7 +37,10 @@ def get_exif_tags(image, mode="silent"):
             exif = {k[5:]: v for k, v in img.metadata.items() if
                     k.startswith('exif:')}
     elif library == "exifread":
-        import exifread as er
+        try:
+            er.__doc__
+        except NameError:
+            import exifread as er
         with open(image, "rb") as fh:
             tags = er.process_file(fh, details=False)
         tags = dict_unicode_to_str(tags)
