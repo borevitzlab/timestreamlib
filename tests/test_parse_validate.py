@@ -4,10 +4,12 @@ from voluptuous import MultipleInvalid
 
 from tests import helpers
 from timestream.parse.validate import (
-        validate_timestream_manifest,
-        )
+    validate_timestream_manifest,
+)
+
 
 class TestValidateTimestreamManfiest(TestCase):
+
     """Tests for ts.parse.validate.validate_timestream_manifest"""
     str_dict = {
         "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
@@ -33,13 +35,13 @@ class TestValidateTimestreamManfiest(TestCase):
     def test_validate_valid(self):
         """Test validate_timestream_manifest with valid manfests"""
         self.assertDictEqual(validate_timestream_manifest(self.str_dict),
-                self.val_dict)
+                             self.val_dict)
         self.assertDictEqual(validate_timestream_manifest(self.val_dict),
-                self.val_dict)
+                             self.val_dict)
 
     def test_validate_invalid(self):
         """Test validate_timestream_manifest with invalid manfests"""
         with self.assertRaises(TypeError):
             validate_timestream_manifest(None)
         with self.assertRaises(MultipleInvalid):
-            validate_timestream_manifest({"A":"b",})
+            validate_timestream_manifest({"A": "b", })
