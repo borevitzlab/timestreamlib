@@ -1,17 +1,17 @@
-#Copyright 2014 Kevin Murray
-
-#This program is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-
-#This program is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-
-#You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# Copyright 2014 Kevin Murray
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
 .. module:: timestream.parse
@@ -24,13 +24,13 @@
 import collections
 import cv2
 from datetime import (
-        datetime,
-        timedelta,
-        )
+    datetime,
+    timedelta,
+)
 import glob
 from itertools import (
-        ifilter,
-        )
+    ifilter,
+)
 import json
 import logging
 import os
@@ -38,16 +38,16 @@ from os import path
 from voluptuous import MultipleInvalid
 
 from timestream.parse.validate import (
-        validate_timestream_manifest,
-        IMAGE_EXT_CONSTANTS,
-        IMAGE_EXT_TO_TYPE,
-        TS_DATE_FORMAT,
-        TS_V1_FMT,
-        )
+    validate_timestream_manifest,
+    IMAGE_EXT_CONSTANTS,
+    IMAGE_EXT_TO_TYPE,
+    TS_DATE_FORMAT,
+    TS_V1_FMT,
+)
 from timestream.util import (
-        PARAM_TYPE_ERR,
-        dict_unicode_to_str,
-        )
+    PARAM_TYPE_ERR,
+    dict_unicode_to_str,
+)
 
 #: Default timestream manifest extension
 MANIFEST_EXT = "tsm"
@@ -67,17 +67,20 @@ def _ts_has_manifest(ts_path):
     else:
         return False
 
+
 def ts_parse_date_path(img):
     basename = path.basename(img)
     fields = basename.split("_")[1:7]
     string_time = "_".join(fields)
     return ts_parse_date(string_time)
 
+
 def ts_parse_date(dt):
     if isinstance(dt, datetime):
         return dt
     else:
         return datetime.strptime(dt, TS_DATE_FORMAT)
+
 
 def ts_format_date(dt):
     if isinstance(dt, str):
@@ -86,9 +89,10 @@ def ts_format_date(dt):
         return dt.strftime(TS_DATE_FORMAT)
     else:
         msg = PARAM_TYPE_ERR.format(param="dt", func="ts_format_date",
-                type="datetime.datetime")
+                                    type="datetime.datetime")
         LOG.error(msg)
         raise TypeError(msg)
+
 
 def ts_guess_manifest(ts_path):
     """Guesses the values of manifest fields in a timestream
@@ -110,7 +114,7 @@ def ts_guess_manifest(ts_path):
             exts[ext] += 1
         except KeyError:
             pass
-    ## most common gives list of tuples. [0] = (ext, count), [0][0] = ext
+    # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["extension"] = exts.most_common(1)[0][0]
     # get image type from extension:
     try:
@@ -119,8 +123,8 @@ def ts_guess_manifest(ts_path):
         retval["image_type"] = None
     # Get list of images:
     images = ifilter(
-            lambda x: path.splitext(x)[1][1:] == retval["extension"],
-            all_files)
+        lambda x: path.splitext(x)[1][1:] == retval["extension"],
+        all_files)
     # decode times from images:
     times = map(ts_parse_date_path, sorted(images))
     # get first and last dates:
@@ -130,8 +134,8 @@ def ts_guess_manifest(ts_path):
     intervals = collections.Counter()
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
-        intervals[interval.seconds/60] += 1
-    ## most common gives list of tuples. [0] = (ext, count), [0][0] = ext
+        intervals[interval.seconds / 60] += 1
+    # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["interval"] = intervals.most_common(1)[0][0]
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
@@ -140,22 +144,23 @@ def ts_guess_manifest(ts_path):
     retval["version"] = 1
     return retval
 
+
 def all_files_with_ext(topdir, ext, cs=False):
-    """Iterates over all files with extension ``ext`` recursively from ``topdir``
+    """Iterates over files with extension ``ext`` recursively from ``topdir``
     """
     if not isinstance(topdir, str):
         msg = PARAM_TYPE_ERR.format(param="topdir",
-                func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext",  type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(ext, str):
         msg = PARAM_TYPE_ERR.format(param="ext",
-                func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext",  type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(cs, bool):
         msg = PARAM_TYPE_ERR.format(param="cs",
-                func="all_files_with_ext",  type="bool")
+                                    func="all_files_with_ext",  type="bool")
         LOG.error(msg)
         raise ValueError(msg)
     # Trim any leading spaces from the extension we've been given
@@ -179,18 +184,20 @@ def all_files_with_ext(topdir, ext, cs=False):
                 # we give the whole path to  the file
                 yield path.join(root, fpath)
 
+
 def all_files_with_exts(topdir, exts, cs=False):
     """Creates a dictionary of {"ext": [files]} for each ext in exts
     """
     if not isinstance(exts, list):
         msg = PARAM_TYPE_ERR.format(param="exts",
-                func="all_files_with_exts",  type="list")
+                                    func="all_files_with_exts",  type="list")
         LOG.error(msg)
         raise ValueError(msg)
     ext_dict = {}
     for ext in exts:
         ext_dict[ext] = sorted(list(all_files_with_ext(topdir, ext, cs)))
     return ext_dict
+
 
 def ts_get_manifest(ts_path):
     """Reads in or makes up a manifest for the timestream at ``ts_path``, and
@@ -218,6 +225,7 @@ def ts_get_manifest(ts_path):
     LOG.debug("Manifest for {} is {!r}".format(ts_path, manifest))
     return manifest
 
+
 def ts_update_manifest(ts_path, ts_info):
     try:
         mfname = "{}.{}".format(ts_info["name"], MANIFEST_EXT)
@@ -227,12 +235,14 @@ def ts_update_manifest(ts_path, ts_info):
     except:
         LOG.warn("Couldn't write JSON manifest for ts {}".format(ts_path))
 
+
 def ts_iter_images(ts_path):
     """Iterate over a ``timestream`` in chronological order
     """
     manifest = ts_guess_manifest(ts_path)
     for fpath in all_files_with_ext(ts_path, manifest["extension"], cs=False):
         yield fpath
+
 
 def ts_iter_images_all_times(ts_path):
     """Iterate over a ``timestream`` in chronological order, returning a tuple
@@ -241,11 +251,13 @@ def ts_iter_images_all_times(ts_path):
     for time in ts_iter_times(ts_path):
         yield (time, ts_get_image(ts_path, time))
 
+
 def iter_date_range(start, end, interval):
     ts_range = end - start
     range_secs = int(ts_range.total_seconds())
     for offset in range(0, range_secs + 1, interval):
         yield start + timedelta(seconds=offset)
+
 
 def ts_iter_times(ts_path):
     """Iterate over a ``timestream`` in chronological order
@@ -265,12 +277,13 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         date = ts_format_date(date)
     if not isinstance(date, str):
         msg = PARAM_TYPE_ERR.format(param="date",
-                func="ts_get_image",  type="datetime.datetime or str")
+                                    func="ts_get_image",
+                                    type="datetime.datetime or str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(ts_path, str):
         msg = PARAM_TYPE_ERR.format(param="ts_path",
-                func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext",  type="str")
         LOG.error(msg)
         raise ValueError(msg)
     # Get ts_info from manifest
@@ -288,7 +301,7 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         return abspath
     else:
         LOG.warn("Expected image {} at {} in {} did not exist.".format(
-                abspath, date, ts_path))
+            abspath, date, ts_path))
         if write_manifest:
             ts_info["missing"].append(date)
             ts_update_manifest(ts_path, ts_info)
@@ -301,7 +314,7 @@ def _ts_date_to_path(ts_info, date, n=0):
     ``ts_path``) path to the image at the given ``time``.
     """
     pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
-            n=n)
+                           n=n)
     return date.strftime(pth)
 
 
