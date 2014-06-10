@@ -3,40 +3,42 @@ from unittest import TestCase, skip, skipIf, skipUnless
 
 from tests import helpers
 from timestream.util import (
-        dict_unicode_to_str,
-        )
+    dict_unicode_to_str,
+)
+
 
 class TestDictUnicodeToString(TestCase):
+
     """Tests for timestream.util.dict_unicode_to_str"""
     _multiprocess_can_split_ = True
     maxDiff = None
 
     unicode_dict = {
-            u"A": u"b",
-            u"B": u"c",
-            }
+        u"A": u"b",
+        u"B": u"c",
+    }
     str_dict = {
-            "A": "b",
-            "B": "c",
-            }
+        "A": "b",
+        "B": "c",
+    }
     mixed_dict = {
-            u"A": "b",
-            "B": u"c",
-            }
+        u"A": "b",
+        "B": u"c",
+    }
     nested_dict = {
-            u"A": u"b",
-            u"B": u"c",
-            u"list": [u"a", u"b"],
-            u"dict": {u"a": u"b"},
-            u"tuple": (u"a", u"b"),
-            }
+        u"A": u"b",
+        u"B": u"c",
+        u"list": [u"a", u"b"],
+        u"dict": {u"a": u"b"},
+        u"tuple": (u"a", u"b"),
+    }
     str_nested_dict = {
-            "A": "b",
-            "B": "c",
-            "list": ["a", "b"],
-            "dict": {"a": "b"},
-            "tuple": ("a", "b"),
-            }
+        "A": "b",
+        "B": "c",
+        "list": ["a", "b"],
+        "dict": {"a": "b"},
+        "tuple": ("a", "b"),
+    }
 
     def test_ucode2str_all_unicode(self):
         """Test timestream.util.dict_unicode_to_str with all unicode dict."""

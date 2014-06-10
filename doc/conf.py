@@ -191,22 +191,22 @@ htmlhelp_basename = 'timestreamlibdoc'
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
-# The paper size ('letterpaper' or 'a4paper').
-'papersize': 'a4paper',
+    # The paper size ('letterpaper' or 'a4paper').
+    'papersize': 'a4paper',
 
-# The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+    # The font size ('10pt', '11pt' or '12pt').
+    #'pointsize': '10pt',
 
-# Additional stuff for the LaTeX preamble.
-#'preamble': '',
+    # Additional stuff for the LaTeX preamble.
+    #'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'timestreamlib.tex', u'timestreamlib Documentation',
-   u'Kevin Murray', 'manual'),
+    ('index', 'timestreamlib.tex', u'timestreamlib Documentation',
+     u'Kevin Murray', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -249,9 +249,9 @@ man_show_urls = True
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'timestreamlib', u'timestreamlib Documentation',
-   u'Kevin Murray', 'timestreamlib', 'One line description of project.',
-   'Miscellaneous'),
+    ('index', 'timestreamlib', u'timestreamlib Documentation',
+     u'Kevin Murray', 'timestreamlib', 'One line description of project.',
+     'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -269,5 +269,5 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-        'python': ('http://docs.python.org/', None),
-        }
+    'python': ('http://docs.python.org/', None),
+}
