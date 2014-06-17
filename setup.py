@@ -23,6 +23,7 @@ setup(
     name="timestream",
     packages=[
         'timestream',
+        'timestream.manipulate',
         'timestream.parse',
         'timestream.util',
         ],
