@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from __future__ import print_function
 import docopt
+from timestream.manipulate import setup_console_logger
 from timestream.manipulate.netcdf import ts_to_tsnc
 
 
@@ -15,6 +16,7 @@ OPTIONS:
 
 
 def main(opts):
+    setup_console_logger()
     ts_to_tsnc(opts['-i'], opts['-o'])
 
 if __name__ == "__main__":
