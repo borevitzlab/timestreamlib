@@ -7,7 +7,7 @@ timestream: Utilities and a python library for manipulating timelapses in the
 
 install_requires = [
         "ExifRead==1.4.2",
-        "docopt==0.6.1",
+        "docopt==0.6.2",
         "voluptuous==0.8.4",
         "netCDF4==1.1.0",
         ]
