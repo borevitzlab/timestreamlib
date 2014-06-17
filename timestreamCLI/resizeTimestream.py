@@ -76,6 +76,7 @@ def main(opts):
     for _ in pool.imap(process_image, args):
         if count % 10 == 0:
             print("Resized {: 5d} images!".format(count), end="\r")
+            sys.stdout.flush()
         count += 1
     print("Resized {: 5d} images!\n Done!".format(count))
     pool.close()

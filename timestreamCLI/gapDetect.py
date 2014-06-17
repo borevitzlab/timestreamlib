@@ -5,6 +5,7 @@ import csv
 import cv2
 import multiprocessing as mp
 import numpy as np
+import sys
 from timestream.parse import (
         ts_iter_images,
         ts_get_manifest,
@@ -64,6 +65,7 @@ def main(opts):
     for img, pix_sum in pl.imap(sum_image, img_iter, 100):
         if count % 10 == 0:
             print("Processed {: 6d} images!".format(count), end='\r')
+            sys.stdout.flush()
         count += 1
         img_dt = ts_parse_date_path(img)
         try:

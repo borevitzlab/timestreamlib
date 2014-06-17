@@ -56,6 +56,7 @@ def main(opts):
     for _ in pool.imap(process_image, args):
         if count % 10 == 0:
             print("Renamed {: 5d} images!", end="\r")
+            sys.stdout.flush()
         count += 1
     sys.stderr.write("\nProcessed {} Images!\n\n".format(count))
     sys.stderr.flush()
