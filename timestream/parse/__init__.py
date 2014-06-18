@@ -36,6 +36,7 @@ import logging
 import os
 from os import path
 from voluptuous import MultipleInvalid
+from warnings import warn
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -95,6 +96,12 @@ def ts_format_date(dt):
 
 
 def ts_guess_manifest(ts_path):
+    """Conveience function to keep API compatibiliy. DEPRICATED"""
+    warn("ts_guess_manifest is deprecated, use TimeStream class.",
+         DeprecationWarning)
+    return ts_guess_manifest_v1(ts_path)
+
+def ts_guess_manifest_v1(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
     # This whole thing's one massive fucking kludge. But it seems to work
@@ -332,3 +339,40 @@ def ts_iter_numpy(fname_iter):
                      "Raw images not supported")
             yield (img, cv2.imread(img))
 
+def _is_ts_v2(ts_path):
+    """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""
+    # This will need to be written properly, but for now we just check the
+    # magic number.
+    if not path.isfile(ts_path):
+        return False
+    with open(ts_path, "rb") as tmpfh:
+        file_sig = tmpfh.read(8)
+        return file_sig == '\x89\x48\x44\x46\x0d\x0a\x1a\x0a'
+
+def _is_ts_v1(ts_path):
+    """Check if ``ts_path`` is a v1 timestream stored as date-nested folders"""
+    # Again, this should, in time, be rewritten to check the folder structure
+    # fully, and check images exist etc.
+    if not path.isdir(ts_path):
+        LOG.debug("'{}' is not a directory, can't be v1 TS".format(ts_path))
+        return False
+    # we want to check all folders in the root path match the year
+    walker = os.walk(ts_path)
+    root, dirs, files = next(walker)
+    is_ok = True
+    for fldr in dirs:
+        worked = False
+        try:
+            LOG.debug("Found folder with date {}".format(
+                datetime.strptime(fldr, '%Y')))
+            worked = True
+        except ValueError:
+            worked = False
+        is_ok &= worked
+    if is_ok:
+        LOG.debug("'{}' contains year-based folders, assume its v1 TS".format(
+                ts_path))
+    else:
+        LOG.debug("'{}' contains non-year-based folders, or has extras".format(
+                ts_path))
+    return is_ok
