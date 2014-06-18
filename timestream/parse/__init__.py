@@ -265,7 +265,7 @@ def ts_iter_times(ts_path):
     manifest = ts_get_manifest(ts_path)
     start = manifest["start_datetime"]
     end = manifest["end_datetime"]
-    interval = manifest['inteval'] * 60
+    interval = manifest['interval'] * 60
     for time in iter_date_range(start, end, interval):
         yield time
 
@@ -324,4 +324,11 @@ def ts_iter_numpy(fname_iter):
     ``(img_path, img_matrix)``.
     """
     for img in fname_iter:
-        yield (img, cv2.imread(img))
+        try:
+            import skimage.io as imgio
+            yield (img, imgio.imread(img, plugin="freeimage"))
+        except ImportError:
+            LOG.warn("Couln't load scikit image io module. " +
+                     "Raw images not supported")
+            yield (img, cv2.imread(img))
+
