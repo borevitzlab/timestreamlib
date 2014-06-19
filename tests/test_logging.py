@@ -16,6 +16,7 @@
 
 from copy import deepcopy
 import logging
+from sys import stderr
 from unittest import TestCase, skip, skipIf, skipUnless
 
 from tests import helpers
@@ -30,14 +31,22 @@ class TestSetupDebugLogging(TestCase):
         for handler in log.handlers:
             log.removeHandler(handler)
 
-    def test_setup_debug_logging(self):
-        """Test the creation of a stream handler"""
-        setup_debug_logging(stream=None)
+    def _do_test(self, level, stream):
+        setup_debug_logging(level=level, stream=stream)
         log = logging.getLogger("timestreamlib")
         self.assertEqual(len(log.handlers), 1)
         self.assertEqual(type(log.handlers[0]), logging.StreamHandler)
-        self.assertEqual(log.handlers[0].level, logging.DEBUG)
-        self.assertEqual(log.getEffectiveLevel(), logging.DEBUG)
+        self.assertEqual(log.handlers[0].level, level)
+        self.assertEqual(log.getEffectiveLevel(), level)
+
+    def test_setup_debug_logging_info(self):
+        self._do_test(logging.INFO, stderr)
+
+    def test_setup_debug_logging_debug(self):
+        self._do_test(logging.DEBUG, stderr)
+
+    def test_setup_debug_logging_debug_devnull(self):
+        self._do_test(logging.DEBUG, None)
 
     def tearDown(self):
         log = logging.getLogger("timestreamlib")
