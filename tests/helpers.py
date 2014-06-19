@@ -91,6 +91,16 @@ TS_MANIFOLD_DATES = [
     "2013_10_30_05_30_00",
     "2013_10_30_06_00_00",
 ]
+TS_MANIFOLD_DATES_PARSED = [
+    datetime.datetime(2013, 10, 30, 3, 0),
+    datetime.datetime(2013, 10, 30, 3, 30),
+    datetime.datetime(2013, 10, 30, 4, 0),
+    datetime.datetime(2013, 10, 30, 4, 30),
+    datetime.datetime(2013, 10, 30, 5, 0),
+    datetime.datetime(2013, 10, 30, 5, 30),
+    datetime.datetime(2013, 10, 30, 6, 0),
+]
+
 
 if path.exists(FILES["empty_dir"]):
     shutil.rmtree(FILES["empty_dir"])
