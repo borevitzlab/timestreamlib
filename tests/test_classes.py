@@ -28,7 +28,7 @@ from timestream.parse.validate import (
 )
 
 class TestTimeStreamInit(TestCase):
-    """Test setup of TimeStream classes"""
+    """Test setup of TimeStream classes. Tests read_metadata as well."""
 
     def _check_ts_instance_ts_manifold_v1(self, ts_path):
         """Check members of a TimeStream class instance"""
@@ -55,3 +55,16 @@ class TestTimeStreamInit(TestCase):
             inst = TimeStream(helpers.FILES["not_a_timestream"])
         with self.assertRaises(ValueError):
             inst = TimeStream(helpers.FILES["timestream_bad"])
+
+    def test_timestream_init_bad_params(self):
+        """Test TimeStream initialisation with invalid parameters"""
+        with self.assertRaises(ValueError):
+            inst = TimeStream(None)
+        with self.assertRaises(ValueError):
+            inst = TimeStream("")
+        with self.assertRaises(ValueError):
+            inst = TimeStream(helpers.FILES["timestream_bad"], ts_version=None)
+        with self.assertRaises(ValueError):
+            inst = TimeStream(helpers.FILES["timestream_bad"], ts_version=3)
+
+
