@@ -89,7 +89,7 @@ class TimeStream(object):
     def read_metadata(self):
         """Guesses the metadata fields of a timestream, v1 or v2."""
         if not self.path:
-            msg = "read_metadata() must be called on initialised instance"
+            msg = "read_metadata() must be called on instance with valid path"
             LOG.error(msg)
             raise RuntimeError(msg)
         ## Detect version
