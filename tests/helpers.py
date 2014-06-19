@@ -7,7 +7,6 @@ import shutil
 
 LOG = logging.getLogger("timestreamlib")
 LGHNDLR = logging.NullHandler()
-#LGHNDLR = logging.StreamHandler()
 LGHNDLR.setLevel(logging.INFO)
 LOG.addHandler(LGHNDLR)
 LOG.setLevel(logging.INFO)
@@ -36,6 +35,8 @@ FILES = {
                                        "nomanifold"),
     "timestream_bad": path.join(TESTS_DIR, "data", "timestreams",
                                 "badts"),
+    "timestream_gaps": path.join(TESTS_DIR, "data", "timestreams",
+                                "withgaps"),
     "not_a_timestream": path.join(TESTS_DIR, "data", "timestreams",
                                   "not"),
 }
@@ -49,6 +50,8 @@ TS_MANIFOLD_FILES_JPG = [
     "timestreams/BVZ0022-GC05L-CN650D-Cam07~fullres-orig/2013/2013_10/2013_10_30/2013_10_30_05/BVZ0022-GC05L-CN650D-Cam07~fullres-orig_2013_10_30_05_30_00_00.JPG",
     "timestreams/BVZ0022-GC05L-CN650D-Cam07~fullres-orig/2013/2013_10/2013_10_30/2013_10_30_06/BVZ0022-GC05L-CN650D-Cam07~fullres-orig_2013_10_30_06_00_00_00.JPG",
 ]
+TS_MANIFOLD_JPG_DTYPE = 'uint8'
+TS_MANIFOLD_JPG_SHAPE = (3456, 5184, 3)
 
 TS_MANIFOLD_DICT_PARSED = {
     "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
@@ -100,7 +103,13 @@ TS_MANIFOLD_DATES_PARSED = [
     datetime.datetime(2013, 10, 30, 5, 30),
     datetime.datetime(2013, 10, 30, 6, 0),
 ]
-
+TS_GAPS_DATES_PARSED = [
+    datetime.datetime(2013, 10, 30, 3, 0),
+    datetime.datetime(2013, 10, 30, 3, 30),
+    datetime.datetime(2013, 10, 30, 4, 0),
+    datetime.datetime(2013, 10, 30, 5, 0),
+    datetime.datetime(2013, 10, 30, 6, 0),
+]
 
 if path.exists(FILES["empty_dir"]):
     shutil.rmtree(FILES["empty_dir"])

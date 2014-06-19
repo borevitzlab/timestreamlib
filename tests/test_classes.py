@@ -118,3 +118,45 @@ class TestTimeStreamImageInit(TestCase):
         with self.assertRaises(TypeError):
             TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0],
                             datetime=1234)
+
+class TestTimeStreamIterByFiles(TestCase):
+    """Test TimeStream().iter_by_files"""
+
+    def test_iter_by_files(self):
+        """Test TimeStream().iter_by_files with a good timestream"""
+        ts = TimeStream(helpers.FILES["timestream_manifold"])
+        res = ts.iter_by_files()
+        self.assertTrue(isgenerator(res))
+        for iii, image in enumerate(res):
+            self.assertEqual(image.path, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(image.datetime,
+                             helpers.TS_MANIFOLD_DATES_PARSED[iii])
+            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
+            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+
+class TestTimeStreamIterByTimepoints(TestCase):
+    """Test TimeStream().iter_by_timepoints"""
+
+    def test_iter_by_timepoints_full(self):
+        """Test TimeStream().iter_by_timepoints with a complete timestream"""
+        ts = TimeStream(helpers.FILES["timestream_manifold"])
+        res = ts.iter_by_timepoints()
+        self.assertTrue(isgenerator(res))
+        for iii, image in enumerate(res):
+            self.assertEqual(image.path, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(image.datetime,
+                             helpers.TS_MANIFOLD_DATES_PARSED[iii])
+            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
+            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+
+    def test_iter_by_timepoints_withgaps(self):
+        """Test TimeStream().iter_by_timepoints with a complete timestream"""
+        ts = TimeStream(helpers.FILES["timestream_gaps"])
+        res = ts.iter_by_timepoints()
+        self.assertTrue(isgenerator(res))
+        for iii, image in enumerate(res):
+            # We don't check path, as it's got a different timestream name
+            self.assertEqual(image.datetime,
+                             helpers.TS_GAPS_DATES_PARSED[iii])
+            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
+            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
