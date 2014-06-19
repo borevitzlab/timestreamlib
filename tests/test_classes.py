@@ -143,6 +143,8 @@ class TestTimeStreamIterByTimepoints(TestCase):
         res = ts.iter_by_timepoints()
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
+            # Check lazy-loading
+            self.assertIsNone(image._pixels)
             self.assertEqual(image.path, helpers.TS_MANIFOLD_FILES_JPG[iii])
             self.assertEqual(image.datetime,
                              helpers.TS_MANIFOLD_DATES_PARSED[iii])
@@ -155,11 +157,14 @@ class TestTimeStreamIterByTimepoints(TestCase):
         res = ts.iter_by_timepoints()
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
+            # Check lazy-loading
+            self.assertIsNone(image._pixels)
             # We don't check path, as it's got a different timestream name
             self.assertEqual(image.datetime,
                              helpers.TS_GAPS_DATES_PARSED[iii])
-            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
-            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+            # We don't check pixels to save time. We know if this fails, it
+            # will fail above, or be a problem in our data files which should
+            # change the date and make the previous statement fail.
 
     def test_iter_by_timepoints_withgaps_normgaps(self):
         """Test TimeStream().iter_by_timepoints with a complete timestream"""
@@ -171,8 +176,11 @@ class TestTimeStreamIterByTimepoints(TestCase):
                 # Missing images
                 self.assertIsNone(image)
                 continue
+            # Check lazy-loading
+            self.assertIsNone(image._pixels)
             # We don't check path, as it's got a different timestream name
             self.assertEqual(image.datetime,
                              helpers.TS_MANIFOLD_DATES_PARSED[iii])
-            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
-            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+            # We don't check pixels to save time. We know if this fails, it
+            # will fail above, or be a problem in our data files which should
+            # change the date and make the previous statement fail.
