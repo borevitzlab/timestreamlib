@@ -85,7 +85,7 @@ class TestTimeStreamInit(TestCase):
     def test_read_metatdata_weird(self):
         """Do weird things to TimeStream instance and check methods raise"""
         inst = TimeStream(helpers.FILES["timestream_manifold"])
-        del(inst.path)
+        del inst.path
         with self.assertRaises(RuntimeError):
             inst.read_metadata()
 

@@ -45,14 +45,15 @@ LOG = logging.getLogger("timestreamlib")
 
 def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
                         stream=stderr):
+    """Setup debug console logging. Designed for interactive use."""
     log = logging.getLogger("timestreamlib")
     fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
     if stream is None:
         stream = open("/dev/null", "w")
-    ch = handler(stream=stream)
-    ch.setLevel(level)
-    ch.setFormatter(fmt)
-    log.addHandler(ch)
+    cons = handler(stream=stream)
+    cons.setLevel(level)
+    cons.setFormatter(fmt)
+    log.addHandler(cons)
     log.setLevel(level)
 
 class TimeStream(object):
@@ -96,7 +97,8 @@ class TimeStream(object):
             self._set_metadata(ts_guess_manifest_v1(self.path))
         elif _is_ts_v2(self.path):
             self.version = 2
-            raise NotImplemented("No OOP interface to timestream v2 format")
+            raise NotImplementedError(
+                "No OOP interface to timestream v2 format")
         else:
             msg = "{} is neither a v1 nor v2 timestream.".format(self.path)
             LOG.error(msg)
@@ -170,7 +172,7 @@ class TimeStreamImage(object):
 
     @datetime.deleter
     def datetime(self):
-        del(self._datetime)
+        del self._datetime
 
     @property
     def pixels(self):
@@ -198,7 +200,7 @@ class TimeStreamImage(object):
 
     @pixels.setter
     def pixels(self, value):
-        if not isinstance(value, np.ndarray):
+        if not isinstance(value, np.array):
             msg = "Cant set TimeStreamImage.pixels to something not an ndarray"
             LOG.error(msg)
             raise TypeError(msg)
@@ -206,4 +208,4 @@ class TimeStreamImage(object):
 
     @pixels.deleter
     def pixels(self):
-        del(self._pixels)
+        del self._pixels
