@@ -56,6 +56,13 @@ def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler):
 class TimeStream(object):
     path = None
     version = None
+    name = None
+    version = None
+    start_datetime = None
+    end_datetime = None
+    image_type = None
+    extension = None
+    interval = None
 
     def __init__(self, ts_path, ts_version=1):
         # Store root path
@@ -125,7 +132,7 @@ class TimeStream(object):
 class TimeStreamImage(object):
     timestream = None
     path = None
-    datetime = None
+    _datetime = None
     _pixels = None
     _datetime = None
 
