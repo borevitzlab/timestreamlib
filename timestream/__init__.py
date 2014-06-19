@@ -21,10 +21,9 @@
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
 
-import collections
-import datetime as dt
+import cv2
 import logging
-import os
+import numpy as np
 from os import path
 from sys import stderr
 
@@ -40,7 +39,6 @@ from timestream.parse import (
     ts_parse_date,
     iter_date_range,
     ts_get_image,
-    #ts_guess_manifest_v2,
 )
 
 LOG = logging.getLogger("timestreamlib")
@@ -92,13 +90,13 @@ class TimeStream(object):
             msg = "read_metadata() must be called on instance with valid path"
             LOG.error(msg)
             raise RuntimeError(msg)
-        ## Detect version
+        # Detect version
         if _is_ts_v1(self.path):
             self.version = 1
             self._set_metadata(ts_guess_manifest_v1(self.path))
         elif _is_ts_v2(self.path):
             self.version = 2
-            self._set_metadata(ts_guess_manifest_v2(self.path))
+            raise NotImplemented("No OOP interface to timestream v2 format")
         else:
             msg = "{} is neither a v1 nor v2 timestream.".format(self.path)
             LOG.error(msg)
