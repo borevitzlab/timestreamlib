@@ -80,12 +80,18 @@ class TestTimeStreamImageInit(TestCase):
         """Test TimeStreamImage initialisation with invalid parameters"""
         ts = TimeStream(helpers.FILES["timestream_manifold"])
         with self.assertRaises(TypeError):
-            inst = TimeStreamImage(None)
+            TimeStreamImage(None)
         with self.assertRaises(TypeError):
-            inst = TimeStreamImage(ts, None)
+            TimeStreamImage(ts, None)
         with self.assertRaises(ValueError):
-            inst = TimeStreamImage(ts, "")
+            TimeStreamImage(ts, "")
         with self.assertRaises(ValueError):
-            inst = TimeStreamImage(ts, helpers.FILES["basic_jpg"])
+            TimeStreamImage(ts, helpers.FILES["basic_jpg"])
         with self.assertRaises(TypeError):
-            inst = TimeStreamImage(None, helpers.TS_MANIFOLD_FILES_JPG[0])
+            TimeStreamImage(None, helpers.TS_MANIFOLD_FILES_JPG[0])
+        with self.assertRaises(ValueError):
+            TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0],
+                            datetime="1234")
+        with self.assertRaises(TypeError):
+            TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0],
+                            datetime=1234)
