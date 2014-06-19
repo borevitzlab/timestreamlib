@@ -138,12 +138,11 @@ def ts_guess_manifest_v1(ts_path):
     retval["start_datetime"] = ts_format_date(times[0])
     retval["end_datetime"] = ts_format_date(times[-1])
     # Get time intervals between images
-    intervals = collections.Counter()
+    intervals = list()
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
-        intervals[interval.seconds / 60] += 1
-    # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
-    retval["interval"] = intervals.most_common(1)[0][0]
+        intervals.append(interval.seconds / 60)
+    retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
@@ -151,6 +150,10 @@ def ts_guess_manifest_v1(ts_path):
     retval["version"] = 1
     return retval
 
+
+def all_files_with_ext_sorted(topdir, ext, cs=False):
+    itr = all_files_with_ext(topdir, ext, cs)
+    return sorted(list(itr))
 
 def all_files_with_ext(topdir, ext, cs=False):
     """Iterates over files with extension ``ext`` recursively from ``topdir``
