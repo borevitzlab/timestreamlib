@@ -26,6 +26,7 @@ import datetime as dt
 import logging
 import os
 from os import path
+from sys import stderr
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -44,10 +45,13 @@ from timestream.parse import (
 
 LOG = logging.getLogger("timestreamlib")
 
-def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler):
+def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
+                        stream=stderr):
     log = logging.getLogger("timestreamlib")
     fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
-    ch = handler()
+    if stream is None:
+        stream = open("/dev/null", "w")
+    ch = handler(stream=stream)
     ch.setLevel(level)
     ch.setFormatter(fmt)
     log.addHandler(ch)
