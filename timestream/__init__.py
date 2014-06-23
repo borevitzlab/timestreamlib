@@ -114,8 +114,11 @@ class TimeStream(object):
     def create(self, ts_path, ts_version=1):
         if self._version is None:
             self.version = ts_version
-        if not isinstance(ts_path, str) or \
-                not path.exists(path.dirname(ts_path)):
+        if not isinstance(ts_path, str):
+            msg = "ts_path must be a str" 
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not path.exists(path.dirname(ts_path)):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
             raise ValueError(msg)
