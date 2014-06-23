@@ -36,6 +36,7 @@ import logging
 import os
 from os import path
 from voluptuous import MultipleInvalid
+from warnings import warn
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -95,6 +96,12 @@ def ts_format_date(dt):
 
 
 def ts_guess_manifest(ts_path):
+    """Conveience function to keep API compatibiliy. DEPRICATED"""
+    warn("ts_guess_manifest is deprecated, use TimeStream class.",
+         DeprecationWarning)
+    return ts_guess_manifest_v1(ts_path)
+
+def ts_guess_manifest_v1(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
     # This whole thing's one massive fucking kludge. But it seems to work
@@ -131,12 +138,11 @@ def ts_guess_manifest(ts_path):
     retval["start_datetime"] = ts_format_date(times[0])
     retval["end_datetime"] = ts_format_date(times[-1])
     # Get time intervals between images
-    intervals = collections.Counter()
+    intervals = list()
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
-        intervals[interval.seconds / 60] += 1
-    # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
-    retval["interval"] = intervals.most_common(1)[0][0]
+        intervals.append(interval.seconds / 60)
+    retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
@@ -144,6 +150,10 @@ def ts_guess_manifest(ts_path):
     retval["version"] = 1
     return retval
 
+
+def all_files_with_ext_sorted(topdir, ext, cs=False):
+    itr = all_files_with_ext(topdir, ext, cs)
+    return sorted(list(itr))
 
 def all_files_with_ext(topdir, ext, cs=False):
     """Iterates over files with extension ``ext`` recursively from ``topdir``
@@ -292,7 +302,8 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
     if date in ts_info["missing"]:
         return None
     # Format the path below the ts root (ts_path)
-    relpath = _ts_date_to_path(ts_info, ts_parse_date(date), n)
+    relpath = _ts_date_to_path(ts_info["name"], ts_info["extension"],
+                               ts_parse_date(date), n)
     # Join to make "absolute" path, i.e. path including ts_path
     abspath = path.join(ts_path, relpath)
     # not-so-silently fail if we can't find the image
@@ -309,12 +320,11 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         return None
 
 
-def _ts_date_to_path(ts_info, date, n=0):
+def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     """Formats a string that should correspond to the relative (from
     ``ts_path``) path to the image at the given ``time``.
     """
-    pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
-                           n=n)
+    pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
 
@@ -332,3 +342,40 @@ def ts_iter_numpy(fname_iter):
                      "Raw images not supported")
             yield (img, cv2.imread(img))
 
+def _is_ts_v2(ts_path):
+    """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""
+    # This will need to be written properly, but for now we just check the
+    # magic number.
+    if not path.isfile(ts_path):
+        return False
+    with open(ts_path, "rb") as tmpfh:
+        file_sig = tmpfh.read(8)
+        return file_sig == '\x89\x48\x44\x46\x0d\x0a\x1a\x0a'
+
+def _is_ts_v1(ts_path):
+    """Check if ``ts_path`` is a v1 timestream stored as date-nested folders"""
+    # Again, this should, in time, be rewritten to check the folder structure
+    # fully, and check images exist etc.
+    if not path.isdir(ts_path):
+        LOG.debug("'{}' is not a directory, can't be v1 TS".format(ts_path))
+        return False
+    # we want to check all folders in the root path match the year
+    walker = os.walk(ts_path)
+    root, dirs, files = next(walker)
+    is_ok = True
+    for fldr in dirs:
+        worked = False
+        try:
+            LOG.debug("Found folder with date {}".format(
+                datetime.strptime(fldr, '%Y')))
+            worked = True
+        except ValueError:
+            worked = False
+        is_ok &= worked
+    if is_ok:
+        LOG.debug("'{}' contains year-based folders, assume its v1 TS".format(
+                ts_path))
+    else:
+        LOG.debug("'{}' contains non-year-based folders, or has extras".format(
+                ts_path))
+    return is_ok
