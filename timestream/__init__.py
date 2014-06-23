@@ -194,7 +194,10 @@ class TimeStream(object):
     def iter_by_files(self):
         for fpath in all_files_with_ext_sorted(
                 self.path, self.extension, cs=False):
-            yield TimeStreamImage(self, fpath)
+            img = TimeStreamImage()
+            img.parent_timestream = self
+            img.from_file(fpath)
+            yield img
 
     def iter_by_timepoints(self, remove_gaps=True):
         """
@@ -206,28 +209,38 @@ class TimeStream(object):
         end = self.end_datetime
         interval = self.interval * 60
         for time in iter_date_range(start, end, interval):
-            img = ts_get_image(self.path, time)
-            if remove_gaps and img is None:
+            img_path = ts_get_image(self.path, time)
+            if remove_gaps and img_path is None:
                 continue
-            elif img is None:
+            elif img_path is None:
                 yield None
             else:
-                yield TimeStreamImage(self, img, datetime=time)
+                img = TimeStreamImage(datetime=time)
+                img.parent_timestream = self
+                img.from_file(img_path)
+                yield img
 
 
 class TimeStreamImage(object):
-    timestream = None
-    path = None
+    _timestream = None
+    _path = None
     _datetime = None
     _pixels = None
-    _datetime = None
 
-    def __init__(self, ts, img_path, datetime=None):
-        if not isinstance(ts, TimeStream):
-            msg = "Parent timestream must be an instance of TimeStream."
-            LOG.error(msg)
-            raise TypeError(msg)
-        self.timestream = ts
+    def __init__(self, datetime=None):
+        if datetime:
+            self.datetime = datetime
+
+    def from_file(self, img_path):
+        self.path = img_path
+        self.datetime = ts_parse_date_path(img_path)
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, img_path):
         # Set image path
         if not isinstance(img_path, str):
             msg = "Image path must be an instance of str."
@@ -238,11 +251,19 @@ class TimeStreamImage(object):
                   "``img_path`` must point to an image file"
             LOG.error(msg)
             raise ValueError(msg)
-        self.path = img_path
-        if datetime:
-            self.datetime = datetime
-        else:
-            self.datetime = ts_parse_date_path(img_path)
+        self._path = img_path
+
+    @property
+    def parent_timestream(self):
+        return self._timestream
+
+    @parent_timestream.setter
+    def parent_timestream(self, ts):
+        if not isinstance(ts, TimeStream):
+            msg = "Parent timestream must be an instance of TimeStream."
+            LOG.error(msg)
+            raise TypeError(msg)
+        self._timestream = ts
 
     @property
     def datetime(self):
