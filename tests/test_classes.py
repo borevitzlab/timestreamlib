@@ -78,7 +78,7 @@ class TestTimeStreamLoad(TestCase):
             inst.load(None)
         with self.assertRaises(ValueError):
             inst = TimeStream()
-            inst._version = 42
+            inst.version = 42
             inst.load(helpers.FILES["timestream_manifold"])
 
     def test_read_metatdata_weird(self):
@@ -108,35 +108,63 @@ class TestTimeStreamImageInit(TestCase):
     """Test setup of TimeStreamImage classes."""
 
     def test_image_init(self):
-        ts = TimeStream()
-        ts.load(helpers.FILES["timestream_manifold"])
-        img = TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.datetime, helpers.TS_MANIFOLD_DATES_PARSED[0])
+        """Test TimeStreamImage initialisation with no parameters"""
+        img = TimeStreamImage()
+        self.assertIs(img._timestream, None)
+        self.assertIs(img._path, None)
+        self.assertIs(img._datetime, None)
+        self.assertIs(img._pixels, None)
+
+    def test_image_init_with_date(self):
+        """Test TimeStreamImage initialisation with valid datetime parameter"""
+        date = dt.datetime.now()
+        img = TimeStreamImage(date)
+        self.assertIs(img._timestream, None)
+        self.assertIs(img._path, None)
+        self.assertEqual(img._datetime, date)
+        self.assertIs(img._pixels, None)
 
     def test_image_init_bad_params(self):
         """Test TimeStreamImage initialisation with invalid parameters"""
+        with self.assertRaises(TypeError):
+            # Can't coerce int to datetime
+            TimeStreamImage(1234)
+        with self.assertRaises(ValueError):
+            # Bad date format
+            TimeStreamImage("2013_20")
+
+class TestTimeStreamImageFromFile(TestCase):
+    """Test TimeStreamImage().from_file()"""
+
+    def test_ts_image_from_file(self):
+        """Test TimeStreamImage.from_file() with valid parameters"""
+        img = TimeStreamImage()
+        img.from_file(helpers.TS_MANIFOLD_FILES_JPG[0])
+        self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
+        self.assertEqual(img.datetime, helpers.TS_MANIFOLD_DATES_PARSED[0])
+
+    def test_ts_image_from_file_parent(self):
+        """Test TimeStreamImage.from_file() with valid parameters & parent"""
         ts = TimeStream()
         ts.load(helpers.FILES["timestream_manifold"])
+        img = TimeStreamImage()
+        img.parent_timestream = ts
+        img.from_file(helpers.TS_MANIFOLD_FILES_JPG[0])
+        self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
+        self.assertEqual(img.datetime, helpers.TS_MANIFOLD_DATES_PARSED[0])
+
+    def test_image_from_file_bad_params(self):
+        """Test TimeStreamImage.from_file() with invalid parameters"""
+        ts = TimeStream()
+        ts.load(helpers.FILES["timestream_manifold"])
+        img = TimeStreamImage()
         with self.assertRaises(TypeError):
-            TimeStreamImage(None)
-        with self.assertRaises(TypeError):
-            TimeStreamImage(ts, None)
+            img.from_file(123)
         with self.assertRaises(ValueError):
-            TimeStreamImage(ts, "")
-        with self.assertRaises(ValueError):
-            TimeStreamImage(ts, helpers.FILES["basic_jpg"])
-        with self.assertRaises(TypeError):
-            TimeStreamImage(None, helpers.TS_MANIFOLD_FILES_JPG[0])
-        with self.assertRaises(ValueError):
-            TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0],
-                            datetime="1234")
-        with self.assertRaises(TypeError):
-            TimeStreamImage(ts, helpers.TS_MANIFOLD_FILES_JPG[0],
-                            datetime=1234)
+            img.from_file("")
 
 class TestTimeStreamIterByFiles(TestCase):
-    """Test TimeStream().iter_by_files"""
+    """Test TimeStream().iter_by_files()"""
 
     def test_iter_by_files(self):
         """Test TimeStream().iter_by_files with a good timestream"""
