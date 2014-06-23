@@ -20,6 +20,7 @@ from inspect import (
 import json
 import os
 from os import path
+import shutil
 from unittest import TestCase, skip, skipIf, skipUnless
 
 from tests import helpers
@@ -213,7 +214,7 @@ class TestTimeStreamIterByTimepoints(TestCase):
             # will fail above, or be a problem in our data files which should
             # change the date and make the previous statement fail.
 
-    def test_iter_by_timepoints_withgaps_normgaps(self):
+    def test_iter_by_timepoints_withgaps_no_rm_gaps(self):
         """Test TimeStream().iter_by_timepoints with a complete timestream"""
         ts = TimeStream()
         ts.load(helpers.FILES["timestream_gaps"])
@@ -232,3 +233,29 @@ class TestTimeStreamIterByTimepoints(TestCase):
             # We don't check pixels to save time. We know if this fails, it
             # will fail above, or be a problem in our data files which should
             # change the date and make the previous statement fail.
+
+class TestTimeStreamCreate(TestCase):
+    """Test TimeStream().create()"""
+    def setUp(self):
+        self.tmp_path = helpers.make_tmp_file()
+
+    def test_timestream_create(self):
+        ts = TimeStream()
+        ts.version = 1
+        ts.create(self.tmp_path)
+        self.assertEqual(ts.path, self.tmp_path)
+
+    def test_timestream_create_bad(self):
+        ts = TimeStream()
+        with self.assertRaises(ValueError):
+            ts.create(self.tmp_path, ts_version=3)
+        with self.assertRaises(ValueError):
+            ts.create("not_a/valid/path")
+        with self.assertRaises(TypeError):
+            ts.create(123)
+
+    def tearDown(self):
+        try:
+            shutil.rmtree(self.tmp_path)
+        except (OSError,):
+            pass

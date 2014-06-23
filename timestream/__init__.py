@@ -59,7 +59,7 @@ def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
 
 class TimeStream(object):
     _path = None
-    version = None
+    _version = None
     name = None
     version = None
     start_datetime = None
@@ -72,13 +72,21 @@ class TimeStream(object):
         # Store version
         if ts_version is None:
             return
+        else:
+            self.version = ts_version
+
+    @property
+    def version(self):
+        return self._version
+
+    @version.setter
+    def version(self, ts_version):
         if not isinstance(ts_version, int) or ts_version < 1 or ts_version > 2:
             msg = "Invalid TimeStream version {}.".format(repr(ts_version)) + \
                   " Must be an int, 1 or 2"
             LOG.error(msg)
             raise ValueError(msg)
-        else:
-            self.version = ts_version
+        self._version = ts_version
 
     @property
     def path(self):
@@ -103,12 +111,15 @@ class TimeStream(object):
         self.path = ts_path
         self.read_metadata()
 
-    def create(self, ts_path):
-        if self.version is None:
-            msg = "ts.create() must be called after a version is set"
+    def create(self, ts_path, ts_version=1):
+        if self._version is None:
+            self.version = ts_version
+        if not isinstance(ts_path, str) or \
+                not path.exists(path.dirname(ts_path)):
+            msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
-            raise RuntimeError(msg)
-        self.path = ts_path
+            raise ValueError(msg)
+        self._path = ts_path
 
     def write_image(self, image, overwrite_mode="skip"):
         if not self.path:

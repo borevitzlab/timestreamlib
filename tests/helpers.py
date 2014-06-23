@@ -3,6 +3,7 @@ import logging
 import os
 from os import path
 import shutil
+import tempfile
 
 
 LOG = logging.getLogger("timestreamlib")
@@ -29,6 +30,7 @@ FILES = {
     "basic_cr2": path.join(TESTS_DIR, "data", "IMG_0001.CR2"),
     "basic_cr2_exif": path.join(TESTS_DIR, "data", "IMG_0001-CR2-exif.json"),
     "empty_dir": path.join(TESTS_DIR, "data", "empty_dir"),
+    "tmp_dir": path.join(TESTS_DIR, "data", "tmp"),
     "timestream_manifold": path.join(TESTS_DIR, "data", "timestreams",
                                      "BVZ0022-GC05L-CN650D-Cam07~fullres-orig"),
     "timestream_nomanifold": path.join(TESTS_DIR, "data", "timestreams",
@@ -114,3 +116,11 @@ TS_GAPS_DATES_PARSED = [
 if path.exists(FILES["empty_dir"]):
     shutil.rmtree(FILES["empty_dir"])
 os.mkdir(FILES["empty_dir"])
+
+NUM_TEMPS = 0
+def make_tmp_file():
+    if not path.isdir(FILES["tmp_dir"]):
+        os.mkdir(FILES["tmp_dir"])
+    global NUM_TEMPS
+    NUM_TEMPS += 1
+    return path.join(FILES["tmp_dir"], "{:05d}.tmp".format(NUM_TEMPS))
