@@ -302,7 +302,8 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
     if date in ts_info["missing"]:
         return None
     # Format the path below the ts root (ts_path)
-    relpath = _ts_date_to_path(ts_info, ts_parse_date(date), n)
+    relpath = _ts_date_to_path(ts_info["name"], ts_info["extension"],
+                               ts_parse_date(date), n)
     # Join to make "absolute" path, i.e. path including ts_path
     abspath = path.join(ts_path, relpath)
     # not-so-silently fail if we can't find the image
@@ -319,12 +320,11 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         return None
 
 
-def _ts_date_to_path(ts_info, date, n=0):
+def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     """Formats a string that should correspond to the relative (from
     ``ts_path``) path to the image at the given ``time``.
     """
-    pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
-                           n=n)
+    pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
 
