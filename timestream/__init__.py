@@ -33,6 +33,7 @@ from timestream.parse.validate import (
 from timestream.parse import (
     _is_ts_v1,
     _is_ts_v2,
+    _ts_date_to_path,
     ts_guess_manifest_v1,
     all_files_with_ext_sorted,
     ts_parse_date_path,
@@ -57,7 +58,7 @@ def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
     log.setLevel(level)
 
 class TimeStream(object):
-    path = None
+    _path = None
     version = None
     name = None
     version = None
@@ -67,15 +68,10 @@ class TimeStream(object):
     extension = None
     interval = None
 
-    def __init__(self, ts_path, ts_version=1):
-        # Store root path
-        if not isinstance(ts_path, str) or not path.exists(ts_path):
-            msg = "Timestream at {} does not exsit".format(ts_path)
-            LOG.error(msg)
-            raise ValueError(msg)
-        else:
-            self.path = ts_path
+    def __init__(self, ts_version=None):
         # Store version
+        if ts_version is None:
+            return
         if not isinstance(ts_version, int) or ts_version < 1 or ts_version > 2:
             msg = "Invalid TimeStream version {}.".format(repr(ts_version)) + \
                   " Must be an int, 1 or 2"
@@ -83,7 +79,85 @@ class TimeStream(object):
             raise ValueError(msg)
         else:
             self.version = ts_version
+
+    @property
+    def path(self):
+        return self._path
+
+    @path.setter
+    def path(self, ts_path):
+        """Store the root path of this timestream"""
+        # Store root path
+        if not isinstance(ts_path, str) or not path.exists(ts_path):
+            msg = "Timestream at {} does not exsit".format(ts_path)
+            LOG.error(msg)
+            raise ValueError(msg)
+        self._path = ts_path
+
+    @path.deleter
+    def path(self):
+        del self._path
+
+    def load(self, ts_path):
+        """Load a timestream from ``ts_path``, reading metadata"""
+        self.path = ts_path
         self.read_metadata()
+
+    def create(self, ts_path):
+        if self.version is None:
+            msg = "ts.create() must be called after a version is set"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        self.path = ts_path
+
+    def write_image(self, image, overwrite_mode="skip"):
+        if not self.path:
+            msg = "write_image() must be called on instance with valid path"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        if not isinstance(image, TimeStreamImage):
+            msg = "write_image() must be given an instance of TimeStreamImage"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not isinstance(overwrite_mode, str):
+            msg = "overwrite_mode must be a str"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not overwrite_mode in {"skip", "increment", "overwrite", "raise"}:
+            msg = "Invalid overwrite_mode {}.".format(overwrite_mode)
+            LOG.error(msg)
+            raise ValueError(msg)
+        if self.version == 1:
+            fpath = _ts_date_to_path(self.name, image.datetime, image.subsec)
+            if path.exists(fpath):
+                if overwrite_mode == "skip":
+                    return
+                elif overwrite_mode == "increment":
+                    while path.exists(fpath) and image.subsec < 100:
+                        image.subsec += 1
+                        fpath = _ts_date_to_path(self.name, image.datetime,
+                                                 image.subsec)
+                    if path.exists(fpath):
+                        msg = "Too many images at timepoint {}".format(
+                            d2t(image.datetime))
+                        LOG.error(msg)
+                        raise ValueError(msg)
+                elif overwrite_mode == "overwrite":
+                    # We don't do anything here if we want to overwrite
+                    pass
+                elif overwrite_mode == "raise":
+                    msg = "Image already exists at {}".format(fpath)
+                    LOG.error(msg)
+                    raise ValueError(msg)
+            # Update timestream if required
+            if image.datetime > self.end_datetime:
+                self.end_datetime = image.datetime
+            if image.datetime < self.start_datetime:
+                self.start_datetime = image.datetime
+            # Actually write image
+            cv2.imwrite(fpath, image.pixels)
+        else:
+            raise NotImplementedError("v2 timestreams not implemented yet")
 
     def read_metadata(self):
         """Guesses the metadata fields of a timestream, v1 or v2."""
@@ -92,11 +166,18 @@ class TimeStream(object):
             LOG.error(msg)
             raise RuntimeError(msg)
         # Detect version
-        if _is_ts_v1(self.path):
-            self.version = 1
+        if self.version is None:
+            if _is_ts_v1(self.path):
+                self.version = 1
+            elif _is_ts_v2(self.path):
+                self.version = 2
+            else:
+                msg = "{} is neither a v1 nor v2 timestream.".format(self.path)
+                LOG.error(msg)
+                raise ValueError(msg)
+        if self.version == 1:
             self._set_metadata(ts_guess_manifest_v1(self.path))
-        elif _is_ts_v2(self.path):
-            self.version = 2
+        elif self.version == 2:
             raise NotImplementedError(
                 "No OOP interface to timestream v2 format")
         else:
