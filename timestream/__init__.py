@@ -68,6 +68,7 @@ def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
     log.setLevel(level)
 
 class TimeStream(object):
+    """A TimeStream, including metadata and parsers"""
     _path = None
     _version = None
     name = None
@@ -125,7 +126,7 @@ class TimeStream(object):
     def load(self, ts_path):
         """Load a timestream from ``ts_path``, reading metadata"""
         self.path = ts_path
-        if not path.exists(self.path) :
+        if not path.exists(self.path):
             msg = "Timestream at {} does not exsit".format(self.path)
             LOG.error(msg)
             raise ValueError(msg)
@@ -141,7 +142,8 @@ class TimeStream(object):
             self.data = {}
         self.read_metadata()
 
-    def create(self, ts_path, version=1, ext="png", type=None, start=NOW, end=NOW):
+    def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
+               end=NOW):
         if self._version is None:
             self.version = version
         self.path = ts_path
@@ -149,7 +151,7 @@ class TimeStream(object):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
             raise ValueError(msg)
-        if not path.exists(ts_path) :
+        if not path.exists(ts_path):
             if self.version == 1:
                 os.mkdir(ts_path)
         self.extension = ext
@@ -178,7 +180,7 @@ class TimeStream(object):
             msg = "overwrite_mode must be a str"
             LOG.error(msg)
             raise TypeError(msg)
-        if not overwrite_mode in {"skip", "increment", "overwrite", "raise"}:
+        if overwrite_mode not in {"skip", "increment", "overwrite", "raise"}:
             msg = "Invalid overwrite_mode {}.".format(overwrite_mode)
             LOG.error(msg)
             raise ValueError(msg)
@@ -200,7 +202,7 @@ class TimeStream(object):
                                                  image.subsec)
                     if path.exists(fpath):
                         msg = "Too many images at timepoint {}".format(
-                            d2t(image.datetime))
+                            ts_format_date(image.datetime))
                         LOG.error(msg)
                         raise ValueError(msg)
                 elif overwrite_mode == "overwrite":
@@ -317,12 +319,10 @@ class TimeStreamImage(object):
                 pass
             if not ts_path or not self._datetime:
                 return None
-            self._path = path.join(ts_path,
-               _ts_date_to_path(
-                   self._timestream.name,
-                   self._timestream.extension,
-                   self._datetime
-                ))
+            subpath = _ts_date_to_path(self._timestream.name,
+                                       self._timestream.extension,
+                                       self._datetime)
+            self._path = path.join(ts_path, subpath)
             return self._path
         return None
 

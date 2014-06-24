@@ -65,8 +65,7 @@ def str2numpy(arr_str):
         raise TypeError(msg)
     unpacked = json.loads(arr_str)
     if len(unpacked) != 3:
-        msg = "Bad numpy str {}. Should be (dtype, arr, shape)".format(
-            arr_string)
+        msg = "Bad numpy str {}. Should be (dtype, arr, shape)".format(arr_str)
         LOG.error(msg)
         raise ValueError(msg)
     dtype, arr_string, shape = unpacked
