@@ -63,6 +63,16 @@ __TS_V1_LEVELS = [
 ]
 TS_V1_FMT = path.join(*__TS_V1_LEVELS)
 
+TS_MANIFEST_KEYS = [
+    "name",
+    "version",
+    "start_datetime",
+    "end_datetime",
+    "image_type",
+    "extension",
+    "interval",
+]
+
 
 def validate_timestream_manifest(manifest):
     """Validtes a json manifest, and returns the validated ``dict``
