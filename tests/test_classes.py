@@ -18,6 +18,7 @@ from inspect import (
     isgenerator,
 )
 import json
+import numpy as np
 import os
 from os import path
 import shutil
@@ -74,7 +75,7 @@ class TestTimeStreamLoad(TestCase):
         with self.assertRaises(ValueError):
             inst = TimeStream()
             inst.load(helpers.FILES["timestream_bad"])
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             inst = TimeStream()
             inst.load(None)
         with self.assertRaises(ValueError):
@@ -101,7 +102,7 @@ class TestTimeStreamInit(TestCase):
         with self.assertRaises(ValueError):
             inst = TimeStream("")
         with self.assertRaises(ValueError):
-            inst = TimeStream(ts_version=3)
+            inst = TimeStream(version=3)
 
 
 
@@ -133,6 +134,7 @@ class TestTimeStreamImageInit(TestCase):
         with self.assertRaises(ValueError):
             # Bad date format
             TimeStreamImage("2013_20")
+
 
 class TestTimeStreamImageFromFile(TestCase):
     """Test TimeStreamImage().from_file()"""
@@ -244,15 +246,50 @@ class TestTimeStreamCreate(TestCase):
         ts.version = 1
         ts.create(self.tmp_path)
         self.assertEqual(ts.path, self.tmp_path)
+        self.assertDictEqual(ts.image_data, {})
+        self.assertDictEqual(ts.data, {})
 
     def test_timestream_create_bad(self):
         ts = TimeStream()
         with self.assertRaises(ValueError):
-            ts.create(self.tmp_path, ts_version=3)
+            ts.create(self.tmp_path, version=3)
         with self.assertRaises(ValueError):
             ts.create("not_a/valid/path")
         with self.assertRaises(TypeError):
             ts.create(123)
+
+    def tearDown(self):
+        try:
+            shutil.rmtree(self.tmp_path)
+        except (OSError,):
+            pass
+
+class TestTimeStreamWrite(TestCase):
+
+    def setUp(self):
+        self.tmp_path = helpers.make_tmp_file()
+
+    def test_timestream_write(self):
+        ts = TimeStream()
+        ts.version = 1
+        ts.create(self.tmp_path, ext="jpg")
+        self.assertEqual(ts.path, self.tmp_path)
+        self.assertDictEqual(ts.image_data, {})
+        self.assertDictEqual(ts.data, {})
+        for _ in range(10):
+            img = TimeStreamImage()
+            arr = np.arange(300, dtype="uint8")
+            arr = arr.reshape((10, 10, 3))
+            date = dt.datetime.now()
+            str_date = ts_format_date(date)
+            img.pixels = arr
+            img.datetime = date
+            img.data["fake"] = True
+            ts.write_image(img)
+            self.assertIn(str_date, ts.image_data)
+            self.assertDictEqual(img.data, ts.image_data[str_date])
+            self.assertTrue(path.exists, img.path)
+
 
     def tearDown(self):
         try:
