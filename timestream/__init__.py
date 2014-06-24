@@ -42,6 +42,8 @@ from timestream.parse import (
     ts_get_image,
 )
 
+
+
 LOG = logging.getLogger("timestreamlib")
 
 def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
@@ -240,6 +242,7 @@ class TimeStreamImage(object):
     _path = None
     _datetime = None
     _pixels = None
+    _data = None
 
     def __init__(self, datetime=None):
         if datetime:
@@ -326,3 +329,8 @@ class TimeStreamImage(object):
     @pixels.deleter
     def pixels(self):
         del self._pixels
+
+    @property
+    def data(self):
+        pass
+
