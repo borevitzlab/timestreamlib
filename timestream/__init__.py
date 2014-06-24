@@ -268,15 +268,19 @@ class TimeStream(object):
             img.from_file(fpath)
             yield img
 
-    def iter_by_timepoints(self, remove_gaps=True):
+    def iter_by_timepoints(self, remove_gaps=True, start=None, end=None,
+                           interval=None):
         """
         Iterate over a TimeStream in chronological order, yielding a
         TimeStreamImage instance for each timepoint. If ``remove_gaps`` is
         False, yield None for missing images.
         """
-        start = self.start_datetime
-        end = self.end_datetime
-        interval = self.interval * 60
+        if not start or start < self.start_datetime:
+            start = self.start_datetime
+        if not end or end < self.end_datetime:
+            end = self.end_datetime
+        if not interval:
+            interval = self.interval * 60
         for time in iter_date_range(start, end, interval):
             img_path = ts_get_image(self.path, time)
             if remove_gaps and img_path is None:
