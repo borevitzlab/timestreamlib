@@ -60,7 +60,7 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
     else:
         print("Process", img.path, '...'),
         # set visualise to False to run in batch mode
-        image, potLocs, plantMetrics = pl.process(img, visualise = True)
+        image, potLocs, plantMetrics = pl.process({"ts":ts}, [img])
 
         newimg = timestream.TimeStreamImage()
         newimg.datetime = img.datetime

@@ -52,9 +52,9 @@ class ImagePipeline ( object ):
     # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.
     # initArgs: argument list to get the pipeline going.
-    def process(self, contArgs, visualise = True):
+    def process(self, contArgs, initArgs, visualise = True):
         # First elem with input image
-        res = [contArgs.pixels]
+        res = initArgs
         for elem in self.pipeline:
             res = elem(contArgs, *res)
             if visualise:

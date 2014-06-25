@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import timestream.manipulate.correct_detect as cd
+from timestream import TimeStreamImage
 import os
 
 class PipeComponent ( object ):
@@ -120,7 +121,7 @@ class ImageUndistorter ( PipeComponent ):
                 "imageSize":    [True, "2x1 matrix: [width, height]"],
                 "rotationAngle": [True, "rotation angle for the image"] }
 
-    runExpects = [np.ndarray]
+    runExpects = [TimeStreamImage]
     runReturns = [np.ndarray]
 
     def __init__(self, **kwargs):
@@ -131,7 +132,7 @@ class ImageUndistorter ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image = cd.rotateImage(args[0], self.rotationAngle)
+        self.image = cd.rotateImage(args[0].pixels, self.rotationAngle)
         if self.UndistMapX != None and self.UndistMapY != None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8), \
                 self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
