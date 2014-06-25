@@ -44,6 +44,7 @@ from timestream.parse import (
     ts_format_date,
     iter_date_range,
     ts_get_image,
+    ts_make_dirs,
 )
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,
@@ -71,7 +72,7 @@ class TimeStream(object):
     """A TimeStream, including metadata and parsers"""
     _path = None
     _version = None
-    name = None
+    _name = None
     version = None
     start_datetime = None
     end_datetime = None
@@ -104,6 +105,22 @@ class TimeStream(object):
         self._version = version
 
     @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if not isinstance(name, str):
+            msg = "Timestream name must be a str"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if '_' in name:
+            msg = "Timestream name can't contain _. '{}' does".format(name)
+            LOG.error(msg)
+            raise ValueError(msg)
+        self._name = name
+
+    @property
     def path(self):
         return self._path
 
@@ -112,7 +129,7 @@ class TimeStream(object):
         """Store the root path of this timestream"""
         # Store root path
         if not isinstance(ts_path, str):
-            msg = "Timestream path must be a str".format(ts_path)
+            msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
         self._path = ts_path
@@ -143,7 +160,7 @@ class TimeStream(object):
         self.read_metadata()
 
     def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
-               end=NOW):
+               end=NOW, name=None):
         if self._version is None:
             self.version = version
         self.path = ts_path
@@ -157,6 +174,8 @@ class TimeStream(object):
         self.extension = ext
         self.start_datetime = start
         self.end_datetime = end
+        if name is None:
+            self.name = path.basename(ts_path.rstrip('/'))
         if type:
             self.image_type = type
         else:
@@ -168,6 +187,10 @@ class TimeStream(object):
                 raise ValueError(msg)
 
     def write_image(self, image, overwrite_mode="skip"):
+        if not self.name:
+            msg = "write_image() must be called on instance with valid name"
+            LOG.error(msg)
+            raise RuntimeError(msg)
         if not self.path:
             msg = "write_image() must be called on instance with valid path"
             LOG.error(msg)
@@ -192,6 +215,7 @@ class TimeStream(object):
         if self.version == 1:
             fpath = _ts_date_to_path(self.name, self.extension,
                                      image.datetime, image.subsec)
+            fpath = path.join(self.path, fpath)
             if path.exists(fpath):
                 if overwrite_mode == "skip":
                     return
@@ -223,7 +247,7 @@ class TimeStream(object):
             with open(self.db_path, "w") as db_fh:
                 json.dump(self.data, db_fh)
             # Actually write image
-            print fpath
+            ts_make_dirs(fpath)
             cv2.imwrite(fpath, image.pixels)
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
