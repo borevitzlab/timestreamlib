@@ -33,11 +33,10 @@ class ImagePipeline ( object ):
                  PlantExtractor.actName:        PlantExtractor, \
                }
 
-    def __init__(self, settings, settingPath):
+    def __init__(self, settings):
         self.pipeline = []
         # Add elements while checking for dependencies
         for i, setElem in enumerate(settings):
-            setElem[1]["settingPath"] = settingPath
             # First elements expects [ndarray]
             if i == 0:
                 firstExpects = ImagePipeline.complist[setElem[0]].runExpects
@@ -71,21 +70,3 @@ class ImagePipeline ( object ):
     def printCompList(cls):
         for clKey, clVal in ImagePipeline.complist.iteritems():
             print (clVal.info())
-
-#def test():
-#    from timestream.parse import ts_iter_images
-#    settingFile = "/home/chuong/Workspace/traitcapture-bin/unwarp_rectify/data/pipeline.yml"
-#    imageRootPath = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L~fullres-orig/'
-#
-#    img_iter = ts_iter_images(imageRootPath)
-#    for i in range(750):
-#        img_iter.next()
-#    currentImage = cv2.imread(img_iter.next())[:,:,::-1]
-#
-#    ipl = ImagePipeline(settingFile)
-#    context = {"filePath": os.path.dirname(settingFile)}
-#    args = [currentImage]
-#    ipl.process(context, args)
-#
-#if __name__ == "__main__":
-#    test()

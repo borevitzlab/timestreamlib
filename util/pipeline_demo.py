@@ -13,9 +13,9 @@ import timestream.manipulate.pipeline as pipeline
 import yaml
 
 if len(sys.argv) != 4:
-    settingFile    = "/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-settings/pipeline.yml"
-    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-orig'
-    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
+    settingFile    = "/home/joel/.Trash/pipeline.yml"
+    inputRootPath  = '/home/joel/.Trash/BVZ0036-GC02L-C01~fullres-orig'
+    outputRootPath = '/home/joel/.Trash/processed'
 else:
     settingFile = sys.argv[1]
     inputRootPath = sys.argv[2]
@@ -46,7 +46,7 @@ for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
 
 # initialise processing pipeline
-pl = pipeline.ImagePipeline(ts.data["settings"], ts.data["settingPath"])
+pl = pipeline.ImagePipeline(ts.data["settings"])
 
 print("Iterating by date")
 startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
