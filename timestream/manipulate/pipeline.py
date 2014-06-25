@@ -38,12 +38,7 @@ class ImagePipeline ( object ):
         # Add elements while checking for dependencies
         for i, setElem in enumerate(settings):
             # First elements expects [ndarray]
-            if i == 0:
-                firstExpects = ImagePipeline.complist[setElem[0]].runExpects
-                if ( isinstance(firstExpects, list) \
-                        and firstExpects[0] is not np.ndarray ):
-                    raise ValueError("First pipe element should be [ndarray]")
-            else:
+            if i > 0:
                 compExpects = ImagePipeline.complist[setElem[0]].runExpects
                 prevReturns = self.pipeline[-1].__class__.runReturns
                 if ( not isinstance(compExpects, list) \
