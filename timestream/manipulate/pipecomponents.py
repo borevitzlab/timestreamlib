@@ -21,6 +21,8 @@ from __future__ import absolute_import, division, print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import timestream.manipulate.correct_detect as cd
+import os
 
 class PipeComponent ( object ):
     # Name has to be unique among pipecomponents
@@ -111,48 +113,97 @@ class Tester ( PipeComponent ):
 
 class ImageUndistorter ( PipeComponent ):
     actName = "undistort"
-    argNames = { "cameraMatrix": [True, "3x3 matrix for mapping physical" \
+    argNames = {"mess": [True, "Apply lens distortion correction"],
+                "cameraMatrix": [True, "3x3 matrix for mapping physical" \
                     + "coordinates with screen coordinates"],\
-                 "distortCoefs": [True, "5x1 matrix for image distortion"],
-                 "imageSize":    [True, "2x1 matrix: [width, height]"] }
+                "distortCoefs": [True, "5x1 matrix for image distortion"],
+                "imageSize":    [True, "2x1 matrix: [width, height]"],
+                "rotationAngle": [True, "rotation angle for the image"] }
 
     runExpects = [np.ndarray]
     runReturns = [np.ndarray]
 
     def __init__(self, **kwargs):
         super(ImageUndistorter, self).__init__(**kwargs)
-
         self.UndistMapX, self.UndistMapY = cv2.initUndistortRectifyMap( \
-            self.cameraMatrix, self.distortCoefs, None, self.cameraMatrix, \
-            self.imageSize, cv2.CV_32FC1)
+            np.asarray(self.cameraMatrix), np.asarray(self.distortCoefs), \
+            None, np.asarray(self.cameraMatrix), tuple(self.imageSize), cv2.CV_32FC1)
 
     def __call__(self, context, *args):
-        self.image = args[0]
-        print("Image size =", self.image.shape)
+        print(self.mess)
+        self.image = cd.rotateImage(args[0], self.rotationAngle)
         if self.UndistMapX != None and self.UndistMapY != None:
-            self.image = self.image = cv2.remap(self.image.astype(np.uint8), \
+            self.imageUndistorted = cv2.remap(self.image.astype(np.uint8), \
                 self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
-            plt.imshow(self.image)
-            plt.show()
-        return(self.image)
+        else:
+            self.imageUndistorted = self.image
+
+        return([self.imageUndistorted])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image)
+        plt.title('Original image')
+        plt.figure()
+        plt.imshow(self.imageUndistorted)
+        plt.title('Undistorted image')
+        plt.show()
 
 class ColorCardDetector ( PipeComponent ):
     actName = "colorcarddetect"
-    argNames = { "colorcardColors": [True, "Matrix representing the " \
-                    + "color card colors"],
-                 "colorcardFile": [True, "Path to the color card file"],
-                 "colorcardPosition": [True, "(x,y) of the colorcard"],
-                 "colorcardTrueColors": [True, "The true colors of " \
-                    + "the colorcard"]}
+    argNames = {"mess": [True, "Detect color card"], \
+                "colorcardTrueColors": [True, "Matrix representing the " \
+                    + "groundtrue color card colors"],
+                "colorcardFile": [True, "Path to the color card file"],
+                "colorcardPosition": [True, "(x,y) of the colorcard"],
+                "settingPath": [True, "Path to setting files"]
+                }
 
     runExpects = [np.ndarray]
     runReturns = [np.ndarray, list]
 
     def __init__(self, **kwargs):
-        super(ImageUndistorter, self).__init__(**kwargs)
+        super(ColorCardDetector, self).__init__(**kwargs)
+        colorcardFile = os.path.join(self.settingPath, self.colorcardFile)
+        self.colorcardImage = cv2.imread(colorcardFile)[:,:,::-1]
+        if self.colorcardImage == None:
+            print("Fail to read " + os.path.join(self.settingPath, self.colorcardFile))
+        self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
     def __call__(self, context, *args):
-        return (self.colorcardColors)
+        print(self.mess)
+        self.image = args[0]
+        self.imagePyramid = cd.createImagePyramid(self.image)
+
+        # create image pyramid for multiscale matching
+        SearchRange = [self.colorcardPyramid[0].shape[1], self.colorcardPyramid[0].shape[0]]
+        score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, self.colorcardPyramid, \
+            0, EstimatedLocation = self.colorcardPosition, SearchRange = SearchRange)
+        if score > 0.3:
+            # extract color information
+            self.foundCard = self.image[loc[1]-self.colorcardImage.shape[0]//2:loc[1]+self.colorcardImage.shape[0]//2, \
+                                        loc[0]-self.colorcardImage.shape[1]//2:loc[0]+self.colorcardImage.shape[1]//2]
+            self.colorcardColors, _ = cd.getColorcardColors(self.foundCard, GridSize = [6, 4])
+            self.colorcardParams = cd.estimateColorParameters(self.colorcardTrueColors, self.colorcardColors)
+            # for displaying
+            self.loc = loc
+        else:
+            print('Cannot find color card')
+            self.colorcardParams = [None, None, None]
+
+        return([self.image, self.colorcardParams])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image)
+        plt.hold(True)
+        plt.plot([self.loc[0]], [self.loc[1]], 'ys')
+        plt.text(self.loc[0]-30, self.loc[1]-15, 'ColorCard', color='yellow')
+        plt.title('Detected color card')
+        plt.figure()
+        plt.imshow(self.foundCard)
+        plt.title('Detected color card')
+        plt.show()
 
 class ImageColorCorrector ( PipeComponent ):
     actName = "colorcorrect"
@@ -162,46 +213,165 @@ class ImageColorCorrector ( PipeComponent ):
     runReturns = [np.ndarray]
 
     def __init__(self, **kwargs):
-        super(ImageUndistorter, self).__init__(**kwargs)
+        super(ImageColorCorrector, self).__init__(**kwargs)
 
-    def __call__(self, inputs):
+    def __call__(self, context, *args):
         print(self.mess)
-        image, colorcardInfo = inputs
-        print("Image size =", image.shape)
-        return(image)
+        image, colorcardParam = args
+        colorMatrix, colorConstant, colorGamma = colorcardParam
+        if colorMatrix != None:
+            self.imageCorrected = cd.correctColorVectorised(image.astype(np.float), colorMatrix, colorConstant, colorGamma)
+            self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
+            self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
+            self.imageCorrected = self.imageCorrected.astype(np.uint8)
+        else:
+            print('Skip color correction')
+            self.imageCorrected = image
+        self.image = image # display
+
+        return([self.imageCorrected])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image)
+        plt.title('Image without color correction')
+        plt.figure()
+        plt.imshow(self.imageCorrected)
+        plt.title('Color-corrected image')
+        plt.show()
 
 class TrayDetector ( PipeComponent ):
     actName = "traydetect"
-    argNames = {"mess": [False,"Detect tray positions"]}
+    argNames = {"mess": [False,"Detect tray positions"],
+                "trayFiles": [True, "File name pattern for trays "\
+                     + "such as Trays_%02d.png"],
+                "trayNumber": [True, "Number of trays in given image"],
+                "trayPositions": [True, "Estimated tray positions"],
+                "settingPath": [True, "Path to setting files"]
+                }
 
     runExpects = [np.ndarray]
     runReturns = [np.ndarray, list]
 
     def __init__(self, **kwargs):
-        super(ImageUndistorter, self).__init__(**kwargs)
+        super(TrayDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        print("Image size =", image.shape)
-        trayPositions = []
-        return(image, trayPositions)
+        self.image = args[0]
+        temp = np.zeros_like(self.image)
+        temp[:,:,:] = self.image[:,:,:]
+        temp[:,:,1] = 0 # suppress green channel
+        self.imagePyramid = cd.createImagePyramid(temp)
+        self.trayPyramids = []
+        for i in range(self.trayNumber):
+            trayFile = os.path.join(self.settingPath, self.trayFiles % i)
+            trayImage = cv2.imread(trayFile)[:,:,::-1]
+            if trayImage == None:
+                print("Fail to read", trayFile)
+            trayImage[:,:,1] = 0 # suppress green channel
+            trayPyramid = cd.createImagePyramid(trayImage)
+            self.trayPyramids.append(trayPyramid)
+
+        self.trayLocs = []
+        for i,trayPyramid in enumerate(self.trayPyramids):
+            SearchRange = [trayPyramid[0].shape[1]//6, trayPyramid[0].shape[0]//6]
+            score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, trayPyramid, \
+                RotationAngle = 0, EstimatedLocation = self.trayPositions[i], SearchRange = SearchRange)
+            if score < 0.3:
+                print('Low tray matching score. Likely tray %d is missing.' %i)
+                self.trayLocs.append(None)
+                continue
+            self.trayLocs.append(loc)
+
+        return([self.image, self.imagePyramid, self.trayLocs])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image.astype(np.uint8))
+        plt.hold(True)
+        PotIndex = 0
+        for i,Loc in enumerate(self.trayLocs):
+            if Loc == None:
+                continue
+            plt.plot([Loc[0]], [Loc[1]], 'bo')
+            PotIndex = PotIndex + 1
+        plt.title('Detected trays')
+        plt.show()
 
 class PotDetector ( PipeComponent ):
     actName = "potdetect"
-    argNames = {"mess": [False, "Detect pot position"]}
+    argNames = {"mess": [False, "Detect pot position"],
+                "potFile": [True, "File name of a pot image"],
+                "potTemplateFile": [True, "File name of a pot template image"],
+                "potPositions": [True, "Estimated pot positions"],
+                "potSize": [True, "Estimated pot size"],
+                "traySize": [True, "Estimated tray size"],
+                "settingPath": [True, "Path to setting files"]
+                }
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, list]
 
     def __init__(self, **kwargs):
-        super(ImageUndistorter, self).__init__(**kwargs)
+        super(PotDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        image, trayPositions = args
-        print("Image size =", image.shape)
-        potPositions = []
-        return(image, potPositions)
+        self.image, self.imagePyramid, self.trayLocs = args
+        # read pot template image and scale to the pot size
+        potFile = os.path.join(self.settingPath, self.potFile)
+        potImage = cv2.imread(potFile)[:,:,::-1]
+        potTemplateFile = os.path.join(self.settingPath, self.potTemplateFile)
+        potTemplateImage = cv2.imread(potTemplateFile)[:,:,::-1]
+        potTemplateImage[:,:,1] = 0 # suppress green channel
+        potTemplateImage = cv2.resize(potTemplateImage.astype(np.uint8), (potImage.shape[1], potImage.shape[0]))
+        self.potPyramid = cd.createImagePyramid(potTemplateImage)
+
+        XSteps = self.traySize[0]//self.potSize[0]
+        YSteps = self.traySize[1]//self.potSize[1]
+        StepX  = self.traySize[0]//XSteps
+        StepY  = self.traySize[1]//YSteps
+
+        self.potLocs2 = []
+        self.potLocs2_ = []
+        for trayLoc in self.trayLocs:
+            StartX = trayLoc[0] - self.traySize[0]//2 + StepX//2
+            StartY = trayLoc[1] + self.traySize[1]//2 - StepY//2
+            SearchRange = [self.potPyramid[0].shape[1]//4, self.potPyramid[0].shape[0]//4]
+#            SearchRange = [32, 32]
+            potLocs = []
+            potLocs_ = []
+            for k in range(4):
+                for l in range(5):
+                    estimateLoc = [StartX + StepX*k, StartY - StepY*l]
+                    score, loc,angle = cd.matchTemplatePyramid(self.imagePyramid, \
+                        self.potPyramid, RotationAngle = 0, \
+                        EstimatedLocation = estimateLoc, NoLevels = 3, SearchRange = SearchRange)
+                    potLocs.append(loc)
+                    potLocs_.append(estimateLoc)
+            self.potLocs2.append(potLocs)
+            self.potLocs2_.append(potLocs_)
+
+        return([self.image, self.potLocs2])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image.astype(np.uint8))
+        plt.hold(True)
+        PotIndex = 0
+        for i,Loc in enumerate(self.trayLocs):
+            if Loc == None:
+                continue
+            plt.plot([Loc[0]], [Loc[1]], 'bo')
+            plt.text(Loc[0], Loc[1]-15, 'T'+str(i+1), color='blue', fontsize=20)
+            for PotLoc,PotLoc_ in zip(self.potLocs2[i], self.potLocs2_[i]):
+                plt.plot([PotLoc[0]], [PotLoc[1]], 'ro')
+                plt.text(PotLoc[0], PotLoc[1]-15, str(PotIndex+1), color='red')
+                plt.plot([PotLoc_[0]], [PotLoc_[1]], 'rx')
+                PotIndex = PotIndex + 1
+        plt.title('Detected trays and pots')
+        plt.show()
 
 class PlantExtractor ( PipeComponent ):
     actName = "plantextract"
@@ -211,12 +381,14 @@ class PlantExtractor ( PipeComponent ):
     runReturns = [np.ndarray, list]
 
     def __init__(self, **kwargs):
-        super(ImageUndistorter, self).__init__(**kwargs)
+        super(PlantExtractor, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        image, potPositions = args
+        image, potLocs = args
         print("Image size =", image.shape)
-        plantBiometrics = []
-        return(image, plantBiometrics)
+        plantMetrics = ["dummy data"]
+        return([image, potLocs, plantMetrics])
 
+    def show(self):
+        pass

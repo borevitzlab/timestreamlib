@@ -18,10 +18,9 @@
 
 from __future__ import absolute_import, division, print_function
 
-import yaml
 import numpy as np
 
-from pipecomponents import *
+from timestream.manipulate.pipecomponents import *
 
 class ImagePipeline ( object ):
     complist = {
@@ -34,55 +33,59 @@ class ImagePipeline ( object ):
                  PlantExtractor.actName:        PlantExtractor, \
                }
 
-    def __init__(self, defFilePath):
-        f = file(defFilePath)
-        ymlelems = yaml.load(f)
-        f.close()
-
+    def __init__(self, settings, settingPath):
         self.pipeline = []
-
-        # First elements expects [ndarray]
-        yelem = ymlelems.pop(0)
-        firstExpects = ImagePipeline.complist[yelem[0]].runExpects
-        if ( isinstance(firstExpects, list) \
-                and firstExpects[0] is not np.ndarray ):
-            raise ValueError("First pipe element should be [ndarray]")
-        self.pipeline.append( ImagePipeline.complist[yelem[0]](**yelem[1]) )
-
         # Add elements while checking for dependencies
-        for yelem in ymlelems:
-            compExpects = ImagePipeline.complist[yelem[0]].runExpects
-            prevReturns = self.pipeline[-1].__class__.runReturns
-            if ( not isinstance(compExpects, list) \
-                    or not isinstance(prevReturns, list) \
-                    or len(compExpects) is not len(prevReturns) \
-                    or not compExpects == prevReturns ):
-                raise ValueError("Dependancy error in pipeline")
+        for i, setElem in enumerate(settings):
+            setElem[1]["settingPath"] = settingPath
+            # First elements expects [ndarray]
+            if i == 0:
+                firstExpects = ImagePipeline.complist[setElem[0]].runExpects
+                if ( isinstance(firstExpects, list) \
+                        and firstExpects[0] is not np.ndarray ):
+                    raise ValueError("First pipe element should be [ndarray]")
+            else:
+                compExpects = ImagePipeline.complist[setElem[0]].runExpects
+                prevReturns = self.pipeline[-1].__class__.runReturns
+                if ( not isinstance(compExpects, list) \
+                        or not isinstance(prevReturns, list) \
+                        or len(compExpects) is not len(prevReturns) \
+                        or not compExpects == prevReturns ):
+                    raise ValueError("Dependancy error in pipeline")
 
-            self.pipeline.append( ImagePipeline.complist[yelem[0]](**yelem[1]) )
+            self.pipeline.append( ImagePipeline.complist[setElem[0]](**setElem[1]) )
 
-    # contArgs: dict containing context arguments.
+    # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.
     # initArgs: argument list to get the pipeline going.
-    def process(self, contArgs, initArgs):
-        if ( not isinstance(contArgs, dict) \
-                or not isinstance(initArgs, list) ):
-            raise ValueError("Process expects (dict, list)")
-
-        # First element expects [ndarray]
-        if ( len(initArgs) > 0 and not isinstance(initArgs[0], np.ndarray) ):
-            raise ValueError("First pipe element should be [ndarray]")
-
+    def process(self, contArgs, visualise = True):
         # First elem with input image
-        elem = self.pipeline.pop(0)
-        res = elem(contArgs, *initArgs)
-
+        res = [contArgs.pixels]
         for elem in self.pipeline:
             res = elem(contArgs, *res)
-
+            if visualise:
+                elem.show()
         return (res)
 
     @classmethod
     def printCompList(cls):
         for clKey, clVal in ImagePipeline.complist.iteritems():
             print (clVal.info())
+
+#def test():
+#    from timestream.parse import ts_iter_images
+#    settingFile = "/home/chuong/Workspace/traitcapture-bin/unwarp_rectify/data/pipeline.yml"
+#    imageRootPath = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L~fullres-orig/'
+#
+#    img_iter = ts_iter_images(imageRootPath)
+#    for i in range(750):
+#        img_iter.next()
+#    currentImage = cv2.imread(img_iter.next())[:,:,::-1]
+#
+#    ipl = ImagePipeline(settingFile)
+#    context = {"filePath": os.path.dirname(settingFile)}
+#    args = [currentImage]
+#    ipl.process(context, args)
+#
+#if __name__ == "__main__":
+#    test()
