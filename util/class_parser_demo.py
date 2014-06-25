@@ -3,7 +3,10 @@ import timestream
 import logging
 
 timestream.setup_debug_logging(level=logging.INFO)
-ts = timestream.TimeStream(sys.argv[1])
+ts = timestream.TimeStream()
+ts.load(sys.argv[1])
+ts_out = timestream.TimeStream()
+ts_out.create("./new-ts")
 print "Timestream instance created:"
 print "   ts.path:", ts.path
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
@@ -19,15 +22,12 @@ for img in ts.iter_by_timepoints(remove_gaps=False):
         print "img.datetime", img.datetime
         print "img.pixels.shape", img.pixels.shape
         print "img.pixels.dtype", img.pixels.dtype
-        print
-print
-print
-print "Iterating by files"
-for img in ts.iter_by_files():
-    print img
-    print "img.path", img.path
-    print "img.datetime", img.datetime
-    print "img.pixels.shape", img.pixels.shape
-    print "img.pixels.dtype", img.pixels.dtype
-    print
+        print "Copying image to ts_out",
+        sys.stdout.flush()
+        newimg = timestream.TimeStreamImage()
+        newimg.datetime = img.datetime
+        newimg.pixels = img.pixels
+        newimg.data["copy"] = "yes"
+        ts_out.write_image(newimg)
+        print "Done\n"
 

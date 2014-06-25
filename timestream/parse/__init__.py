@@ -379,3 +379,12 @@ def _is_ts_v1(ts_path):
         LOG.debug("'{}' contains non-year-based folders, or has extras".format(
                 ts_path))
     return is_ok
+
+def ts_make_dirs(fpath):
+    """Make image dir if not exists"""
+    if not path.exists(path.dirname(fpath)):
+        try:
+            os.makedirs(path.dirname(fpath))
+        except (OSError, IOError) as e:
+            if not path.exists(path.dirname(fpath)):
+                raise e
