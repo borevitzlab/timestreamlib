@@ -74,8 +74,7 @@ def main(opts):
     args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
     count = 0
     for _ in pool.imap(process_image, args):
-        if count % 10 == 0:
-            print("Resized {: 5d} images!".format(count), end="\r")
+        print("Resized {: 5d} images!".format(count), end="\r")
         count += 1
     print("Resized {: 5d} images! Done!".format(count))
     pool.close()
