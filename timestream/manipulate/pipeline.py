@@ -31,6 +31,7 @@ class ImagePipeline ( object ):
                  TrayDetector.actName:          TrayDetector, \
                  PotDetector.actName:           PotDetector, \
                  PlantExtractor.actName:        PlantExtractor, \
+                 ResultingImageWriter.actName:  ResultingImageWriter \
                }
 
     def __init__(self, settings):
@@ -52,7 +53,7 @@ class ImagePipeline ( object ):
     # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.
     # initArgs: argument list to get the pipeline going.
-    def process(self, contArgs, initArgs, visualise = True):
+    def process(self, contArgs, initArgs, visualise = False):
         # First elem with input image
         res = initArgs
         for elem in self.pipeline:

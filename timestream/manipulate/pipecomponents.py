@@ -22,7 +22,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import timestream.manipulate.correct_detect as cd
+import timestream.manipulate.plantSegmenter as ps
 from timestream import TimeStreamImage
+import timestream
 import os
 
 class PipeComponent ( object ):
@@ -376,20 +378,48 @@ class PotDetector ( PipeComponent ):
 
 class PlantExtractor ( PipeComponent ):
     actName = "plantextract"
-    argNames = {"mess": [False, "Extract plant biometrics"]}
+    argNames = {"mess": [False, "Extract plant biometrics", "default message"], \
+            "meth": [False, "Segmentation Method", "k-means-square"], \
+            "methargs": [False, "Specific Method Arguments", {}]}
 
     runExpects = [np.ndarray, list]
-    runReturns = [np.ndarray, list]
+    runReturns = [np.ndarray, ps.ImagePotMatrix]
 
     def __init__(self, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
+        self.ch = ps.ChamberHandler(meth=self.meth, methargs=self.methargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
-        image, potLocs = args
-        print("Image size =", image.shape)
-        plantMetrics = ["dummy data"]
-        return([image, potLocs, plantMetrics])
+        img = args[0]
+        centers = args[1]
+        retImg, ipm = self.ch.segment(img, centers=centers)
+        return [retImg, ipm]
 
     def show(self):
         pass
+
+class ResultingImageWriter ( PipeComponent ):
+    actName = "imagewrite"
+    argNames = {"mess": [False, "Output Message", "Writing Image"]}
+
+    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runReturns = [np.ndarray]
+
+    def __init__(self, **kwargs):
+        super(ResultingImageWriter, self).__init__(**kwargs)
+
+    def __call__(self, context, *args):
+        print (self.mess)
+        img = timestream.TimeStreamImage()
+        img.datetime = context["img"].datetime
+        img.pixels = args[0]
+        img.data["processed"] = "yes"
+        img.data["potLocations"] = args[1].asTuple
+        img.data["biometrics"] = None
+        context["wts"].write_image(img)
+
+        return (img.pixels)
+
+    def show(self):
+        pass
+

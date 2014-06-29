@@ -60,13 +60,7 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
     else:
         print("Process", img.path, '...'),
         # set visualise to False to run in batch mode
-        image, potLocs, plantMetrics = pl.process({"ts":ts}, [img])
+        context = {"rts":ts, "wts":ts_out, "img":img}
+        result = pl.process(context, [img])
 
-        newimg = timestream.TimeStreamImage()
-        newimg.datetime = img.datetime
-        newimg.pixels = image
-        newimg.data["processed"] = "yes"
-        newimg.data["potLocations"] = potLocs
-        newimg.data["biometrics"] = plantMetrics
-        ts_out.write_image(newimg)
         print("Done")
