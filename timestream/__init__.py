@@ -56,7 +56,7 @@ LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
 def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
-                        stream=stderr):
+                         stream=stderr):
     """Setup debug console logging. Designed for interactive use."""
     log = logging.getLogger("timestreamlib")
     fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
