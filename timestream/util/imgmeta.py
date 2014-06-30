@@ -107,7 +107,7 @@ def get_exif_date(image):
     :raises: KeyError, ValueError
     """
     try:
-        str_date = get_exif_tag(image, "DateTime", mode)
+        str_date = get_exif_tag(image, "DateTime", "raise")
         return datetime.datetime.strptime(str_date, "%Y:%m:%d %H:%M:%S")
     except (KeyError, ValueError) as exc:
         return None
