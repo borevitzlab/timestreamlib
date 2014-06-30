@@ -399,6 +399,12 @@ class TimeStreamImage(object):
 
         The path of the image must be set before the pixels property is
         accessed, or things will error out with RuntimeError.
+
+        The colour dimension maps to:
+            [:,:,RGB]
+        not what OpenCV gives us, which is:
+            [:,:,BGR]
+        So we convert OpenCV back to reality and sanity.
         """
         if self._pixels is None:
             if not self.path:
@@ -408,12 +414,17 @@ class TimeStreamImage(object):
                 raise RuntimeError(msg)
             try:
                 import skimage.io
-                self._pixels = skimage.io.imread(self.path,
-                                                 plugin="freeimage")
+                try:
+                    self._pixels = skimage.io.imread(self.path,
+                                                     plugin="freeimage")
+                except (RuntimeError, ValueError) as exc:
+                    LOG.error(str(exc))
+                    # Try openCV
+                    self._pixels = cv2.imread(self.path)
             except ImportError:
                 LOG.warn("Couln't load scikit image io module. " +
-                         "Raw images not supported")
-                self._pixels = cv2.imread(self.path)
+                         "Raw images will not be loaded correctly")
+                self._pixels = cv2.imread(self.path)[:,:,::-1]
         return self._pixels
 
     @pixels.setter
