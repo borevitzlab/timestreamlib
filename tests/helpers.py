@@ -1,5 +1,6 @@
 import datetime
 import logging
+import numpy as np
 import os
 from os import path
 import shutil
@@ -25,6 +26,8 @@ TESTS_DIR = path.dirname(__file__)
 
 FILES = {
     "basic_jpg": path.join(TESTS_DIR, "data", "IMG_0001.JPG"),
+    "truncated_jpg": path.join(TESTS_DIR, "data", "truncated.jpg"),
+    "zeros_jpg": path.join(TESTS_DIR, "data", "zeros.jpg"),
     "basic_jpg_exif": path.join(TESTS_DIR, "data", "IMG_0001-JPG-exif.json"),
     "basic_jpg_noexif": path.join(TESTS_DIR, "data", "IMG_0001_NOEXIF.JPG"),
     "basic_cr2": path.join(TESTS_DIR, "data", "IMG_0001.CR2"),
@@ -42,6 +45,8 @@ FILES = {
     "not_a_timestream": path.join(TESTS_DIR, "data", "timestreams",
                                   "not"),
 }
+ZEROS_PIXELS = np.zeros((100, 100, 3), dtype="uint8")
+ZEROS_DATETIME = datetime.datetime(2013, 11, 12, 20, 53, 9)
 
 TS_MANIFOLD_FILES_JPG = [
     "timestreams/BVZ0022-GC05L-CN650D-Cam07~fullres-orig/2013/2013_10/2013_10_30/2013_10_30_03/BVZ0022-GC05L-CN650D-Cam07~fullres-orig_2013_10_30_03_00_00_00.JPG",
