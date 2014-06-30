@@ -55,7 +55,7 @@ from timestream.parse.validate import (
 LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
-def setup_debug_logging(level=logging.DEBUG, handler=logging.StreamHandler,
+def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
                         stream=stderr):
     """Setup debug console logging. Designed for interactive use."""
     log = logging.getLogger("timestreamlib")

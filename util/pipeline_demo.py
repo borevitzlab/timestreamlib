@@ -27,7 +27,7 @@ settings = yaml.load(f)
 f.close()
 
 # initialise input timestream for processing
-timestream.setup_debug_logging(level=logging.INFO)
+timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
 
 ts.load(inputRootPath)
