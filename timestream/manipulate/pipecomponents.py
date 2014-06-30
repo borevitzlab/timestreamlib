@@ -422,4 +422,3 @@ class ResultingImageWriter ( PipeComponent ):
 
     def show(self):
         pass
-
