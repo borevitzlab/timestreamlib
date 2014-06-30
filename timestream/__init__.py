@@ -49,7 +49,9 @@ from timestream.parse import (
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,
 )
-
+from timestream.util.imgmeta import (
+    get_exif_date,
+)
 
 
 LOG = logging.getLogger("timestreamlib")
@@ -332,7 +334,11 @@ class TimeStreamImage(object):
 
     def from_file(self, img_path):
         self.path = img_path
-        self.datetime = ts_parse_date_path(img_path)
+        try:
+            self.datetime = ts_parse_date_path(img_path)
+        except ValueError:
+            self.datetime = get_exif_date(img_path)
+
 
     @property
     def path(self):
@@ -419,8 +425,7 @@ class TimeStreamImage(object):
                                                      plugin="freeimage")
                 except (RuntimeError, ValueError) as exc:
                     LOG.error(str(exc))
-                    # Try openCV
-                    self._pixels = cv2.imread(self.path)
+                    self._pixels = None
             except ImportError:
                 LOG.warn("Couln't load scikit image io module. " +
                          "Raw images will not be loaded correctly")

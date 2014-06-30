@@ -144,7 +144,14 @@ class TestTimeStreamImageFromFile(TestCase):
         img = TimeStreamImage()
         img.from_file(helpers.TS_MANIFOLD_FILES_JPG[0])
         self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.datetime, helpers.TS_MANIFOLD_DATES_PARSED[0])
+
+    def test_ts_image_from_file_truncated(self):
+        """Test TimeStreamImage.from_file() with valid parameters"""
+        img = TimeStreamImage()
+        img.from_file(helpers.FILES["zeros_jpg"])
+        self.assertEqual(img.path, helpers.FILES["zeros_jpg"])
+        self.assertEqual(img.datetime, helpers.ZEROS_DATETIME)
+        np.testing.assert_array_equal(img.pixels, helpers.ZEROS_PIXELS)
 
     def test_ts_image_from_file_parent(self):
         """Test TimeStreamImage.from_file() with valid parameters & parent"""
