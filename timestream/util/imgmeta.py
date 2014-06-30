@@ -20,6 +20,7 @@
 
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
+import datetime
 try:
     import exifread as er
     library = "exifread"
@@ -92,6 +93,27 @@ def get_exif_tag(image, tag, mode="silent"):
     exif = get_exif_tags(image, mode)
     try:
         return exif[tag]
+    except KeyError as exc:
+        if mode == "silent":
+            return None
+        else:
+            raise exc
+
+def get_exif_date(image, mode="silent"):
+    """Get a tag from image exif header
+
+    :param str image: Path to image file.
+    :param str mode: Behaviour on missing exif tag. If `"silent"`, `None` is
+                     returned. If `"raise"`, a `KeyError` is raised.
+    :returns: str -- The EXIF tag value.
+    :raises: KeyError, ValueError
+    """
+    if mode not in {"silent", "raise"}:
+        raise ValueError("Bad get_exif_tag mode '{0}'".format(mode))
+    exif = get_exif_tags(image, mode)
+    try:
+        str_date = exif["DateTime"]
+        return datetime.datetime.strptime(str_date, "%Y:%m:%d %H:%M:%S")
     except KeyError as exc:
         if mode == "silent":
             return None

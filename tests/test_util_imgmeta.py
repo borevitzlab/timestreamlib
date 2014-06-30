@@ -8,6 +8,19 @@ from timestream.util import (
 )
 
 
+class TestGetExifDate(TestCase):
+    _multiprocess_can_split_ = True
+    maxDiff = None
+
+    def test_get_exif_date_jpg(self):
+        r = imgmeta.get_exif_date(helpers.FILES["zeros_jpg"])
+        self.assertEqual(r, helpers.ZEROS_DATETIME)
+
+    def test_get_exif_date_cr2(self):
+        r = imgmeta.get_exif_date(helpers.FILES["basic_cr2"])
+        self.assertEqual(r, helpers.ZEROS_DATETIME)
+
+
 class TestGetExifTag(TestCase):
     _multiprocess_can_split_ = True
     maxDiff = None
