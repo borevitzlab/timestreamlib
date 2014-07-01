@@ -13,7 +13,7 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 import matplotlib.pyplot as plt
 
-import os
+import os, shutil
 import cv2
 import numpy as np
 import timestream
@@ -41,7 +41,7 @@ class Window(QtGui.QDialog):
         self.timestreamDateText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
 
         self.timestreamTimeLabel = QtGui.QLabel('Time interval (seconds):')
-        self.timestreamTimeText = QtGui.QLineEdit('24*60*60')
+        self.timestreamTimeText = QtGui.QLineEdit('')
         self.timestreamTimeText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
 
         self.initStreamButton = QtGui.QPushButton('&Initialise time-stream')
@@ -128,6 +128,8 @@ class Window(QtGui.QDialog):
         self.group.addButton(self.trayRadioButton)
         self.group.addButton(self.potRadioButton)
 
+        self.loadPreviousInputs()
+
         self.panMode = False
         self.zoomMode = False
 
@@ -145,6 +147,8 @@ class Window(QtGui.QDialog):
         self.potAspectRatio = 1.0
         self.leftClicks = []
         self.colorcardParams = None
+        self.scriptPath = os.path.dirname(os.path.realpath(__file__))
+        self.timestreamRootPath = None
 
         # Ouput parameters
         self.ImageSize = None
@@ -184,11 +188,11 @@ class Window(QtGui.QDialog):
             self.panMode = False
 
     def initialiseTimestream(self):
-        tsRootPath = str(self.timestreamText.text())
-        if len(tsRootPath) > 0:
-            self.status.append('Initialise a timestream at ' + str(tsRootPath))
+        self.timestreamRootPath = str(self.timestreamText.text())
+        if len(self.timestreamRootPath) > 0:
+            self.status.append('Initialise a timestream at ' + str(self.timestreamRootPath))
             self.ts = timestream.TimeStream()
-            self.ts.load(tsRootPath)
+            self.ts.load(self.timestreamRootPath)
             self.status.append('Done')
             startDate = None
             timeInterval = None
@@ -199,6 +203,7 @@ class Window(QtGui.QDialog):
             if len(time) > 0:
                 timeInterval = int(eval(time))
             self.tsImages = self.ts.iter_by_timepoints(start = startDate, interval = timeInterval, remove_gaps=False)
+            self.loadImage()
         else:
             self.status.append('Please provide timestream root path.')
 
@@ -232,9 +237,9 @@ class Window(QtGui.QDialog):
         self.status.append('Loaded image from ' + str(fname))
 
         # reset all outputs
-        self.colorcardList = []
-        self.trayList = []
-        self.potList = []
+#        self.colorcardList = []
+#        self.trayList = []
+#        self.potList = []
         self.isDistortionCorrected = False
 
         if self.rotationAngle != None:
@@ -300,7 +305,8 @@ class Window(QtGui.QDialog):
 
     def loadCamCalib(self):
         ''' load camera calibration image and show an image'''
-        CalibFile = QtGui.QFileDialog.getOpenFileName(self, 'Open image', '/home/chuong/Workspace/traitcapture-bin/unwarp_rectify/data')
+        calibPath = os.path.join(self.scriptPath, '../tests/data/timestreams/settings/')
+        CalibFile = QtGui.QFileDialog.getOpenFileName(self, 'Open image', calibPath)
         self.ImageSize, SquareSize, self.CameraMatrix, self.DistCoefs, RVecs, TVecs = cd.readCalibration(CalibFile)
         self.status.append('Loaded camera parameters from ' + CalibFile)
         print('CameraMatrix =', self.CameraMatrix)
@@ -350,8 +356,11 @@ class Window(QtGui.QDialog):
 
     def savePipelineSettings(self):
         ''' save to pipeline setting file'''
-        fname = QtGui.QFileDialog.getSaveFileName(self, 'Save selection to pipeline settings', '/home/chuong/Workspace/traitcapture-bin/unwarp_rectify/data')
-        settingPath = os.path.dirname(str(fname))
+        fname = QtGui.QFileDialog.getSaveFileName(self, 'Save selection (default in ./_data)', self.timestreamRootPath)
+        if len(str(fname)) == 0:
+            return
+        self.settingPath = os.path.relpath(os.path.dirname(str(fname)), self.timestreamRootPath)
+
         settings = []
         if self.ImageSize != None and self.CameraMatrix != None and self.DistCoefs != None:
             undistort = ['undistort', \
@@ -370,7 +379,7 @@ class Window(QtGui.QDialog):
             medianSize = cd.getMedianRectSize(self.colorcardList)
             capturedColorcards = cd.rectifyRectImages(self.image, self.colorcardList, medianSize)
             colorCardFile = 'CapturedColorcard.png'
-            cv2.imwrite(os.path.join(settingPath, colorCardFile), capturedColorcards[0][:,:,::-1].astype(np.uint8))
+            cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, colorCardFile), capturedColorcards[0][:,:,::-1].astype(np.uint8))
             colorcardColors, colorStd  = cd.getColorcardColors(capturedColorcards[0], GridSize = [6,4])
             colorcardPosition, Width, Height, Angle = cd.getRectangleParamters(self.colorcardList[0])
             colorcarddetect = ['colorcarddetect', \
@@ -378,12 +387,12 @@ class Window(QtGui.QDialog):
                                 'colorcardFile': colorCardFile,\
                                 'colorcardPosition': colorcardPosition.tolist(),\
                                 'colorcardTrueColors': cd.CameraTrax_24ColorCard,
-                                'settingPath': settingPath
+                                'settingPath': self.settingPath
                                }
                               ]
         else:
             colorcarddetect = ['colorcarddetect', {'mess': '---skip color card detection---',
-                                                   'settingPath': settingPath}]
+                                                   'settingPath': self.settingPath}]
         settings.append(colorcarddetect)
 
         colorcorrect = ['colorcorrect', {'mess': '---perform color correction---'}]
@@ -392,14 +401,13 @@ class Window(QtGui.QDialog):
         if len(self.trayList) > 0:
             trayMedianSize = cd.getMedianRectSize(self.trayList)
             trayImages = cd.rectifyRectImages(self.image, self.trayList, trayMedianSize)
-            colorcardColors, colorStd  = cd.getColorcardColors(capturedColorcards[0], GridSize = [6,4])
             trayDict = {'mess': '---perform tray detection---'}
             trayDict['trayNumber'] = len(self.trayList)
             trayDict['trayFiles'] = 'Tray_%02d.png'
-            trayDict['settingPath'] = settingPath
+            trayDict['settingPath'] = self.settingPath
             trayPositions = []
             for i,tray in enumerate(trayImages):
-                cv2.imwrite(os.path.join(settingPath, trayDict['trayFiles'] %i), tray[:,:,::-1].astype(np.uint8))
+                cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, trayDict['trayFiles'] %i), tray[:,:,::-1].astype(np.uint8))
                 trayPosition, Width, Height, Angle = cd.getRectangleParamters(self.trayList[i])
                 trayPositions.append(trayPosition.tolist())
             trayDict['trayPositions'] = trayPositions
@@ -415,17 +423,20 @@ class Window(QtGui.QDialog):
             topLeft = [int(self.potList[0][0][0]), int(self.potList[0][0][1])]
             self.potImage = self.image[topLeft[1]:topLeft[1]+Height, topLeft[0]:topLeft[0]+Width, :]
             potFile = 'Pot.png'
-            cv2.imwrite(os.path.join(settingPath, potFile), self.potImage[:,:,::-1].astype(np.uint8))
+            cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, potFile), self.potImage[:,:,::-1].astype(np.uint8))
             potDict = {'mess': '---perform pot detection---'}
             potDict['potPositions'] = potPosition.tolist()
             potDict['potSize'] = [int(Width), int(Height)]
             potDict['traySize'] = [int(trayMedianSize[0]), int(trayMedianSize[1])]
             potDict['potFile'] = potFile
-            potDict['potTemplateFile'] = 'PotTemplate.png' # TODO: need to copy template file over settingPath
-            potDict['settingPath'] = settingPath
+            potDict['potTemplateFile'] = 'PotTemplate.png'
+            potDict['settingPath'] = self.settingPath
+            potTemplatePathIn = os.path.join(self.scriptPath, '../tests/data/timestreams/settings/PotTemplate.png')
+            potTemplatePathOut = os.path.join(self.timestreamRootPath, self.settingPath, potDict['potTemplateFile'])
+            shutil.copyfile(potTemplatePathIn, potTemplatePathOut)
             if self.potTemplate != None:
                 potTemplateFile = 'potTemplate.png'
-                cv2.imwrite(os.path.join(settingPath, potTemplateFile), self.potTemplate[:,:,::-1])
+                cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, potTemplateFile), self.potTemplate[:,:,::-1])
                 potDict['potTemplateFile'] = potTemplateFile
             potdetect = ['potdetect', potDict]
         else:
@@ -537,10 +548,28 @@ class Window(QtGui.QDialog):
                          quit_msg, QtGui.QMessageBox.Yes, QtGui.QMessageBox.No)
 
         if reply == QtGui.QMessageBox.Yes:
+            self.saveInputs()
             event.accept()
         else:
             event.ignore()
 
+    def saveInputs(self):
+        with open('./.inputs.yml', 'w') as myfile:
+            dicInputs = {'rootPath': str(self.timestreamText.text()),
+                         'startDate': str(self.timestreamDateText.text()),
+                         'timeInterval': str(self.timestreamTimeText.text()),
+                        }
+            myfile.write( yaml.dump(dicInputs, default_flow_style=None) )
+
+    def loadPreviousInputs(self):
+        try:
+            with open('./.inputs.yml', 'r') as myfile:
+                dicInputs = yaml.load(myfile)
+                self.timestreamText.setText(dicInputs['rootPath'])
+                self.timestreamDateText.setText(dicInputs['startDate'])
+                self.timestreamTimeText.setText(dicInputs['timeInterval'])
+        except:
+            pass
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
 
