@@ -4,6 +4,7 @@ import docopt
 from itertools import (
         cycle,
         izip,
+        imap,
         )
 import multiprocessing as mp
 import os
@@ -44,24 +45,17 @@ def process_image((img, out_ts)):
                 raise e
     # Skip or not skip
     if not path.exists(dest):
-        shutil.copy(img, dest)
+        shutil.move(img, dest)
 
 def main(opts):
-    pool = mp.Pool()
-    if opts['-t']:
-        pool = mp.Pool(int(opts['-t']))
     out = [opts['-o'],]
     args = izip(ts_iter_images(opts['-i']), cycle(out))
     count = 0
-    for _ in pool.imap(process_image, args):
+    for _ in imap(process_image, args):
         if count % 10 == 0:
-            print("Renamed {: 5d} images!", end="\r")
-            sys.stdout.flush()
+            print("Renamed {} images!".format(count), end="\r")
         count += 1
-    sys.stderr.write("\nProcessed {} Images!\n\n".format(count))
-    sys.stderr.flush()
-    pool.close()
-    pool.join()
+    print("Renamed {} images!\n\n".format(count))
 
 if __name__ == "__main__":
     main(docopt.docopt(CLI))

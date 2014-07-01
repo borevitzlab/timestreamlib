@@ -6,8 +6,8 @@ timestreamCLI: Tools for working with timelapse imagery in the TimeStream
 """
 
 install_requires = [
-    "docopt==0.6.2",
-    "timestream==0.1a1",
+    "docopt",
+    "timestream",
 ]
 
 test_requires = [
@@ -22,7 +22,7 @@ setup(
     scripts=[
         'timestreamCLI/resizeTimestream.py',
     ],
-    version="0.0a1",
+    version="0.0a2",
     install_requires=install_requires,
     tests_require=test_requires,
     description=desc,

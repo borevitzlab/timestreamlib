@@ -54,8 +54,9 @@ def process_image((img, out_ts, size)):
                 h, w, d = imgmat.shape
                 scale = w_final / float(w)
                 h_final = int(h * scale)
-            res = cv2.resize(imgmat, (w_final, h_final))
-            cv2.imwrite(dest, res)
+            res = cv2.resize(imgmat, (w_final, h_final),
+                             interpolation=cv2.INTER_LANCZOS4)
+            cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 100))
         except cv2.error:
             sys.stderr.write(
                 "\n[resize_image] ERROR: something weird in {}\n".format(img))
@@ -74,11 +75,9 @@ def main(opts):
     args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
     count = 0
     for _ in pool.imap(process_image, args):
-        if count % 10 == 0:
-            print("Resized {: 5d} images!".format(count), end="\r")
-            sys.stdout.flush()
+        print("Resized {: 5d} images!".format(count), end="\r")
         count += 1
-    print("Resized {: 5d} images!\n Done!".format(count))
+    print("Resized {: 5d} images! Done!".format(count))
     pool.close()
     pool.join()
 
