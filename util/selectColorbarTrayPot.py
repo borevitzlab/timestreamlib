@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import os
 import cv2
 import numpy as np
+import timestream
 import timestream.manipulate.correct_detect as cd
 import yaml
 
@@ -30,7 +31,32 @@ class Window(QtGui.QDialog):
         self.toolbar = NavigationToolbar(self.canvas, self)
         self.toolbar.hide()
 
-        # Just some button
+        # Timestream info
+        self.timestreamLabel = QtGui.QLabel('Time-stream root path:')
+        self.timestreamText = QtGui.QLineEdit('')
+        self.timestreamText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+
+        self.timestreamDateLabel = QtGui.QLabel('Start date (yyyy_mm_dd_hh_mm_ss):')
+        self.timestreamDateText = QtGui.QLineEdit('')
+        self.timestreamDateText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+
+        self.timestreamTimeLabel = QtGui.QLabel('Time interval (seconds):')
+        self.timestreamTimeText = QtGui.QLineEdit('24*60*60')
+        self.timestreamTimeText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+
+        self.initStreamButton = QtGui.QPushButton('&Initialise time-stream')
+        self.initStreamButton.clicked.connect(self.initialiseTimestream)
+
+        # Image loading and processing
+        self.loadImageButton = QtGui.QPushButton('&Load (next) image')
+        self.loadImageButton.clicked.connect(self.loadImage)
+
+        self.rotateImageButton = QtGui.QPushButton('&Rotate 90-deg')
+        self.rotateImageButton.clicked.connect(self.rotateImage90Degrees)
+
+        self.loadCamCalibButton = QtGui.QPushButton('Load &cam. param.')
+        self.loadCamCalibButton.clicked.connect(self.loadCamCalib)
+
         self.colorcardRadioButton = QtGui.QRadioButton('Select color car&d')
         self.colorcardRadioButton.setChecked(False)
         self.colorcardRadioButton.clicked.connect(self.selectWhat)
@@ -43,18 +69,6 @@ class Window(QtGui.QDialog):
         self.potRadioButton.setChecked(False)
         self.potRadioButton.clicked.connect(self.selectWhat)
 
-        self.loadImageButton = QtGui.QPushButton('&Load image')
-        self.loadImageButton.clicked.connect(self.loadImage)
-
-        self.rotateImageButton = QtGui.QPushButton('&Rotate 90-deg')
-        self.rotateImageButton.clicked.connect(self.rotateImage90Degrees)
-
-        self.loadCamCalibButton = QtGui.QPushButton('Load &cam. param.')
-        self.loadCamCalibButton.clicked.connect(self.loadCamCalib)
-
-        self.save2PipelineButton = QtGui.QPushButton('&Save as pipeline settings')
-        self.save2PipelineButton.clicked.connect(self.savePipelineSettings)
-
         self.zoomButton = QtGui.QPushButton('&Zoom')
         self.zoomButton.setCheckable(True)
         self.zoomButton.clicked.connect(self.zoom)
@@ -66,6 +80,12 @@ class Window(QtGui.QDialog):
         self.homeButton = QtGui.QPushButton('&Home')
         self.homeButton.clicked.connect(self.home)
 
+        self.correctColorButton = QtGui.QPushButton('&Correct color')
+        self.correctColorButton.clicked.connect(self.correctColor)
+
+        self.save2PipelineButton = QtGui.QPushButton('&Save as pipeline settings')
+        self.save2PipelineButton.clicked.connect(self.savePipelineSettings)
+
         self.status = QtGui.QTextEdit('')
         self.status.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Expanding)
         self.mousePosition = QtGui.QLabel('')
@@ -74,6 +94,13 @@ class Window(QtGui.QDialog):
         layout = QtGui.QHBoxLayout()
         rightWidget = QtGui.QWidget()
         buttonlayout = QtGui.QVBoxLayout(rightWidget)
+        buttonlayout.addWidget(self.timestreamLabel)
+        buttonlayout.addWidget(self.timestreamText)
+        buttonlayout.addWidget(self.timestreamDateLabel)
+        buttonlayout.addWidget(self.timestreamDateText)
+        buttonlayout.addWidget(self.timestreamTimeLabel)
+        buttonlayout.addWidget(self.timestreamTimeText)
+        buttonlayout.addWidget(self.initStreamButton)
         buttonlayout.addWidget(self.loadImageButton)
         buttonlayout.addWidget(self.rotateImageButton)
         buttonlayout.addWidget(self.loadCamCalibButton)
@@ -83,10 +110,11 @@ class Window(QtGui.QDialog):
         buttonlayout.addWidget(self.zoomButton)
         buttonlayout.addWidget(self.panButton)
         buttonlayout.addWidget(self.homeButton)
+        buttonlayout.addWidget(self.correctColorButton)
         buttonlayout.addWidget(self.save2PipelineButton)
         buttonlayout.addWidget(self.status)
         buttonlayout.addWidget(self.mousePosition)
-        rightWidget.setMaximumWidth(200)
+        rightWidget.setMaximumWidth(250)
         leftLayout = QtGui.QVBoxLayout()
         leftLayout.addWidget(self.toolbar)
         leftLayout.addWidget(self.canvas)
@@ -103,6 +131,8 @@ class Window(QtGui.QDialog):
         self.panMode = False
         self.zoomMode = False
 
+        self.ts = None
+        self.tsImages = None
         self.ax = None
         self.plotRect = None
         self.plotImg = None
@@ -114,19 +144,16 @@ class Window(QtGui.QDialog):
         self.colorcardAspectRatio = 1.5
         self.potAspectRatio = 1.0
         self.leftClicks = []
-
-        self.ImageSize = None
-        self.CameraMatrix = None
-        self.DistCoefs = None
-
-#        # change cursor shape
-#        self.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor ))
+        self.colorcardParams = None
 
         # Ouput parameters
+        self.ImageSize = None
         self.colorcardList = []
         self.trayList = []
         self.potList = []
         self.rotationAngle = 0
+        self.CameraMatrix = None
+        self.DistCoefs = None
         self.isDistortionCorrected = False
 
     def selectWhat(self):
@@ -156,22 +183,62 @@ class Window(QtGui.QDialog):
         else:
             self.panMode = False
 
+    def initialiseTimestream(self):
+        tsRootPath = str(self.timestreamText.text())
+        if len(tsRootPath) > 0:
+            self.status.append('Initialise a timestream at ' + str(tsRootPath))
+            self.ts = timestream.TimeStream()
+            self.ts.load(tsRootPath)
+            self.status.append('Done')
+            startDate = None
+            timeInterval = None
+            date = str(self.timestreamDateText.text())
+            if len(date) > 0:
+                startDate = timestream.parse.ts_parse_date(date)
+            time = str(self.timestreamTimeText.text())
+            if len(time) > 0:
+                timeInterval = int(eval(time))
+            self.tsImages = self.ts.iter_by_timepoints(start = startDate, interval = timeInterval, remove_gaps=False)
+        else:
+            self.status.append('Please provide timestream root path.')
+
     def loadImage(self):
         ''' load and show an image'''
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Open image', '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/2014/2014_06/2014_06_24/2014_06_24_08/')
-        if len(fname) == 0:
-            return
-        self.status.append('Loading image...')
-        app.processEvents()
-        self.image = cv2.imread(str(fname))[:,:,::-1]
+        if self.tsImages != None:
+            try:
+                tsImage = self.tsImages.next()
+                if tsImage == None:
+                    self.status.append('Missing image.')
+            except:
+                tsImage = None
+                self.status.append('There is no more images.')
+
+            if tsImage == None:
+                if self.plotImg == None:
+                    self.plotImg = self.ax.imshow(np.zeros((10,10),dtype = np.uint8))
+                else:
+                    self.plotImg.set_data(np.zeros((10,10),dtype = np.uint8))
+                self.figure.tight_layout()
+                self.canvas.draw()
+                return
+            self.image = tsImage.pixels
+            fname = tsImage.path
+        else:
+            fname = QtGui.QFileDialog.getOpenFileName(self, 'Open image', '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/2014/2014_06/2014_06_24/2014_06_24_08/')
+            app.processEvents()
+            if len(fname) == 0:
+                return
+            self.image = cv2.imread(str(fname))[:,:,::-1]
         self.status.append('Loaded image from ' + str(fname))
 
         # reset all outputs
         self.colorcardList = []
         self.trayList = []
         self.potList = []
-        self.rotationAngle = 0
         self.isDistortionCorrected = False
+
+        if self.rotationAngle != None:
+            self.image = cd.rotateImage(self.image, self.rotationAngle)
 
         # Undistort image if mapping available
         if not self.isDistortionCorrected and self.UndistMapX != None and self.UndistMapY != None:
@@ -258,6 +325,28 @@ class Window(QtGui.QDialog):
 #        app.processEvents()
 #        self.potTemplate = cv2.imread(str(fname))[:,:,::-1]
 #        if len(self.potList) > 0:
+
+    def correctColor(self):
+        if self.colorcardParams == None:
+            if len(self.colorcardList) > 0:
+                medianSize = cd.getMedianRectSize(self.colorcardList)
+                capturedColorcards = cd.rectifyRectImages(self.image, self.colorcardList, medianSize)
+                self.colorcardColors, _ = cd.getColorcardColors(capturedColorcards[0], GridSize = [6, 4])
+                self.colorcardParams = cd.estimateColorParameters(cd.CameraTrax_24ColorCard, self.colorcardColors)
+            else:
+                self.status.append('Need to select a color card first.')
+                return
+
+        colorMatrix, colorConstant, colorGamma = self.colorcardParams
+        self.imageCorrected = cd.correctColorVectorised(self.image.astype(np.float), colorMatrix, colorConstant, colorGamma)
+        self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
+        self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
+        self.imageCorrected = self.imageCorrected.astype(np.uint8)
+        if self.plotImg == None:
+            self.plotImg = self.ax.imshow(self.imageCorrected)
+        else:
+            self.plotImg.set_data(self.imageCorrected)
+        self.canvas.draw()
 
     def savePipelineSettings(self):
         ''' save to pipeline setting file'''
