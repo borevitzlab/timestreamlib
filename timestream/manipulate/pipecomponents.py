@@ -170,7 +170,7 @@ class ColorCardDetector ( PipeComponent ):
         ccf = os.path.join(self.settingPath, self.colorcardFile)
         self.colorcardImage = cv2.imread(ccf)[:,:,::-1]
         if self.colorcardImage == None:
-            raise ValueError ( "Failed to read %s" % cff )
+            raise ValueError ( "Failed to read %s" % ccf )
         self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
     def __call__(self, context, *args):

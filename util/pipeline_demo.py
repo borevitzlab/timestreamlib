@@ -13,9 +13,12 @@ import timestream.manipulate.pipeline as pipeline
 import yaml
 
 if len(sys.argv) != 4:
-    settingFile    = "/home/joel/.Trash/pipeline.yml"
-    inputRootPath  = '/home/joel/.Trash/BVZ0036-GC02L-C01~fullres-orig'
-    outputRootPath = '/home/joel/.Trash/processed'
+#    settingFile    = "/home/joel/.Trash/pipeline.yml"
+#    inputRootPath  = '/home/joel/.Trash/BVZ0036-GC02L-C01~fullres-orig'
+#    outputRootPath = '/home/joel/.Trash/processed'
+    settingFile    = "/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-settings/pipeline2.yml"
+    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
+    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
 else:
     settingFile = sys.argv[1]
     inputRootPath = sys.argv[2]
@@ -61,5 +64,6 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
         print("Process", img.path, '...'),
         # set visualise to False to run in batch mode
         context = {"rts":ts, "wts":ts_out, "img":img}
-        result = pl.process(context, [img])
+#        result = pl.process(context, [img])
+        result = pl.process(context, [img], True)
         print("Done")

@@ -2,7 +2,7 @@
 """
 Created on Mon Jun 16 15:45:22 2014
 
-@author: chuong
+@author: Chuong Nguyen, chuong.v.nguyen@gmail.com
 """
 from __future__ import absolute_import, division, print_function
 
@@ -38,12 +38,12 @@ def getRectCornersFrom2Points(Image, Points, AspectRatio, Rounded = False):
     InitRect = createRectangle(Centre, Width, Height, Angle)
     CornerTypes = ['topleft', 'bottomleft', 'bottomright', 'topright']
     Rect = []
-    for Corner, Type in zip(InitRect, CornerTypes):
-        if not Rounded:
+    if not Rounded:
+        for Corner, Type in zip(InitRect, CornerTypes):
             Corner = findCorner(Image, Corner, Type)
-        else:
-            Corner = findRoundedCorner(Image, Corner, Type)
-        Rect.append(Corner)
+            Rect.append(Corner)
+    else:
+        Rect = findRoundedCorner(Image, InitRect)
     return Rect
 
 def createRectangle(Centre, Width, Height, Angle):
@@ -114,9 +114,37 @@ def findCorner(Image, Corner, CornerType = 'topleft', WindowSize = 100, Threshol
         print('Cannot detect corner ' + CornerType)
         return [x, y]
 
-def findRoundedCorner(Image, Corner, CornerType = 'topleft', WindowSize = 100, Threshold = 50):
+def findRoundedCorner(Image, InitRect, searchDistance = 20, Threshold = 20):
     #TODO: add search for rounded corner with better accuracy
-    return Corner
+    [topLeft, _, bottomRight, _] = InitRect
+    initPot = np.double(Image[topLeft[1]:bottomRight[1], topLeft[0]:bottomRight[0],:])
+    foundLeftEdgeX = False
+    foundRightEdgeX = False
+    foundTopEdgeY = False
+    foundBottomEdgeY = False
+    for i in range(searchDistance):
+        diff0 = np.mean(np.abs(initPot[:,0,:]  - initPot[:,i,:]))
+        diff1 = np.mean(np.abs(initPot[:,-1,:] - initPot[:,-i-1,:]))
+        diff2 = np.mean(np.abs(initPot[0,:,:]  - initPot[i,:,:]))
+        diff3 = np.mean(np.abs(initPot[-1,:,:] - initPot[-i-1,:,:]))
+        print([diff0, diff1, diff2, diff3])
+        if diff0 > Threshold and not foundLeftEdgeX:
+            xLeftNew = topLeft[0]+i
+            foundLeftEdgeX = True
+        elif diff1 > Threshold and not foundRightEdgeX:
+            xRightNew = bottomRight[0]-i
+            foundRightEdgeX = True
+        if diff2 > Threshold and not foundTopEdgeY:
+            yTopNew = topLeft[1]+i
+            foundTopEdgeY = True
+        elif diff3 > Threshold and not foundBottomEdgeY:
+            yBottomNew = bottomRight[1]-i
+            foundBottomEdgeY = True
+    if foundLeftEdgeX and foundRightEdgeX and foundTopEdgeY and foundBottomEdgeY:
+        print('Found pot edges')
+        Rect = [[xLeftNew, yTopNew], [xLeftNew, yBottomNew], [xRightNew, yBottomNew], [xRightNew, yTopNew]]
+        return Rect
+    return InitRect
 
 def correctPointOrder(Rect, tolerance = 40):
     # find minimum values of x and y
