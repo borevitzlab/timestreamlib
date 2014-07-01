@@ -202,7 +202,7 @@ class Window(QtGui.QDialog):
             tl, bl, br, tr = Rect
             xs = xs + [tl[0], bl[0], br[0], tr[0], tl[0], np.nan]
             ys = ys + [tl[1], bl[1], br[1], tr[1], tl[1], np.nan]
-        for Rect in self.trayList:chuong.nguyen@anu.edu.au
+        for Rect in self.trayList:
             tl, bl, br, tr = Rect
             xs = xs + [tl[0], bl[0], br[0], tr[0], tl[0], np.nan]
             ys = ys + [tl[1], bl[1], br[1], tr[1], tl[1], np.nan]
