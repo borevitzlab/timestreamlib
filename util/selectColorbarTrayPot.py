@@ -360,7 +360,7 @@ class Window(QtGui.QDialog):
             return
         self.settingPath = os.path.relpath(os.path.dirname(self.settingFileName), self.timestreamRootPath)
 
-        settings = []
+        self.settings = []
         if self.ImageSize != None and self.CameraMatrix != None and self.DistCoefs != None:
             undistort = ['undistort', \
                          {'mess': '---perform optical undistortion---', \
@@ -372,7 +372,7 @@ class Window(QtGui.QDialog):
                         ]
         else:
             undistort = ['undistort', {'mess': '---skip optical undistortion---'}]
-        settings.append(undistort)
+        self.settings.append(undistort)
 
         if len(self.colorcardList) > 0:
             medianSize = cd.getMedianRectSize(self.colorcardList)
@@ -392,10 +392,10 @@ class Window(QtGui.QDialog):
         else:
             colorcarddetect = ['colorcarddetect', {'mess': '---skip color card detection---',
                                                    'settingPath': self.settingPath}]
-        settings.append(colorcarddetect)
+        self.settings.append(colorcarddetect)
 
         colorcorrect = ['colorcorrect', {'mess': '---perform color correction---'}]
-        settings.append(colorcorrect)
+        self.settings.append(colorcorrect)
 
         if len(self.trayList) > 0:
             trayMedianSize = cd.getMedianRectSize(self.trayList)
@@ -413,7 +413,7 @@ class Window(QtGui.QDialog):
             traydetect = ['traydetect', trayDict]
         else:
             traydetect = ['traydetect', {'mess': '---skip tray detection---'}]
-        settings.append(traydetect)
+        self.settings.append(traydetect)
 
         if len(self.potList) > 0:
             trayMedianSize = cd.getMedianRectSize(self.trayList)
@@ -440,18 +440,18 @@ class Window(QtGui.QDialog):
             potdetect = ['potdetect', potDict]
         else:
             potdetect = ['potdetect', {'mess': '---skip pot detection---'}]
-        settings.append(potdetect)
+        self.settings.append(potdetect)
 
         plantextract = ['plantextract', {'mess': '---perfrom plant biometrics extraction---',
                                          'meth': 'k-means-square',
                                          'methargs': {}}]
-        settings.append(plantextract)
+        self.settings.append(plantextract)
 
         imagewrite = ['imagewrite', {'mess': '---writing image---'}]
-        settings.append(imagewrite)
+        self.settings.append(imagewrite)
 
         with open(self.settingFileName, 'w') as outfile:
-            outfile.write( yaml.dump(settings, default_flow_style=None) )
+            outfile.write( yaml.dump(self.settings, default_flow_style=None) )
 
     def testPipeline(self):
         ''' try running processing pipeline based on user inputs'''
@@ -466,9 +466,9 @@ class Window(QtGui.QDialog):
             # initialise pipeline
             if self.pl == None:
                 f = file(self.settingFileName)
-                settings = yaml.load(f)
-                self.ts.data["settings"] = settings
-                self.pl = pipeline.ImagePipeline(settings)
+                self.settings = yaml.load(f)
+                self.ts.data["settings"] = self.settings
+                self.pl = pipeline.ImagePipeline(self.settings)
                 # process only from undistortion to pot detection
                 self.pl.pipeline = self.pl.pipeline[:5]
 
@@ -482,13 +482,15 @@ class Window(QtGui.QDialog):
                 tsImage = None
                 self.status.append('There is no more images.')
                 return
-
+            self.status.append('Processing ' + tsImage.path)
             context = {"rts":self.ts, "wts":None, "img":tsImage}
             result = self.pl.process(context, [tsImage])
             self.image, potPosList2 = result
-            potSize = settings[4][1]["potSize"]
+            potSize = self.settings[4][1]["potSize"]
             self.potList = []
             for potPosList in potPosList2:
+                if potPosList == None:
+                    continue
                 for potPos in potPosList:
                     tl = [potPos[0] - potSize[0]//2, potPos[1] - potSize[1]//2]
                     bl = [potPos[0] - potSize[0]//2, potPos[1] + potSize[1]//2]
@@ -496,6 +498,7 @@ class Window(QtGui.QDialog):
                     tr = [potPos[0] + potSize[0]//2, potPos[1] - potSize[1]//2]
                     self.potList.append([tl, bl, br, tr])
             self.updateFigure()
+            self.status.append('Done')
         else:
             self.status.append('Pipeline or setting file is missing.')
 
