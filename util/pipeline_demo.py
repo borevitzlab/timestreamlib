@@ -16,9 +16,10 @@ if len(sys.argv) != 4:
 #    settingFile    = "/home/joel/.Trash/pipeline.yml"
 #    inputRootPath  = '/home/joel/.Trash/BVZ0036-GC02L-C01~fullres-orig'
 #    outputRootPath = '/home/joel/.Trash/processed'
-    settingFile    = "/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-settings/pipeline2.yml"
-    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
-    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/BorevitzTest/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
+    # TODO: path to settingFile will be in inputRootPath/_data by default
+    settingFile    = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-settings/pipeline2.yml"
+    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
+    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
 else:
     settingFile = sys.argv[1]
     inputRootPath = sys.argv[2]
@@ -34,6 +35,7 @@ timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
 
 ts.load(inputRootPath)
+print('timestream path = ', ts.path)
 ts.data["settings"] = settings
 ts.data["settingPath"] = os.path.dirname(settingFile)
 
@@ -49,6 +51,7 @@ for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
 
 # initialise processing pipeline
+# TODO: context could be part of initialising input here
 pl = pipeline.ImagePipeline(ts.data["settings"])
 
 print("Iterating by date")
