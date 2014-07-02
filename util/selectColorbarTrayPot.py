@@ -19,6 +19,7 @@ import numpy as np
 import timestream
 import timestream.manipulate.correct_detect as cd
 import yaml
+from timestream.manipulate import pipeline
 
 class Window(QtGui.QDialog):
     def __init__(self, parent=None):
@@ -80,11 +81,14 @@ class Window(QtGui.QDialog):
         self.homeButton = QtGui.QPushButton('&Home')
         self.homeButton.clicked.connect(self.home)
 
-        self.correctColorButton = QtGui.QPushButton('&Correct color')
+        self.correctColorButton = QtGui.QPushButton('Correct colo&r')
         self.correctColorButton.clicked.connect(self.correctColor)
 
         self.save2PipelineButton = QtGui.QPushButton('&Save as pipeline settings')
         self.save2PipelineButton.clicked.connect(self.savePipelineSettings)
+
+        self.testPipelineButton = QtGui.QPushButton('Test &pipeline processing')
+        self.testPipelineButton.clicked.connect(self.testPipeline)
 
         self.status = QtGui.QTextEdit('')
         self.status.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Expanding)
@@ -112,6 +116,7 @@ class Window(QtGui.QDialog):
         buttonlayout.addWidget(self.homeButton)
         buttonlayout.addWidget(self.correctColorButton)
         buttonlayout.addWidget(self.save2PipelineButton)
+        buttonlayout.addWidget(self.testPipelineButton)
         buttonlayout.addWidget(self.status)
         buttonlayout.addWidget(self.mousePosition)
         rightWidget.setMaximumWidth(250)
@@ -149,6 +154,7 @@ class Window(QtGui.QDialog):
         self.colorcardParams = None
         self.scriptPath = os.path.dirname(os.path.realpath(__file__))
         self.timestreamRootPath = None
+        self.pl = None
 
         # Ouput parameters
         self.ImageSize = None
@@ -159,6 +165,7 @@ class Window(QtGui.QDialog):
         self.CameraMatrix = None
         self.DistCoefs = None
         self.isDistortionCorrected = False
+        self.settingFileName = None
 
     def selectWhat(self):
         if self.trayRadioButton.isChecked():
@@ -219,12 +226,8 @@ class Window(QtGui.QDialog):
                 self.status.append('There is no more images.')
 
             if tsImage == None:
-                if self.plotImg == None:
-                    self.plotImg = self.ax.imshow(np.zeros((10,10),dtype = np.uint8))
-                else:
-                    self.plotImg.set_data(np.zeros((10,10),dtype = np.uint8))
-                self.figure.tight_layout()
-                self.canvas.draw()
+                self.image = None
+                self.updateFigure()
                 return
             self.image = tsImage.pixels
             fname = tsImage.path
@@ -250,7 +253,16 @@ class Window(QtGui.QDialog):
             self.image = cv2.remap(self.image.astype(np.uint8), self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
             self.isDistortionCorrected = True
 
+        self.updateFigure()
+
+    def changeCursor(self, event):
+#        cursor = Cursor(self.ax, useblit=True, color='red', linewidth=1)
+        self.canvas.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor ))
+
+    def updateFigure(self, image = None):
         if self.image != None:
+            if image == None:
+                image = self.image
             if self.ax == None:
                 self.ax = self.figure.add_subplot(111)
                 self.ax.figure.canvas.mpl_connect('button_press_event', self.onMouseClicked)
@@ -258,17 +270,11 @@ class Window(QtGui.QDialog):
                 self.ax.figure.canvas.mpl_connect('figure_enter_event', self.changeCursor)
             self.ax.hold(False)
             if self.plotImg == None:
-                self.plotImg = self.ax.imshow(self.image)
+                self.plotImg = self.ax.imshow(image)
             else:
-                self.plotImg.set_data(self.image)
+                self.plotImg.set_data(image)
             self.figure.tight_layout()
-            self.canvas.draw()
 
-    def changeCursor(self, event):
-#        cursor = Cursor(self.ax, useblit=True, color='red', linewidth=1)
-        self.canvas.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor ))
-
-    def updateFigure(self):
         xs, ys = [], []
         for Rect in self.colorcardList:
             tl, bl, br, tr = Rect
@@ -318,11 +324,7 @@ class Window(QtGui.QDialog):
             self.image = cv2.remap(self.image.astype(np.uint8), self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
             self.isDistortionCorrected = True
             self.status.append('Corrected image distortion.')
-            if self.plotImg == None:
-                self.plotImg = self.ax.imshow(self.image)
-            else:
-                self.plotImg.set_data(self.image)
-            self.canvas.draw()
+            self.updateFigure()
 
 #    def loadPotTemplate(self):
 #        ''' load pot template image'''
@@ -348,18 +350,15 @@ class Window(QtGui.QDialog):
         self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
         self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
         self.imageCorrected = self.imageCorrected.astype(np.uint8)
-        if self.plotImg == None:
-            self.plotImg = self.ax.imshow(self.imageCorrected)
-        else:
-            self.plotImg.set_data(self.imageCorrected)
-        self.canvas.draw()
+        self.updateFigure(self.imageCorrected)
 
     def savePipelineSettings(self):
         ''' save to pipeline setting file'''
-        fname = QtGui.QFileDialog.getSaveFileName(self, 'Save selection (default in ./_data)', self.timestreamRootPath)
-        if len(str(fname)) == 0:
+        self.settingFileName = str(QtGui.QFileDialog.getSaveFileName(self, \
+            'Save selection (default in ./_data)', self.timestreamRootPath))
+        if len(self.settingFileName) == 0:
             return
-        self.settingPath = os.path.relpath(os.path.dirname(str(fname)), self.timestreamRootPath)
+        self.settingPath = os.path.relpath(os.path.dirname(self.settingFileName), self.timestreamRootPath)
 
         settings = []
         if self.ImageSize != None and self.CameraMatrix != None and self.DistCoefs != None:
@@ -451,9 +450,54 @@ class Window(QtGui.QDialog):
         imagewrite = ['imagewrite', {'mess': '---writing image---'}]
         settings.append(imagewrite)
 
-        with open(fname, 'w') as outfile:
+        with open(self.settingFileName, 'w') as outfile:
             outfile.write( yaml.dump(settings, default_flow_style=None) )
 
+    def testPipeline(self):
+        ''' try running processing pipeline based on user inputs'''
+        if self.tsImages != None:
+            # load setting file if missing
+            if self.settingFileName == None:
+                settingFileName = str(QtGui.QFileDialog.getOpenFileName(self, 'Open pipeline setting file', self.ts.path))
+                if len(settingFileName) > 0:
+                    self.settingFileName = settingFileName
+                else:
+                    return
+            # initialise pipeline
+            if self.pl == None:
+                f = file(self.settingFileName)
+                settings = yaml.load(f)
+                self.ts.data["settings"] = settings
+                self.pl = pipeline.ImagePipeline(settings)
+                # process only from undistortion to pot detection
+                self.pl.pipeline = self.pl.pipeline[:5]
+
+            # read next image instant of pipeline
+            try:
+                tsImage = self.tsImages.next()
+                if tsImage == None:
+                    self.status.append('Missing image.')
+                    return
+            except:
+                tsImage = None
+                self.status.append('There is no more images.')
+                return
+
+            context = {"rts":self.ts, "wts":None, "img":tsImage}
+            result = self.pl.process(context, [tsImage])
+            self.image, potPosList2 = result
+            potSize = settings[4][1]["potSize"]
+            self.potList = []
+            for potPosList in potPosList2:
+                for potPos in potPosList:
+                    tl = [potPos[0] - potSize[0]//2, potPos[1] - potSize[1]//2]
+                    bl = [potPos[0] - potSize[0]//2, potPos[1] + potSize[1]//2]
+                    br = [potPos[0] + potSize[0]//2, potPos[1] + potSize[1]//2]
+                    tr = [potPos[0] + potSize[0]//2, potPos[1] - potSize[1]//2]
+                    self.potList.append([tl, bl, br, tr])
+            self.updateFigure()
+        else:
+            self.status.append('Pipeline or setting file is missing.')
 
     def rotateImage90Degrees(self):
         if self.image == None:
@@ -464,11 +508,7 @@ class Window(QtGui.QDialog):
             self.rotationAngle = self.rotationAngle - 360
         self.image = np.rot90(self.image) #.astype(uint8)
         self.status.append('Rot. angle = %d deg' %self.rotationAngle)
-        if self.plotImg == None:
-            self.plotImg = self.ax.imshow(self.image)
-        else:
-            self.plotImg.set_data(self.image)
-        self.canvas.draw()
+        self.updateFigure()
 
     def onMouseClicked(self, event):
         if self.panMode or self.zoomMode:
