@@ -271,7 +271,9 @@ class TrayDetector ( PipeComponent ):
         self.imagePyramid = cd.createImagePyramid(temp)
         self.trayPyramids = []
         for i in range(self.trayNumber):
-            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
+#            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
+            # fixed tray image so that perspective postions of the trays are fixed
+            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % 2)
             trayImage = cv2.imread(trayFile)[:,:,::-1]
             if trayImage == None:
                 print("Fail to read", trayFile)
@@ -341,20 +343,47 @@ class PotDetector ( PipeComponent ):
 
         self.potLocs2 = []
         self.potLocs2_ = []
+        potGridSize = [4,5]
         for trayLoc in self.trayLocs:
+            if trayLoc == None:
+                self.potLocs2.append(None)
+                continue
             StartX = trayLoc[0] - self.traySize[0]//2 + StepX//2
             StartY = trayLoc[1] + self.traySize[1]//2 - StepY//2
             SearchRange = [self.potPyramid[0].shape[1]//4, self.potPyramid[0].shape[0]//4]
 #            SearchRange = [32, 32]
-            potLocs = []
-            potLocs_ = []
-            for k in range(4):
-                for l in range(5):
+            locX = np.zeros(potGridSize)
+            locY = np.zeros(potGridSize)
+            for k in range(potGridSize[0]):
+                for l in range(potGridSize[1]):
                     estimateLoc = [StartX + StepX*k, StartY - StepY*l]
                     score, loc,angle = cd.matchTemplatePyramid(self.imagePyramid, \
                         self.potPyramid, RotationAngle = 0, \
                         EstimatedLocation = estimateLoc, NoLevels = 3, SearchRange = SearchRange)
-                    potLocs.append(loc)
+                    locX[k,l], locY[k,l] = loc
+
+            # correct for detection error
+            potLocs = []
+            potLocs_ = []
+            diffXX = locX[1:,:] - locX[:-1,:]
+            diffXY = locX[:,1:] - locX[:,:-1]
+            diffYX = locY[1:,:] - locY[:-1,:]
+            diffYY = locY[:,1:] - locY[:,:-1]
+            diffXXMedian = np.median(diffXX)
+            diffXYMedian = np.median(diffXY)
+            diffYXMedian = np.median(diffYX)
+            diffYYMedian = np.median(diffYY)
+            for k in range(potGridSize[0]):
+                for l in range(potGridSize[1]):
+                    locX[k,l] = trayLoc[0] + diffXXMedian*(k-(potGridSize[0]-1.0)/2.0) + \
+                        diffXYMedian*(l-(potGridSize[1]-1.0)/2.0)
+                    locY[k,l] = trayLoc[1] + diffYXMedian*(k-(potGridSize[0]-1.0)/2.0) + \
+                        diffYYMedian*(l-(potGridSize[1]-1.0)/2.0)
+                    # this fixes perpective shift
+                    # TODO: need a more elegant solution
+                    locY[k,l] = locY[k,l] + 10
+
+                    potLocs.append([locX[k,l], locY[k,l]])
                     potLocs_.append(estimateLoc)
             self.potLocs2.append(potLocs)
             self.potLocs2_.append(potLocs_)
