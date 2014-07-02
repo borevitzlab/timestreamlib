@@ -167,16 +167,19 @@ class ColorCardDetector ( PipeComponent ):
 
     def __init__(self, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
-        ccf = os.path.join(self.settingPath, self.colorcardFile)
-        self.colorcardImage = cv2.imread(ccf)[:,:,::-1]
-        if self.colorcardImage == None:
-            raise ValueError ( "Failed to read %s" % ccf )
-        self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
     def __call__(self, context, *args):
         print(self.mess)
         self.image = args[0]
         self.imagePyramid = cd.createImagePyramid(self.image)
+
+        # TODO: move this into __init__ if context is provided
+        #       when initialising the pipeline
+        ccf = os.path.join(context["rts"].path, self.settingPath, self.colorcardFile)
+        self.colorcardImage = cv2.imread(ccf)[:,:,::-1]
+        if self.colorcardImage == None:
+            raise ValueError ( "Failed to read %s" % ccf )
+        self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
         # create image pyramid for multiscale matching
         SearchRange = [self.colorcardPyramid[0].shape[1], self.colorcardPyramid[0].shape[0]]
@@ -268,7 +271,7 @@ class TrayDetector ( PipeComponent ):
         self.imagePyramid = cd.createImagePyramid(temp)
         self.trayPyramids = []
         for i in range(self.trayNumber):
-            trayFile = os.path.join(self.settingPath, self.trayFiles % i)
+            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
             trayImage = cv2.imread(trayFile)[:,:,::-1]
             if trayImage == None:
                 print("Fail to read", trayFile)
@@ -323,9 +326,9 @@ class PotDetector ( PipeComponent ):
         print(self.mess)
         self.image, self.imagePyramid, self.trayLocs = args
         # read pot template image and scale to the pot size
-        potFile = os.path.join(self.settingPath, self.potFile)
+        potFile = os.path.join(context["rts"].path, self.settingPath, self.potFile)
         potImage = cv2.imread(potFile)[:,:,::-1]
-        potTemplateFile = os.path.join(self.settingPath, self.potTemplateFile)
+        potTemplateFile = os.path.join(context["rts"].path, self.settingPath, self.potTemplateFile)
         potTemplateImage = cv2.imread(potTemplateFile)[:,:,::-1]
         potTemplateImage[:,:,1] = 0 # suppress green channel
         potTemplateImage = cv2.resize(potTemplateImage.astype(np.uint8), (potImage.shape[1], potImage.shape[0]))
