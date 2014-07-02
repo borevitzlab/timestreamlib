@@ -13,20 +13,18 @@ import timestream.manipulate.pipeline as pipeline
 import yaml
 
 if len(sys.argv) != 4:
-#    settingFile    = "/home/joel/.Trash/pipeline.yml"
 #    inputRootPath  = '/home/joel/.Trash/BVZ0036-GC02L-C01~fullres-orig'
 #    outputRootPath = '/home/joel/.Trash/processed'
     # TODO: path to settingFile will be in inputRootPath/_data by default
-    settingFile    = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-settings/pipeline2.yml"
     inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
     outputRootPath = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
 else:
-    settingFile = sys.argv[1]
     inputRootPath = sys.argv[2]
     outputRootPath = sys.argv[3]
 
 # read global settings for processing
-f = file(settingFile)
+settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+f = file(os.path.join(inputRootPath, '_data', 'pipeline.yml'))
 settings = yaml.load(f)
 f.close()
 
