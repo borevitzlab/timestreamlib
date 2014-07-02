@@ -66,6 +66,10 @@ class TestTimeStreamLoad(TestCase):
                 helpers.FILES["timestream_manifold"])
         self._check_ts_instance_ts_manifold_v1(
                 helpers.FILES["timestream_nomanifold"])
+        self._check_ts_instance_ts_manifold_v1(
+                helpers.FILES["timestream_gaps"])
+        self._check_ts_instance_ts_manifold_v1(
+                helpers.FILES["timestream_datafldr"])
 
     def test_timestream_load_bad(self):
         """Test TimeStream initialisation with bad/non timestream"""

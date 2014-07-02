@@ -42,6 +42,8 @@ FILES = {
                                 "badts"),
     "timestream_gaps": path.join(TESTS_DIR, "data", "timestreams",
                                 "withgaps"),
+    "timestream_datafldr": path.join(TESTS_DIR, "data", "timestreams",
+                                "with-data-folder"),
     "not_a_timestream": path.join(TESTS_DIR, "data", "timestreams",
                                   "not"),
 }

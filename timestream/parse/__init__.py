@@ -111,11 +111,13 @@ def ts_guess_manifest_v1(ts_path):
     all_files = []
     for root, _, files in os.walk(ts_path):
         for fle in files:
-            all_files.append(path.join(root, fle))
+            if not path.dirname(fle).startswith('_'):
+                all_files.append(path.join(root, fle))
     all_files = sorted(all_files)
     # find most common extension, and assume this is the ext
     exts = collections.Counter(IMAGE_EXT_CONSTANTS)
     our_exts = map(lambda x: path.splitext(x)[1][1:], all_files)
+    our_exts = ifilter(lambda x: x.lower() in IMAGE_EXT_CONSTANTS, our_exts)
     for ext in our_exts:
         try:
             exts[ext] += 1
@@ -123,6 +125,8 @@ def ts_guess_manifest_v1(ts_path):
             pass
     # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["extension"] = exts.most_common(1)[0][0]
+    all_files = ifilter(lambda x: path.splitext(x)[1][1:] == retval["extension"],
+                       all_files)
     # get image type from extension:
     try:
         retval["image_type"] = IMAGE_EXT_TO_TYPE[retval["extension"]]
@@ -135,8 +139,13 @@ def ts_guess_manifest_v1(ts_path):
     # decode times from images:
     times = map(ts_parse_date_path, sorted(images))
     # get first and last dates:
-    retval["start_datetime"] = ts_format_date(times[0])
-    retval["end_datetime"] = ts_format_date(times[-1])
+    try:
+        retval["start_datetime"] = ts_format_date(times[0])
+        retval["end_datetime"] = ts_format_date(times[-1])
+    except IndexError:
+        msg = "{} is an invalid V1 timestream".format(ts_path)
+        LOG.error(msg)
+        raise ValueError(msg)
     # Get time intervals between images
     intervals = list()
     for iii in range(len(times) - 1):
@@ -366,14 +375,14 @@ def _is_ts_v1(ts_path):
     for fldr in dirs:
         worked = False
         try:
-            LOG.debug("Found folder with date {}".format(
-                datetime.strptime(fldr, '%Y')))
+            if not fldr.startswith("_"):
+                  datetime.strptime(fldr, '%Y')
             worked = True
         except ValueError:
             worked = False
         is_ok &= worked
     if is_ok:
-        LOG.debug("'{}' contains year-based folders, assume its v1 TS".format(
+        LOG.debug("'{}' contains only year-based folders, assume v1 TS".format(
                 ts_path))
     else:
         LOG.debug("'{}' contains non-year-based folders, or has extras".format(
