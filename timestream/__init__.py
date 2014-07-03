@@ -49,6 +49,7 @@ from timestream.parse import (
 )
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,
+    TS_MANIFEST_KEYS,
 )
 from timestream.util.imgmeta import (
     get_exif_date,
@@ -253,18 +254,25 @@ class TimeStream(object):
             if image.datetime < self.start_datetime:
                 self.start_datetime = image.datetime
             self.image_data[ts_format_date(image.datetime)] = image.data
-            self.write_data()
+            self.write_metadata()
             # Actually write image
             ts_make_dirs(fpath)
             cv2.imwrite(fpath, image.pixels)
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
 
-    def write_data(self):
-        with open(self.image_db_path, "w") as db_fh:
-            json.dump(self.image_data, db_fh)
-        with open(self.db_path, "w") as db_fh:
-            json.dump(self.data, db_fh)
+    def write_metadata(self):
+        if not self.path:
+            msg = "write_metadata() must be called on instance with valid path"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        if self.version == 1:
+            with open(self.image_db_path, "w") as db_fh:
+                json.dump(self.image_data, db_fh)
+            with open(self.db_path, "w") as db_fh:
+                json.dump(self.data, db_fh)
+        else:
+            raise NotImplementedError("v2 metadata not implemented")
 
     def read_metadata(self):
         """Guesses the metadata fields of a timestream, v1 or v2."""
@@ -283,7 +291,10 @@ class TimeStream(object):
                 LOG.error(msg)
                 raise ValueError(msg)
         if self.version == 1:
-            self._set_metadata(**ts_guess_manifest_v1(self.path))
+            manifest = ts_guess_manifest_v1(self.path)
+            self._set_metadata(**manifest)
+            for key in TS_MANIFEST_KEYS:
+                self.data[key] = manifest[key]
         elif self.version == 2:
             raise NotImplementedError(
                 "No OOP interface to timestream v2 format")
