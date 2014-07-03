@@ -12,12 +12,16 @@ import logging
 import timestream.manipulate.pipeline as pipeline
 import yaml
 
-if len(sys.argv) != 3:
+if len(sys.argv) != 4:
     inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
     outputRootPath = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
+    visualise = True
 else:
     inputRootPath = sys.argv[1]
     outputRootPath = sys.argv[2]
+    visualise = True
+    if sys.argv[3] == "false":
+        visualise = False
 
 # read global settings for processing
 settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
@@ -63,5 +67,5 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
         # set visualise to False to run in batch mode
         context = {"rts":ts, "wts":ts_out, "img":img}
 #        result = pl.process(context, [img])
-        result = pl.process(context, [img], True)
+        result = pl.process(context, [img], visualise)
         print("Done")
