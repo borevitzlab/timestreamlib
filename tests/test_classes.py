@@ -202,7 +202,7 @@ class TestTimeStreamImageClone(TestCase):
         img = TimeStreamImage()
         img.parent_timestream = ts
         img.from_file(helpers.FILES["zeros_jpg"])
-        cpy = img.clone()
+        cpy = img.clone(True, True, True)
         self.assertIsNot(cpy, img)
         self.assertIsNot(cpy.datetime, img.datetime)
         self.assertEqual(cpy.datetime, img.datetime)
@@ -211,10 +211,11 @@ class TestTimeStreamImageClone(TestCase):
         # int constants ARE each other, so not assertIsNot for subsec
         self.assertEqual(cpy.subsec, img.subsec)
         self.assertIsNot(cpy.pixels, img.pixels)
-        self.assertEqual(cpy.pixels, img.pixels)
-        self.assertIsNot(cpy.parent_timestream, img.parent_timestream)
+        np.testing.assert_array_equal(cpy.pixels, img.pixels)
+        # TS should be copied as a refernce, hence *Is*, not Is Not
+        self.assertIs(cpy.parent_timestream, img.parent_timestream)
         self.assertEqual(cpy.parent_timestream, img.parent_timestream)
-        self.assertIsNot(cpy.path, img.path)
+        # Strings are cached, so no assertIsNot for path
         self.assertEqual(cpy.path, img.path)
 
 class TestTimeStreamIterByFiles(TestCase):
