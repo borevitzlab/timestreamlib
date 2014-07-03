@@ -21,9 +21,9 @@ from scipy import spatial
 from itertools import chain
 import cv2
 
-class ImagePot(object):
+class ImagePotHandler(object):
     def __init__(self, rect, superImage):
-        """ImagePot: a class for individual pot images.
+        """ImagePotHandler: a class for individual pot images.
 
         Args:
           rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
@@ -153,7 +153,7 @@ class ImagePotMatrix(object):
             return(retVal)
 
     def __init__(self, image, centers = None, rects = None):
-        """ImagePotMatrix: To house all the ImagePots
+        """ImagePotMatrix: To house all the ImagePotHandlers
 
         Args:
           image (ndarray): Image in which everything is located
@@ -174,7 +174,7 @@ class ImagePotMatrix(object):
             for i in range(len(rects)):
                 tmpTray = []
                 for j in range(len(rects[i])):
-                    tmpTray.append(ImagePot(rects[i][j], image))
+                    tmpTray.append(ImagePotHandler(rects[i][j], image))
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
 
@@ -190,7 +190,7 @@ class ImagePotMatrix(object):
                     pt1 = np.array(centers[i][j]) - growM
                     pt2 = np.array(centers[i][j]) + growM
                     rect = pt1.tolist() + pt2.tolist()
-                    trayTmp.append(ImagePot(rect, image))
+                    trayTmp.append(ImagePotHandler(rect, image))
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
 
@@ -226,16 +226,16 @@ class PotSegmenter(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def getInitialSegmentation(ip):
+    def getInitialSegmentation(iph):
         """Method run when we dont have any hints
 
         Args:
-          ip (ImagePot): Image pot to segment
+          iph (ImagePotHandler): Image pot to segment
         """
-        if ( not isinstance(ip, ImagePot) ):
-            raise TypeError("ip needs to be an ImagePot")
+        if ( not isinstance(iph, ImagePotHandler) ):
+            raise TypeError("iph needs to be an ImagePotHandler")
 
-        img = ip.image()
+        img = iph.image()
         if img.ndim is not 3 or img.shape[2] is not 3:
             raise ValueError("img should have only 3 dims:MxNx3")
 
@@ -253,11 +253,11 @@ class PotSegmenter(object):
         # return mask
         return (mask)
 
-    def segment(self, ip, hints):
+    def segment(self, iph, hints):
         """Method that returns segmented images.
 
         Args:
-          ip (ImagePot): Image pot to segment
+          iph (ImagePotHandler): Image pot to segment
           hints (dict): dictionary with hints useful for segmentation
         """
         raise NotImplementedError()
@@ -281,22 +281,22 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         self.growBy = growBy
         self.stopVal = stopVal
 
-    def segment(self, ip, hints):
-        """Segment a growing subimage centered at ip
+    def segment(self, iph, hints):
+        """Segment a growing subimage centered at iph
 
         Args:
-          ip (ImagePot): Image pot
+          iph (ImagePotHandler): Image pot
           hints (dict): dictionalry hints
         """
-        oRect = ip.rect #keep original rect in case we need to revert
+        oRect = iph.rect #keep original rect in case we need to revert
         foundSeg = False # Ture when a segmentation is found
         for i in range(int(round(self.mGrowth/self.growBy))):
             try:
-                ip.increaseRect(by=self.growBy)
+                iph.increaseRect(by=self.growBy)
             except ValueError:
                 break
 
-            mask = self.calcKmeans(ip.image)
+            mask = self.calcKmeans(iph.image)
             mask = np.uint8(mask)
 
             se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
@@ -313,9 +313,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         # FIXME: What do we do when we don't find a segmentation?
         if not foundSeg:
-            ip.rect = oRect
-            mask = np.array( np.zeros( (abs(ip.rect[2]-ip.rect[0]),
-                                        abs(ip.rect[3]-ip.rect[1])) ),
+            iph.rect = oRect
+            mask = np.array( np.zeros( (abs(iph.rect[2]-ip.rect[0]),
+                                        abs(iph.rect[3]-ip.rect[1])) ),
                              dtype = np.dtype("uint8") )
 
         return ([mask, hints])
@@ -355,10 +355,10 @@ class ChamberHandler(object):
         ipm = ImagePotMatrix(image, centers=centers, rects=rects)
         retImg = np.zeros(image.shape, dtype=image.dtype)
         hint = {}
-        for key, ip in ipm.iter_through_pots():
+        for key, iph in ipm.iter_through_pots():
             print ("Segmenting pot %s"% key)
-            ip.mask, hint =  self._segmenter.segment(ip, hint)
-            retImg = retImg | ip.maskedImage(inSuper=True)
+            iph.mask, hint =  self._segmenter.segment(iph, hint)
+            retImg = retImg | iph.maskedImage(inSuper=True)
 
         return(retImg, ipm)
 
