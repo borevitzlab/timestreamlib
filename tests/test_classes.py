@@ -177,6 +177,46 @@ class TestTimeStreamImageFromFile(TestCase):
         with self.assertRaises(ValueError):
             img.from_file("")
 
+class TestTimeStreamImageClone(TestCase):
+    """Test TimeStreamImage().from_file()"""
+
+    def test_ts_image_clone(self):
+        """Test TimeStreamImage.clone()"""
+        img = TimeStreamImage()
+        img.from_file(helpers.FILES["zeros_jpg"])
+        cpy = img.clone()
+        self.assertIsNot(cpy, img)
+        self.assertIsNot(cpy.datetime, img.datetime)
+        self.assertEqual(cpy.datetime, img.datetime)
+        self.assertIsNot(cpy.data, img.data)
+        self.assertEqual(cpy.data, img.data)
+        # int constants ARE each other, so not assertIsNot for subsec
+        self.assertEqual(cpy.subsec, img.subsec)
+        self.assertIs(cpy._pixels, None)
+        self.assertIs(cpy._timestream, None)
+        self.assertIs(cpy._path, None)
+
+    def test_ts_image_clone_all(self):
+        """Test TimeStreamImage.clone(), cloning all members"""
+        ts = TimeStream()
+        img = TimeStreamImage()
+        img.parent_timestream = ts
+        img.from_file(helpers.FILES["zeros_jpg"])
+        cpy = img.clone()
+        self.assertIsNot(cpy, img)
+        self.assertIsNot(cpy.datetime, img.datetime)
+        self.assertEqual(cpy.datetime, img.datetime)
+        self.assertIsNot(cpy.data, img.data)
+        self.assertEqual(cpy.data, img.data)
+        # int constants ARE each other, so not assertIsNot for subsec
+        self.assertEqual(cpy.subsec, img.subsec)
+        self.assertIsNot(cpy.pixels, img.pixels)
+        self.assertEqual(cpy.pixels, img.pixels)
+        self.assertIsNot(cpy.parent_timestream, img.parent_timestream)
+        self.assertEqual(cpy.parent_timestream, img.parent_timestream)
+        self.assertIsNot(cpy.path, img.path)
+        self.assertEqual(cpy.path, img.path)
+
 class TestTimeStreamIterByFiles(TestCase):
     """Test TimeStream().iter_by_files()"""
 

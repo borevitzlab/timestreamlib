@@ -21,6 +21,7 @@
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
 
+from copy import deepcopy
 import cv2
 import datetime as dt
 import json
@@ -339,6 +340,23 @@ class TimeStreamImage(object):
         except ValueError:
             self.datetime = get_exif_date(img_path)
 
+    def clone(self, copy_pixels=False, copy_path=False, copy_timestream=False):
+        """
+        Make an exact copy of ``self`` in a new instance. By default, the
+        members pixels, path and timestream are not copied. All members are
+        copied by value, not by reference, so can be changed.
+        """
+        new = TimeStreamImage()
+        new.datetime = deepcopy(self.datetime)
+        new.data = deepcopy(self.data)
+        new.subsec = self.subsec
+        if copy_pixels and self.pixels is not None:
+            new.pixels = self.pixels.copy()
+        if copy_timestream:
+            new.parent_timestream = self.parent_timestream
+        if copy_path:
+            new.path = self.path
+        return new
 
     @property
     def path(self):
