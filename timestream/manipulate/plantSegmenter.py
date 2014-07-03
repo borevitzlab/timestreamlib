@@ -21,6 +21,93 @@ from scipy import spatial
 from itertools import chain
 import cv2
 
+class PotSegmenter(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def segment(self, iph, hints):
+        """Method that returns segmented images.
+
+        Args:
+          iph (ImagePotHandler): Image pot to segment
+          hints (dict): dictionary with hints useful for segmentation
+        """
+        raise NotImplementedError()
+
+class PotSegmenter_KmeansSquare(PotSegmenter):
+    def __init__(self, mGrowth=30, growBy=5, stopVal=0.1):
+        """PotSegmenter_Kmeans: Segmenter by k-means
+
+        Steps:
+        1. Analyze increasing subsquares in the image.
+        2. Calculate a k-means (k=2) of the current subsquare.
+        3. Remove noise and bring close connected components together.
+        4. We stop when less than 98% of the side pixels are 1.
+        5. Recalculate enclosing square.
+
+        Args:
+          mGrowth (int): Max pixels to grow in any direction.
+        """
+        self.mGrowth = mGrowth
+        self.growBy = growBy
+        self.stopVal = stopVal
+
+    def segment(self, iph, hints):
+        """Segment a growing subimage centered at iph"""
+        oRect = iph.rect #keep original rect in case we need to revert
+        foundSeg = False # Ture when a segmentation is found
+        for i in range(int(round(self.mGrowth/self.growBy))):
+            try:
+                iph.increaseRect(by=self.growBy)
+            except ValueError:
+                break
+
+            mask = self.calcKmeans(iph.image)
+            mask = np.uint8(mask)
+
+            se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
+
+            # Stop when <2% of the rect perifery is 1
+            perifery = np.concatenate((mask[0,:], \
+                                        mask[mask.shape[0]-1,:], \
+                                        mask[1:mask.shape[0]-2,0], \
+                                        mask[1:mask.shape[0]-2,mask.shape[1]-1]))
+            if float(sum(perifery))/len(perifery) < self.stopVal:
+                foundSeg = True
+                break
+
+        # FIXME: What do we do when we don't find a segmentation?
+        if not foundSeg:
+            iph.rect = oRect
+            mask = np.array( np.zeros( (abs(iph.rect[2]-ip.rect[0]),
+                                        abs(iph.rect[3]-ip.rect[1])) ),
+                             dtype = np.dtype("uint8") )
+
+        return ([mask, hints])
+
+    def calcKmeans(self, img):
+        """Calculate mask based on k-means
+
+        Don't do any checks.
+
+        Args:
+          img: 3D structure where x,y are image axis and z represents
+               different features.
+        """
+        oShape = img.shape
+        img = np.float32(img)
+        img = np.reshape(img, (oShape[0]*oShape[1], oShape[2]), order="F")
+
+        # k-means. max 10 iters. Stop if diff < 1. Init centers at random
+        compactness,labels,centers = cv2.kmeans(img, 2, \
+                (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), \
+                10, cv2.KMEANS_RANDOM_CENTERS)
+
+        labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
+
+        return (labels)
+
 class ImagePotHandler(object):
     def __init__(self, rect, superImage):
         """ImagePotHandler: a class for individual pot images.
@@ -221,126 +308,6 @@ class ImagePotMatrix(object):
             mat.append(tray.asTuple)
         return(mat)
 
-
-class PotSegmenter(object):
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def getInitialSegmentation(iph):
-        """Method run when we dont have any hints
-
-        Args:
-          iph (ImagePotHandler): Image pot to segment
-        """
-        if ( not isinstance(iph, ImagePotHandler) ):
-            raise TypeError("iph needs to be an ImagePotHandler")
-
-        img = iph.image()
-        if img.ndim is not 3 or img.shape[2] is not 3:
-            raise ValueError("img should have only 3 dims:MxNx3")
-
-        oShape = img.shape
-        img = np.float32(img)
-        img = np.reshape(img, (oShape[0]*oShape[1], 3), order="F")
-
-        # k-means. max 10 iters. Stop if diff < 1. Init centers at random
-        compactness,labels,centers = cv2.kmeans(img, 2, \
-                (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), \
-                10, cv2.KMEANS_RANDOM_CENTERS)
-
-        labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
-
-        # return mask
-        return (mask)
-
-    def segment(self, iph, hints):
-        """Method that returns segmented images.
-
-        Args:
-          iph (ImagePotHandler): Image pot to segment
-          hints (dict): dictionary with hints useful for segmentation
-        """
-        raise NotImplementedError()
-
-
-class PotSegmenter_KmeansSquare(PotSegmenter):
-    def __init__(self, mGrowth=30, growBy=5, stopVal=0.1):
-        """PotSegmenter_Kmeans: Segmenter by k-means
-
-        Steps:
-        1. Analyze increasing subsquares in the image.
-        2. Calculate a k-means (k=2) of the current subsquare.
-        3. Remove noise and bring close connected components together.
-        4. We stop when less than 98% of the side pixels are 1.
-        5. Recalculate enclosing square.
-
-        Args:
-          mGrowth (int): Max pixels to grow in any direction.
-        """
-        self.mGrowth = mGrowth
-        self.growBy = growBy
-        self.stopVal = stopVal
-
-    def segment(self, iph, hints):
-        """Segment a growing subimage centered at iph
-
-        Args:
-          iph (ImagePotHandler): Image pot
-          hints (dict): dictionalry hints
-        """
-        oRect = iph.rect #keep original rect in case we need to revert
-        foundSeg = False # Ture when a segmentation is found
-        for i in range(int(round(self.mGrowth/self.growBy))):
-            try:
-                iph.increaseRect(by=self.growBy)
-            except ValueError:
-                break
-
-            mask = self.calcKmeans(iph.image)
-            mask = np.uint8(mask)
-
-            se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
-
-            # Stop when <2% of the rect perifery is 1
-            perifery = np.concatenate((mask[0,:], \
-                                        mask[mask.shape[0]-1,:], \
-                                        mask[1:mask.shape[0]-2,0], \
-                                        mask[1:mask.shape[0]-2,mask.shape[1]-1]))
-            if float(sum(perifery))/len(perifery) < self.stopVal:
-                foundSeg = True
-                break
-
-        # FIXME: What do we do when we don't find a segmentation?
-        if not foundSeg:
-            iph.rect = oRect
-            mask = np.array( np.zeros( (abs(iph.rect[2]-ip.rect[0]),
-                                        abs(iph.rect[3]-ip.rect[1])) ),
-                             dtype = np.dtype("uint8") )
-
-        return ([mask, hints])
-
-    def calcKmeans(self, img):
-        """Calculate mask based on k-means
-
-        Don't do any checks.
-
-        Args:
-          img: 3D structure where x,y are image axis and z represents
-               different features.
-        """
-        oShape = img.shape
-        img = np.float32(img)
-        img = np.reshape(img, (oShape[0]*oShape[1], oShape[2]), order="F")
-
-        # k-means. max 10 iters. Stop if diff < 1. Init centers at random
-        compactness,labels,centers = cv2.kmeans(img, 2, \
-                (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), \
-                10, cv2.KMEANS_RANDOM_CENTERS)
-
-        labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
-
-        return (labels)
 
 class ChamberHandler(object):
     methods = {"k-means-square": PotSegmenter_KmeansSquare}
