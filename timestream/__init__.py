@@ -86,6 +86,7 @@ class TimeStream(object):
     data = {}
     image_db_path = None
     db_path = None
+    data_dir = None
 
     def __init__(self, version=None):
         # Store version
@@ -136,8 +137,12 @@ class TimeStream(object):
             LOG.error(msg)
             raise TypeError(msg)
         self._path = ts_path
-        self.image_db_path = path.join(self._path, "image_data.json")
-        self.db_path = path.join(self._path, "timestream_data.json")
+        self.data_dir = path.join(self._path, "_data")
+        if (not path.isdir(self.data_dir)) and path.isdir(ts_path):
+            os.mkdir(self.data_dir)
+
+        self.image_db_path = path.join(self.data_dir, "image_data.json")
+        self.db_path = path.join(self.data_dir, "timestream_data.json")
 
     @path.deleter
     def path(self):
@@ -164,9 +169,11 @@ class TimeStream(object):
 
     def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
                end=NOW, name=None):
-        if self._version is None:
-            self.version = version
-        self.path = ts_path
+        self.version = version
+        if not isinstance(ts_path, str):
+            msg = "Timestream path must be a str"
+            LOG.error(msg)
+            raise TypeError(msg)
         if not path.exists(path.dirname(ts_path)):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
@@ -174,6 +181,7 @@ class TimeStream(object):
         if not path.exists(ts_path):
             if self.version == 1:
                 os.mkdir(ts_path)
+        self.path = ts_path
         self.extension = ext
         self.start_datetime = start
         self.end_datetime = end
@@ -245,15 +253,18 @@ class TimeStream(object):
             if image.datetime < self.start_datetime:
                 self.start_datetime = image.datetime
             self.image_data[ts_format_date(image.datetime)] = image.data
-            with open(self.image_db_path, "w") as db_fh:
-                json.dump(self.image_data, db_fh)
-            with open(self.db_path, "w") as db_fh:
-                json.dump(self.data, db_fh)
+            self.write_data()
             # Actually write image
             ts_make_dirs(fpath)
             cv2.imwrite(fpath, image.pixels)
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
+
+    def write_data(self):
+        with open(self.image_db_path, "w") as db_fh:
+            json.dump(self.image_data, db_fh)
+        with open(self.db_path, "w") as db_fh:
+            json.dump(self.data, db_fh)
 
     def read_metadata(self):
         """Guesses the metadata fields of a timestream, v1 or v2."""
