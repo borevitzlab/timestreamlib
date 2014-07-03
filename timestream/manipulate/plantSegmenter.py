@@ -80,8 +80,8 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         # FIXME: What do we do when we don't find a segmentation?
         if not foundSeg:
             iph.rect = oRect
-            mask = np.array( np.zeros( (abs(iph.rect[2]-ip.rect[0]),
-                                        abs(iph.rect[3]-ip.rect[1])) ),
+            mask = np.array( np.zeros( (abs(iph.rect[2]-iph.rect[0]),
+                                        abs(iph.rect[3]-iph.rect[1])) ),
                              dtype = np.dtype("uint8") )
 
         return ([mask, hints])
@@ -109,12 +109,16 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         return (labels)
 
 class ImagePotHandler(object):
-    def __init__(self, rect, superImage):
+    def __init__(self, rect, superImage, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
           rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
           superImage (ndarray): Image in which the image pot is located
+          ps (PotSegmenter): It can be any child class from PotSegmenter. Its
+                             instance that has a segment method.
+          iphPrev (ImagePotHandler): The previous ImagePotHandler for this pot
+                                     position.
 
         Attributes:
           image: Return the cropped image (with rect) of superImage
@@ -125,13 +129,34 @@ class ImagePotHandler(object):
         * y is vertical | x is horizontal.
         """
 
-        self._rect = np.array(rect)
-        if sum(self._rect < 0) > 0 \
-                or sum(self._rect[[1,3]] > superImage.shape[0]) > 0 \
-                or sum(self._rect[[0,2]] > superImage.shape[1]) > 0:
-            raise TypeError("rect must fit in superImage")
+        # FIXME: This check for ndarray should be fore TimestreamImage
+        if isinstance(superImage, np.ndarray):
+            self.si = superImage
+        else:
+            raise TypeError("superImate must be an ndarray")
 
-        self.si = superImage
+        rect = np.array(rect)
+        if sum(rect < 0) > 0 \
+                or sum(rect[[1,3]] > self.si.shape[0]) > 0 \
+                or sum(rect[[0,2]] > self.si.shape[1]) > 0:
+            raise TypeError("rect must fit in superImage")
+        else:
+            self._rect = rect
+
+        if ps == None:
+            self._ps = None
+        elif isinstance(ps, PotSegmenter):
+            self._ps = ps
+        else:
+            raise TypeError("ps must be an instance of PotSegmenter")
+
+        if iphPrev == None:
+            self.iphPrev = None
+        elif isinstance(iphPrev, ImagePotHandler):
+            self.iphPrev = iphPrev
+        else:
+            raise TypeError("iphPrev must be an instance of ImagePotHandler")
+
         self._mask = None
 
     # Image is not settable nor deletable
@@ -140,25 +165,13 @@ class ImagePotHandler(object):
         return ( self.si[self._rect[1]:self._rect[3],
                             self._rect[0]:self._rect[2], :] )
 
+    # We don't set self._mask from the outside.
     @property
     def mask(self):
+        if self._mask == None:
+            hints = {} # FIXME: incorporate the hints from  iphPrev
+            self._mask, hint = self.ps.segment(self, hints)
         return (self._mask)
-
-    @mask.setter
-    def mask(self, m):
-        if not isinstance(m, np.ndarray) or m.dtype is not np.dtype("uint8"):
-            raise TypeError("Mask must be numpy.ndarray of uint8")
-
-        # New dims have to fit exactly
-        if abs(self._rect[2]-self._rect[0]) != m.shape[1] \
-                or abs(self._rect[1]-self._rect[3]) != m.shape[0]:
-            raise TypeError("Mask dim must agree with rect")
-
-        self._mask = m
-
-    @mask.deleter
-    def mask(self):
-        self._mask = None
 
     # rect is not deletable
     @property
@@ -170,34 +183,27 @@ class ImagePotHandler(object):
         if sum(r[0:2] < 0) > 0 or sum(r[[3,2]] > self.si.shape[0:2]) > 0:
             raise ValueError("Rect overflows original image")
 
-        self._mask = None
+        self._mask = None #FIXME: Reset everything that depends on self._mask
         self._rect = r
 
-    # FIXME: This should be a property
     def maskedImage(self, inSuper=False):
         """Returns segmented pixels on a black background
 
         inSuper: When True we return the segmentation in the totality of
                  self.si. When False we return it in the rect.
         """
-        if self._mask is None:
-            raise ValueError("Set mask in order to calculate masked image")
-
+        # We use the property to trigger creation if needed.
+        msk = self.mask
         img = self.image
-        height = img.shape[0]
-        width = img.shape[1]
-        dims = img.shape[2]
 
+        height, width, dims = img.shape
+        msk = np.reshape(msk, (height*width, 1), order="F")
         img = np.reshape(img, (height*width, dims), order="F")
 
         retVal = np.zeros((height, width, dims), dtype=img.dtype)
         retVal = np.reshape(retVal, (height*width, dims), order="F")
 
-        msk = self._mask
-        msk = np.reshape(msk, (height*width, 1), order="F")
-
         Ind = np.where(msk)[0]
-
         retVal[Ind,:] = img[Ind,:]
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
@@ -215,16 +221,16 @@ class ImagePotHandler(object):
                 or sum(self._rect[[3,2]]+by > self.si.shape[0:2]) > 0:
             raise ValueError("Increasing rect overflows original image")
 
-        self._rect[0:2] = self._rect[0:2] - by
-        self._rect[2:4] = self._rect[2:4] + by
+        # Using property to trigger assignment cleanup
+        self.rect = self._rect + np.array([-by, -by, by, by])
 
     def reduceRect(self, by=5):
         if ( abs(self._rect[0]-self._rect[2]) < 2*by \
                 or abs(self._rect[1]-self._rect[3]) < 2*by ):
             raise ValueError("Rect is too small to decrease")
 
-        self._rect[0:2] = self._rect[0:2] + by
-        self._rect[2:4] = self._rect[2:4] - by
+        # Using property to trigger assignment cleanup
+        self.rect = self.rect + np.array([by, by, -by, -by])
 
 class ImagePotMatrix(object):
     class ImageTray(object):
@@ -324,7 +330,7 @@ class ChamberHandler(object):
         hint = {}
         for key, iph in ipm.iter_through_pots():
             print ("Segmenting pot %s"% key)
-            iph.mask, hint =  self._segmenter.segment(iph, hint)
+            iph.ps = self._segmenter
             retImg = retImg | iph.maskedImage(inSuper=True)
 
         return(retImg, ipm)
