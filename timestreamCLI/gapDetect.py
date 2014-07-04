@@ -3,11 +3,15 @@ from __future__ import print_function
 import docopt
 import csv
 import cv2
+import logging
 import multiprocessing as mp
 import numpy as np
 import sys
+from timestream import (
+        TimeStream,
+        setup_module_logging,
+        )
 from timestream.parse import (
-        ts_iter_images,
         ts_get_manifest,
         iter_date_range,
         ts_parse_date_path,
@@ -30,16 +34,12 @@ OPTIONS:
 """
 
 def sum_image(img):
-    try:
-        imgmat = cv2.imread(img)
-        if imgmat is None:
-            # make it go to the except block, where we deal with other things
-            raise cv2.error;
-        ret =  imgmat.sum()
-    except cv2.error:
-        ret = 0
-    return (img, ret)
-
+    pixels = img.pixels
+    if pixels is not None:
+        img.data['sum'] = pixels.sum()
+    else:
+        img.data['sum'] = "NA"
+    return img.clone()
 
 def setup_header(ts_info):
     start_today = datetime.combine(date.today(), time.min)
@@ -49,6 +49,7 @@ def setup_header(ts_info):
     return times
 
 def main(opts):
+    setup_module_logging(logging.ERROR)
     ts_name = opts["-i"]
     out_fh = open(opts['-o'], 'w')
     ts_info = ts_get_manifest(ts_name)
@@ -57,24 +58,26 @@ def main(opts):
     header = ["", ]
     header.extend(times)
     out_csv.writerow(header)
-    pl = mp.Pool()
-    img_iter = ts_iter_images(ts_name)
+    ts = TimeStream()
+    ts.load(ts_name)
     res_dict = {}
     print("Collecting image sums...")
     count = 0
-    for img, pix_sum in pl.imap(sum_image, img_iter, 100):
-        if count % 10 == 0:
-            print("Processed {: 6d} images!".format(count), end='\r')
-            sys.stdout.flush()
+    pool = mp.Pool()
+    for img in pool.imap(sum_image, ts.iter_by_timepoints()):
+    #for img in map(sum_image, ts.iter_by_timepoints()):
+        print("Processed {: 6d} images!".format(count), end='\r')
+        sys.stdout.flush()
         count += 1
-        img_dt = ts_parse_date_path(img)
+        pix_sum = str(img.data['sum'])
+        img_dt = img.datetime
         try:
             res_dict[img_dt.date()][img_dt.time().isoformat()] = pix_sum
         except KeyError:
             res_dict[img_dt.date()] = {img_dt.time().isoformat(): pix_sum}
+    pool.close()
+    pool.join()
     print("Processed {: 6d} images!".format(count))
-    pl.close()
-    pl.join()
     print("Done collecting image sums, now making the table")
     for date, times in sorted(res_dict.items()):
         row = []
@@ -87,7 +90,7 @@ def main(opts):
             try:
                 row.append(times[timepoint.time().isoformat()])
             except KeyError:
-                row.append(0)
+                row.append("NA")
         out_csv.writerow(row)
     print("All done!")
 
