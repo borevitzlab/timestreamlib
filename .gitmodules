@@ -1,0 +1,3 @@
+[submodule "tests/spc-testimages"]
+	path = tests/data
+	url = https://github.com/borevitzlab/spc-testimages.git
