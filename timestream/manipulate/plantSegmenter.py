@@ -19,7 +19,32 @@
 import numpy as np
 from scipy import spatial
 from itertools import chain
+from skimage.measure import regionprops
+from skimage.morphology import label
 import cv2
+import inspect
+
+class FeatureCalculator(object):
+
+    def area(self, mask):
+        # +1 because to make regionprops see the areas
+        lmask = label(mask, background=0)+1
+        areas = regionprops(lmask, ["Area"])
+        areaAccum = 0
+        for area in areas:
+            areaAccum = areaAccum + area["Area"]
+
+        return (areaAccum)
+
+    @property
+    def featureMethods(self):
+        ignore = []
+        meths = inspect.getmembers(self, predicate=inspect.ismethod)
+        retVal = []
+        for meth in meths:
+            if ( not meth[0] in ignore ):
+                retVal.append(meth[0])
+        return (retVal)
 
 class PotSegmenter(object):
     def __init__(self, *args, **kwargs):
@@ -123,8 +148,7 @@ class ImagePotHandler(object):
         Attributes:
           image: Return the cropped image (with rect) of superImage
           maskedImage: Return the segmented cropped image.
-          mask: The segmented image.
-          rect: Return [x,y,x`,y`]* rectangle.
+          features: Return the calculated features
 
         * y is vertical | x is horizontal.
         """
@@ -157,6 +181,8 @@ class ImagePotHandler(object):
         else:
             raise TypeError("iphPrev must be an instance of ImagePotHandler")
 
+        self._fc = FeatureCalculator()
+        self._features = {}
         self._mask = None
 
     # Image is not settable nor deletable
@@ -232,11 +258,29 @@ class ImagePotHandler(object):
         # Using property to trigger assignment cleanup
         self.rect = self.rect + np.array([by, by, -by, -by])
 
+    def calcFeatures(self, feats):
+        # Calc all the possible features when feats not specfied
+        if not isinstance(feats, list):
+            raise TypeError("feats should be a list")
+
+        if "all" in feats:
+            feats = self._fc.featureMethods()
+
+        for featName in feats:
+            # calc not-indexed feats
+            if not featName in self._features.keys():
+                featFunc = getattr(self._fc, featName)
+                self._features[featName] = featFunc(self._mask)
+
+    def getCalcedFeatures(self):
+        return self._features
+
 class ImagePotMatrix(object):
     class ImageTray(object):
         def __init__(self, pots, name):
             self.pots = pots
             self.name = name
+            self.numPots = len(self.pots)
 
         @property
         def asTuple(self):
@@ -289,7 +333,8 @@ class ImagePotMatrix(object):
 
         self.image = image
 
-    def getPot(potNum):
+    # FIXME: We should use real pot ids here!!!
+    def getPot(self, potNum):
         pots = []
         for tray in self.its:
             pots = pots + tray.pots
@@ -298,6 +343,17 @@ class ImagePotMatrix(object):
             raise IndexError("Pot number %d out of range"%potNum)
 
         return (pots[potNum])
+
+    # FIXME: We should use real pot ids here!!
+    @property
+    def potIds(self):
+        numPots = 0
+        for tray in self.its:
+            numPots += len(tray.pots)
+
+        # FIXME: For now we dont have real pot ids. We index them by their
+        #        position in the trays. This needs to change!!!!!!
+        return (range(numPots))
 
     def iter_through_pots(self):
         pots = []
@@ -314,6 +370,17 @@ class ImagePotMatrix(object):
             mat.append(tray.asTuple)
         return(mat)
 
+    @property
+    def potFeatures(self):
+        """ Return a feature name list with all possible features in pots """
+        featureNames = []
+        for tray in self.its:
+            for pot in tray.pots:
+                for featName in pot.getCalcedFeatures():
+                    if featName not in featureNames:
+                        featureNames.append(featName)
+
+        return (featureNames)
 
 class ChamberHandler(object):
     methods = {"k-means-square": PotSegmenter_KmeansSquare}

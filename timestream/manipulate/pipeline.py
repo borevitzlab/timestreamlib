@@ -31,7 +31,10 @@ class ImagePipeline ( object ):
                  TrayDetector.actName:          TrayDetector, \
                  PotDetector.actName:           PotDetector, \
                  PlantExtractor.actName:        PlantExtractor, \
-                 ResultingImageWriter.actName:  ResultingImageWriter \
+                 ResultingImageWriter.actName:  ResultingImageWriter, \
+                 FeatureExtractor.actName:      FeatureExtractor, \
+                 ResultingFeatureWriter_ndarray.actName: \
+                        ResultingFeatureWriter_ndarray \
                }
 
     def __init__(self, settings):
@@ -46,7 +49,9 @@ class ImagePipeline ( object ):
                         or not isinstance(prevReturns, list) \
                         or len(compExpects) is not len(prevReturns) \
                         or not compExpects == prevReturns ):
-                    raise ValueError("Dependancy error in pipeline")
+                    raise ValueError( "Dependency error between %s and %s" % \
+                            (ImagePipeline.complist[setElem[0]], \
+                             self.pipeline[-1].__class__) )
 
             self.pipeline.append( ImagePipeline.complist[setElem[0]](**setElem[1]) )
 

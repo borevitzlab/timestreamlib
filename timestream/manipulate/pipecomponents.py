@@ -26,6 +26,7 @@ import timestream.manipulate.plantSegmenter as ps
 from timestream import TimeStreamImage
 import timestream
 import os
+import os.path
 
 class PipeComponent ( object ):
     # Name has to be unique among pipecomponents
@@ -429,6 +430,82 @@ class PlantExtractor ( PipeComponent ):
 
     def show(self):
         pass
+
+class FeatureExtractor ( PipeComponent ):
+    actName = "featureextract"
+    argNames = {"mess": [False, "Default message","Extracting Features"],
+                "features": [False, "Features to extract", ["all"]]}
+
+    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runReturns = [np.ndarray, ps.ImagePotMatrix]
+
+    def __init__(self, **kwargs):
+        super(FeatureExtractor, self).__init__(**kwargs)
+
+    def __call__(self, context, *args):
+        ipm = args[1]
+        for key, iph in ipm.iter_through_pots():
+            iph.calcFeatures(self.features)
+
+        return [args[0], ipm]
+
+class ResultingFeatureWriter_ndarray ( PipeComponent ):
+    actName = "writefeatures_ndarray"
+    argNames = {"mess": [False, "Default message", "Writing the features"],
+                "outputfile": [True, "File where the output goes"]}
+
+    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runReturns = [np.ndarray]
+
+    def __init__(self, **kwargs):
+        super(ResultingFeatureWriter_ndarray, self).__init__(**kwargs)
+
+        #np.savez_compressed expects an npz extension
+        p, e = os.path.splitext(self.outputfile)
+        if e == "":
+            self.outputfile = self.outputfile + ".npz"
+
+    def __call__(self, context, *args):
+        ipm = args[1]
+
+        if not os.path.isfile(self.outputfile):
+            # Init feature index
+            fNames = np.array(ipm.potFeatures)
+
+            # Init pot ID index
+            # FIXME: We need to use "real" pot ids here!!!
+            pIds = np.array(ipm.potIds)
+
+            # FIXME:Create a timestamp index
+
+            # Create first level of 3D feature matrix
+            featMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
+            for pId, pot in ipm.iter_through_pots():
+                for fName, fVal in pot.getCalcedFeatures().iteritems():
+                    fOff = np.where(fNames == fName)
+                    pOff = np.where(pIds == pId)
+                    featMat[fOff, pOff, 0] = fVal
+
+        else:
+            npload = np.load(self.outputfile)
+            fNames = npload["fNames"]
+            pIds = npload["pIds"]
+            featMat = npload["featMat"]
+
+            tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
+            # FIXME: All this for loop is repeated code.
+            for pId, pot in ipm.iter_through_pots():
+                for fName, fVal in pot.getCalcedFeatures().iteritems():
+                    fOff = np.where(fNames == fName)
+                    pOff = np.where(pIds == pId)
+                    tmpMat[fOff, pOff, 0] = fVal
+
+            featMat = np.concatenate((featMat, tmpMat), axis=2)
+
+        np.savez_compressed(self.outputfile, \
+                    **{"fNames":fNames, "pIds":pIds, "featMat":featMat})
+
+        return (args[0])
 
 class ResultingImageWriter ( PipeComponent ):
     actName = "imagewrite"
