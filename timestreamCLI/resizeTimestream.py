@@ -10,6 +10,7 @@ import os
 from os import path
 import cv2
 import sys
+import traceback
 from timestream.parse import ts_iter_images
 
 CLI = """
@@ -58,9 +59,8 @@ def process_image((img, out_ts, size)):
                              interpolation=cv2.INTER_LANCZOS4)
             cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 100))
         except cv2.error:
-            sys.stderr.write(
-                "\n[resize_image] ERROR: something weird in {}\n".format(img))
-            sys.stderr.flush()
+            print("\n[resize_image] ERROR: weird image", img, file=sys.stderr)
+            print("Traceback is:\n", traceback.format_exc(), file=sys.stderr)
 
 
 def main(opts):
@@ -74,6 +74,7 @@ def main(opts):
     out = [opts['-o'],]
     args = izip(ts_iter_images(opts['-i']), cycle(out), cycle(xy))
     count = 0
+    print("Resizing {} to {}".format(opts['-i'], opts['-s']))
     for _ in pool.imap(process_image, args):
         print("Resized {: 5d} images!".format(count), end="\r")
         count += 1
