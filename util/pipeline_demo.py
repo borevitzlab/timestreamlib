@@ -64,8 +64,6 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
         print('Missing Image')
     else:
         print("Process", img.path, '...'),
-        # set visualise to False to run in batch mode
         context = {"rts":ts, "wts":ts_out, "img":img}
-#        result = pl.process(context, [img])
         result = pl.process(context, [img], visualise)
         print("Done")
