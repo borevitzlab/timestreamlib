@@ -27,6 +27,7 @@ from timestream import TimeStreamImage
 import timestream
 import os
 import os.path
+import time
 
 class PipeComponent ( object ):
     # Name has to be unique among pipecomponents
@@ -468,6 +469,9 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
     def __call__(self, context, *args):
         ipm = args[1]
 
+        # Get timestamp of current image.
+        ts = time.mktime(context["img"].datetime.timetuple()) * 1000
+
         if not os.path.isfile(self.outputfile):
             # Init feature index
             fNames = np.array(ipm.potFeatures)
@@ -476,7 +480,8 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             # FIXME: We need to use "real" pot ids here!!!
             pIds = np.array(ipm.potIds)
 
-            # FIXME:Create a timestamp index
+            # Init timesteamps index
+            tStamps = np.array([ts])
 
             # Create first level of 3D feature matrix
             featMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
@@ -491,6 +496,10 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             fNames = npload["fNames"]
             pIds = npload["pIds"]
             featMat = npload["featMat"]
+            tStamps = npload["tStamps"]
+
+            # Append new timestamp
+            tStamps = np.append(tStamps, ts)
 
             tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
             # FIXME: All this for loop is repeated code.
@@ -503,7 +512,8 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             featMat = np.concatenate((featMat, tmpMat), axis=2)
 
         np.savez_compressed(self.outputfile, \
-                    **{"fNames":fNames, "pIds":pIds, "featMat":featMat})
+                    **{ "fNames":fNames, "pIds":pIds, \
+                        "featMat":featMat, "tStamps":tStamps })
 
         return (args[0])
 
