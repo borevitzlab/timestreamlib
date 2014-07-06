@@ -344,27 +344,22 @@ class ImagePotMatrix(object):
 
         self.image = image
 
-    # FIXME: We should use real pot ids here!!!
-    def getPot(self, potNum):
-        pots = []
+    def getPot(self, potId):
         for tray in self.its:
-            pots = pots + tray.pots
+            for pot in tray.pots:
+                if (pot.id == potId):
+                    return (pot)
 
-        if potNum > len(pots)-1:
-            raise IndexError("Pot number %d out of range"%potNum)
+        raise IndexError("No pot number %d found"%potNum)
 
-        return (pots[potNum])
-
-    # FIXME: We should use real pot ids here!!
     @property
     def potIds(self):
-        numPots = 0
+        """Returns a list of pot ids"""
+        retVal = []
         for tray in self.its:
-            numPots += len(tray.pots)
-
-        # FIXME: For now we dont have real pot ids. We index them by their
-        #        position in the trays. This needs to change!!!!!!
-        return (range(numPots))
+            for pot in tray.pots:
+                retVal.append(pot.id)
+        return (retVal)
 
     def iter_through_pots(self):
         pots = []

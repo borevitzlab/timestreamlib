@@ -485,7 +485,6 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             fNames = np.array(ipm.potFeatures)
 
             # Init pot ID index
-            # FIXME: We need to use "real" pot ids here!!!
             pIds = np.array(ipm.potIds)
 
             # Init timesteamps index
