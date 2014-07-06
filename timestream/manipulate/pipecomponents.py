@@ -88,6 +88,9 @@ class PipeComponent ( object ):
 
         return (retVal)
 
+    def show(self):
+        pass
+
 class PCException(Exception):
     def __init__(self):
         pass
@@ -421,16 +424,21 @@ class PlantExtractor ( PipeComponent ):
 
     def __init__(self, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
-        self.ch = ps.ChamberHandler(meth=self.meth, methargs=self.methargs)
+        # FIXME: check if method exists
+        self.segmenter = ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
         img = args[0]
         centers = args[1]
-        retImg, ipm = self.ch.segment(img, centers=centers)
-        return [retImg, ipm]
+        ipm = ps.ImagePotMatrix(img, centers=centers)
+        retImg = np.zeros(img.shape, dtype=img.dtype)
+        for key, iph in ipm.iter_through_pots():
+            print ("Segmenting pot %s"% key)
+            # We Init the segmenter and segment.
+            iph.ps = self.segmenter
+            retImg = retImg | iph.maskedImage(inSuper=True)
 
-    def show(self):
-        pass
+        return [retImg, ipm]
 
 class FeatureExtractor ( PipeComponent ):
     actName = "featureextract"
@@ -539,5 +547,3 @@ class ResultingImageWriter ( PipeComponent ):
 
         return (img.pixels)
 
-    def show(self):
-        pass

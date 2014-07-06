@@ -133,6 +133,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         return (labels)
 
+#FIXME: Find a better place to put this.
+segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
+
 class ImagePotHandler(object):
     def __init__(self, rect, superImage, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
@@ -381,25 +384,4 @@ class ImagePotMatrix(object):
                         featureNames.append(featName)
 
         return (featureNames)
-
-class ChamberHandler(object):
-    methods = {"k-means-square": PotSegmenter_KmeansSquare}
-
-    def __init__(self, meth="k-means-square", methargs={}):
-        self._segmenter = ChamberHandler.methods[meth](**methargs)
-
-        # Previous analyzed images. [0] is most recent.
-        self.tail = []
-
-    def segment(self, image, centers = None, rects = None):
-        ipm = ImagePotMatrix(image, centers=centers, rects=rects)
-        retImg = np.zeros(image.shape, dtype=image.dtype)
-        hint = {}
-        for key, iph in ipm.iter_through_pots():
-            print ("Segmenting pot %s"% key)
-            iph.ps = self._segmenter
-            retImg = retImg | iph.maskedImage(inSuper=True)
-
-        return(retImg, ipm)
-
 
