@@ -137,10 +137,12 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
 
 class ImagePotHandler(object):
-    def __init__(self, rect, superImage, ps=None, iphPrev=None):
+    def __init__(self, id, rect, superImage, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
+          id (object): Should be unique between pots. Is given by the
+                       potMatrix. Is not changeable.
           rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
           superImage (ndarray): Image in which the image pot is located
           ps (PotSegmenter): It can be any child class from PotSegmenter. Its
@@ -155,6 +157,7 @@ class ImagePotHandler(object):
 
         * y is vertical | x is horizontal.
         """
+        self._id = id
 
         # FIXME: This check for ndarray should be fore TimestreamImage
         if isinstance(superImage, np.ndarray):
@@ -188,22 +191,23 @@ class ImagePotHandler(object):
         self._features = {}
         self._mask = None
 
-    # Image is not settable nor deletable
     @property
+    def id(self):
+        return self._id
+
+    @property # not settable nor delettable
     def image(self):
         return ( self.si[self._rect[1]:self._rect[3],
                             self._rect[0]:self._rect[2], :] )
 
-    # We don't set self._mask from the outside.
     @property
-    def mask(self):
+    def mask(self): # not settable nor delettable
         if self._mask == None:
             hints = {} # FIXME: incorporate the hints from  iphPrev
             self._mask, hint = self.ps.segment(self, hints)
         return (self._mask)
 
-    # rect is not deletable
-    @property
+    @property # not deletable
     def rect(self):
         return (self._rect)
 
@@ -306,15 +310,18 @@ class ImagePotMatrix(object):
         Attributes:
           its: Dictionary of image tray instances.
         """
+        potIndex = 1
         self.its = []
         if (centers is None and rects is None):
             raise TypeError("Must specify either center or rects")
 
         elif (rects is not None):
-            for i in range(len(rects)):
+            for i, tray in enumerate(rects):
                 tmpTray = []
-                for j in range(len(rects[i])):
-                    tmpTray.append(ImagePotHandler(rects[i][j], image))
+                for rect in tray:
+                    tmpTray.append(ImagePotHandler(potIndex, \
+                            rects[i][j], image))
+                    potIndex += 1
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
 
@@ -323,14 +330,15 @@ class ImagePotMatrix(object):
             # distance between centers
             flattened = list(chain.from_iterable(centers))
             growM = round(min(spatial.distance.pdist(flattened))/3)
-            for i in range(len(centers)):
+            for i, tray in enumerate(centers):
                 trayTmp = []
-                for j in range(len(centers[i])):
+                for center in tray:
 
-                    pt1 = np.array(centers[i][j]) - growM
-                    pt2 = np.array(centers[i][j]) + growM
+                    pt1 = np.array(center) - growM
+                    pt2 = np.array(center) + growM
                     rect = pt1.tolist() + pt2.tolist()
-                    trayTmp.append(ImagePotHandler(rect, image))
+                    trayTmp.append(ImagePotHandler(potIndex, rect, image))
+                    potIndex += 1
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
 
