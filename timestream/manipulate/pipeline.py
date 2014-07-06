@@ -34,7 +34,9 @@ class ImagePipeline ( object ):
                  ResultingImageWriter.actName:  ResultingImageWriter, \
                  FeatureExtractor.actName:      FeatureExtractor, \
                  ResultingFeatureWriter_ndarray.actName: \
-                        ResultingFeatureWriter_ndarray \
+                        ResultingFeatureWriter_ndarray, \
+                 ResultingFeatureWriter_csv.actName: \
+                        ResultingFeatureWriter_csv
                }
 
     def __init__(self, settings):

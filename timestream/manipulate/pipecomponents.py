@@ -475,7 +475,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             self.outputfile = self.outputfile + ".npz"
 
         # We dont overwrite any data
-        if os.path.isfile(self.outputfile):
+        if os.path.exists(self.outputfile):
             raise StandardError("File %s already exists" % self.outputfile)
 
     def __call__(self, context, *args):
@@ -514,6 +514,65 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
                         "featMat":featMat, "tStamps":tStamps })
 
         return (args[0])
+
+class ResultingFeatureWriter_csv ( PipeComponent ):
+    actName = "writefeatures_csv"
+    argNames = {"mess": [False, "Default message", "Writing the features"],
+                "outputdir": [True, "Dir where the output files go"],
+                "overwrite": [False, "Whether to overwrite out files", True]}
+
+    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runReturns = [np.ndarray]
+
+    def __init__(self, **kwargs):
+        super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
+
+        if os.path.exists(self.outputdir) \
+                and not os.path.isdir(self.outputdir):
+            raise StandardError("%s is not a directory" % self.outputdir)
+
+        if not os.path.exists(self.outputdir):
+            os.makedirs(self.outputdir)
+
+        # Are there any feature csv files? We check all possible features.
+        for fName in ps.FeatureCalculator.featureMethods():
+            outputfile = os.path.join(self.outputdir, fName+".csv")
+            if os.path.exists(outputfile):
+                if self.overwrite:
+                    os.remove(outputfile)
+                else:
+                    raise StandardError("%s might have important info" \
+                            % outputfile)
+
+    def __call__(self, context, *args):
+        ipm = args[1]
+        ts = time.mktime(context["img"].datetime.timetuple()) * 1000
+
+        for fName in ipm.potFeatures:
+            outputfile = os.path.join(self.outputdir, fName+".csv")
+
+            # Sorted so we can easily append after.
+            potIds = ipm.potIds
+            potIds.sort()
+
+            if not os.path.exists(outputfile): # we initialize it.
+                fd = open(outputfile, "w+")
+                fd.write("timestamp")
+                for potId in potIds:
+                    fd.write(",%s"%potId)
+                fd.write("\n")
+                fd.close()
+
+            fd = open(outputfile, 'a')
+            fd.write("%f"%ts)
+            for potId in potIds:
+                pot = ipm.getPot(potId)
+                fd.write(",%f"%pot.id)
+            fd.write("\n")
+            fd.close()
+
+        return (args[0])
+
 
 class ResultingImageWriter ( PipeComponent ):
     actName = "imagewrite"

@@ -36,10 +36,10 @@ class FeatureCalculator(object):
 
         return (areaAccum)
 
-    @property
-    def featureMethods(self):
-        ignore = []
-        meths = inspect.getmembers(self, predicate=inspect.ismethod)
+    @classmethod
+    def featureMethods(cls):
+        ignore = ["featureMethods"]
+        meths = inspect.getmembers(cls, predicate=inspect.ismethod)
         retVal = []
         for meth in meths:
             if ( not meth[0] in ignore ):
@@ -271,7 +271,7 @@ class ImagePotHandler(object):
             raise TypeError("feats should be a list")
 
         if "all" in feats:
-            feats = self._fc.featureMethods()
+            feats = FeatureCalculator.featureMethods()
 
         for featName in feats:
             # calc not-indexed feats
