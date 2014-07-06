@@ -474,6 +474,10 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
         if e == "":
             self.outputfile = self.outputfile + ".npz"
 
+        # We dont overwrite any data
+        if os.path.isfile(self.outputfile):
+            raise StandardError("File %s already exists" % self.outputfile)
+
     def __call__(self, context, *args):
         ipm = args[1]
 
@@ -481,22 +485,9 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
         ts = time.mktime(context["img"].datetime.timetuple()) * 1000
 
         if not os.path.isfile(self.outputfile):
-            # Init feature index
             fNames = np.array(ipm.potFeatures)
-
-            # Init pot ID index
             pIds = np.array(ipm.potIds)
-
-            # Init timesteamps index
             tStamps = np.array([ts])
-
-            # Create first level of 3D feature matrix
-            featMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
-            for pId, pot in ipm.iter_through_pots():
-                for fName, fVal in pot.getCalcedFeatures().iteritems():
-                    fOff = np.where(fNames == fName)
-                    pOff = np.where(pIds == pId)
-                    featMat[fOff, pOff, 0] = fVal
 
         else:
             npload = np.load(self.outputfile)
@@ -504,18 +495,18 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             pIds = npload["pIds"]
             featMat = npload["featMat"]
             tStamps = npload["tStamps"]
+            tStamps = np.append(tStamps, ts) # New timestamp
 
-            # Append new timestamp
-            tStamps = np.append(tStamps, ts)
+        tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
+        for pId, pot in ipm.iter_through_pots():
+            for fName, fVal in pot.getCalcedFeatures().iteritems():
+                fOff = np.where(fNames == fName)
+                pOff = np.where(pIds == pId)
+                tmpMat[fOff, pOff, 0] = fVal
 
-            tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
-            # FIXME: All this for loop is repeated code.
-            for pId, pot in ipm.iter_through_pots():
-                for fName, fVal in pot.getCalcedFeatures().iteritems():
-                    fOff = np.where(fNames == fName)
-                    pOff = np.where(pIds == pId)
-                    tmpMat[fOff, pOff, 0] = fVal
-
+        if "featMat" not in locals():
+            featMat = tmpMat
+        else:
             featMat = np.concatenate((featMat, tmpMat), axis=2)
 
         np.savez_compressed(self.outputfile, \
