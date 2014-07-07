@@ -26,12 +26,9 @@ OPTIONS:
 
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
-print(manipulate.__file__)
-print(dir(manipulate))
 manipulate.setup_console_logger()
 
 class PipelineManager(object):
-
     def __init__(self):
         opts = docopt.docopt(CLI_OPT)
         self.input_path = opts['-i']
@@ -44,7 +41,7 @@ class PipelineManager(object):
         #create new timestream for output data
         self.ts = timestream.TimeStream()
         self.ts.load(self.input_path)
-        self.log.info('timestream path = ', ts.path)
+        self.log.info('timestream path = ', self.ts.path)
         self.ts.data["settings"] = settings
         self.ts.data["settingPath"] = os.path.dirname(setting_file)
         #create new timestream for output data
@@ -55,8 +52,8 @@ class PipelineManager(object):
         self.ts_out.data["sourcePath"] = self.input_path
         self.log.info("Timestream instance created:")
         for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
-            self.log.debug("ts.%s:" % attr, getattr(ts, attr))
-        self.pl = pipeline.ImagePipeline(ts.data["settings"])
+            self.log.debug("ts.%s:" % attr, getattr(self.ts, attr))
+        self.pl = pipeline.ImagePipeline(self.ts.data["settings"])
 
     def __run__(self, start=None, end=None, interval=None):
         if start is None:
