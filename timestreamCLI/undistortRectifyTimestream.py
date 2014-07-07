@@ -41,21 +41,20 @@ class PipelineManager(object):
         #create new timestream for output data
         self.ts = timestream.TimeStream()
         self.ts.load(self.input_path)
-        self.log.info('timestream path = ', self.ts.path)
-        self.ts.data["settings"] = settings
+        self.log.info('timestream path = %s', self.ts.path)
+        self.ts.data["settings"] = self.settings
         self.ts.data["settingPath"] = os.path.dirname(setting_file)
         #create new timestream for output data
         self.ts_out = timestream.TimeStream()
-        self.ts_out.create(outputRootPath)
-        self.ts_out.data["settings"] = settings
+        self.ts_out.create(self.output_path)
+        self.ts_out.data["settings"] = self.settings
         self.ts_out.data["settingPath"] = os.path.dirname(setting_file)
         self.ts_out.data["sourcePath"] = self.input_path
         self.log.info("Timestream instance created:")
         for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
-            self.log.debug("ts.%s:" % attr, getattr(self.ts, attr))
-        self.pl = pipeline.ImagePipeline(self.ts.data["settings"])
+            self.log.debug("ts.%s: %r", attr, getattr(self.ts, attr))
 
-    def __run__(self, start=None, end=None, interval=None):
+    def __call__(self, start=None, end=None, interval=None):
         if start is None:
             start = self.ts.start_datetime
         if end is None:
@@ -64,13 +63,14 @@ class PipelineManager(object):
             interval = self.ts.interval
         img_iter = self.ts.iter_by_timepoints(remove_gaps=False, start=start,
                                               end=end, interval=interval)
+        pl = pipeline.ImagePipeline(self.ts.data["settings"])
         for img in img_iter:
             if img is None:
-                self.log.info('Missing Image at', img.path)
+                self.log.info('Missing Image at %s', img.path)
             else:
-                self.log.info("Processing", img.path)
+                self.log.info("Processing %s", img.path)
                 # set visualise to False to run in batch mode
-                context = {"rts":ts, "wts":ts_out, "img":img}
+                context = {"rts":self.ts, "wts":self.ts_out, "img":img}
                 result = pl.process(context, [img], True)
 
 if __name__ == "__main__":
