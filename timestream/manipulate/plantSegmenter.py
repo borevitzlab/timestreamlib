@@ -28,7 +28,7 @@ class FeatureCalculator(object):
 
     def area(self, mask):
         # +1 because to make regionprops see the areas
-        lmask = label(mask, background=0)+1
+        lmask = label(mask.astype(np.int), background=0)+1
         areas = regionprops(lmask, ["Area"])
         areaAccum = 0
         for area in areas:
