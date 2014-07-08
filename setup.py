@@ -22,7 +22,7 @@ setup(
     scripts=[
         'timestreamCLI/resizeTimestream.py',
     ],
-    version="0.0a2",
+    version="0.0a3",
     install_requires=install_requires,
     tests_require=test_requires,
     description=desc,
