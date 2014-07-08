@@ -164,7 +164,6 @@ def ts_guess_manifest_v1(ts_path):
 
 def all_files_with_ext_sorted(topdir, ext, cs=False):
     itr = all_files_with_ext(topdir, ext, cs)
-    return itr
     return sorted(list(itr))
 
 def all_files_with_ext(topdir, ext, cs=False):
