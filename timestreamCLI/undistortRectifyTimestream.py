@@ -17,11 +17,14 @@ import docopt
 
 CLI_OPT = """
 USAGE:
-tc.py -i IN -o OUT
+tc.py [-s START -e END -I INTERVAL] -i IN -o OUT
 
 OPTIONS:
-    -i IN   Input timestream
-    -o OUT  Output timestream
+    -i IN       Input timestream
+    -o OUT      Output timestream
+    -s START    Start date, in %Y_%m_%d_%H_%M_%S format.
+    -e END      End date, in %Y_%m_%d_%H_%M_%S format.
+    -I INTERVAL Interval, in seconds
 """
 
 # initialise input timestream for processing
@@ -51,16 +54,28 @@ class PipelineManager(object):
         self.ts_out.data["settingPath"] = os.path.dirname(setting_file)
         self.ts_out.data["sourcePath"] = self.input_path
         self.log.info("Timestream instance created:")
+        try:
+            self.start_at = timestream.parse.ts_parse_date(opts['-s'])
+        except (ValueError, TypeError):
+            self.start_at = self.ts.start_datetime
+        try:
+            self.end_at = timestream.parse.ts_parse_date(opts['-e'])
+        except (ValueError, TypeError):
+            self.end_at = self.ts.end_datetime
+        try:
+            self.interval = int(opts['-I'])
+        except (ValueError, TypeError):
+            self.interval = self.ts.interval
         for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
             self.log.debug("ts.%s: %r", attr, getattr(self.ts, attr))
 
     def __call__(self, start=None, end=None, interval=None):
         if start is None:
-            start = self.ts.start_datetime
+            start = self.start_at
         if end is None:
-            end = self.ts.end_datetime
+            end = self.end_at
         if interval is None:
-            interval = self.ts.interval
+            interval = self.interval
         img_iter = self.ts.iter_by_timepoints(remove_gaps=False, start=start,
                                               end=end, interval=interval)
         pl = pipeline.ImagePipeline(self.ts.data["settings"])
@@ -72,7 +87,7 @@ class PipelineManager(object):
                     self.log.info("Processing %s", img.path)
                     # set visualise to False to run in batch mode
                     context = {"rts":self.ts, "wts":self.ts_out, "img":img}
-                    result = pl.process(context, [img], True)
+                    result = pl.process(context, [img], visualise=False)
                 except:
                     self.log.error("DOES NOT COMPUTE %s", img.path)
 
