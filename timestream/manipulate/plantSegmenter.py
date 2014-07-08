@@ -23,6 +23,7 @@ from skimage.measure import regionprops
 from skimage.morphology import label
 import cv2
 import inspect
+import matplotlib.pyplot as plt
 
 class FeatureCalculator(object):
 
@@ -388,3 +389,17 @@ class ImagePotMatrix(object):
 
         return (featureNames)
 
+    def show(self):
+        """ Show the image with the plot squares on top. """
+        plt.figure()
+        plt.imshow(self.image.astype(np.uint8))
+        plt.hold(True)
+
+        for tray in self.its:
+            for pot in tray.pots:
+                r = pot.rect
+                plt.plot([r[0], r[2], r[2], r[0], r[0]],
+                         [r[1], r[1], r[3], r[3], r[1]],
+                         linestyle="-", color="r")
+        plt.title('Pot Rectangles')
+        plt.show()
