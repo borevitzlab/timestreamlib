@@ -65,7 +65,7 @@ class PipelineManager(object):
         try:
             self.interval = int(opts['-I'])
         except (ValueError, TypeError):
-            self.interval = self.ts.interval
+            self.interval = self.ts.interval * 60
         for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
             self.log.debug("ts.%s: %r", attr, getattr(self.ts, attr))
 
