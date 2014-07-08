@@ -431,14 +431,20 @@ class PlantExtractor ( PipeComponent ):
         img = args[0]
         centers = args[1]
         ipm = ps.ImagePotMatrix(img, centers=centers)
-        retImg = np.zeros(img.shape, dtype=img.dtype)
+        self.retImg = np.zeros(img.shape, dtype=img.dtype)
         for key, iph in ipm.iter_through_pots():
             print ("Segmenting pot %s"% key)
             # We Init the segmenter and segment.
             iph.ps = self.segmenter
-            retImg = retImg | iph.maskedImage(inSuper=True)
+            self.retImg = self.retImg | iph.maskedImage(inSuper=True)
 
-        return [retImg, ipm]
+        return [self.retImg, ipm]
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.retImg.astype(np.uint8))
+        plt.show()
+
 
 class FeatureExtractor ( PipeComponent ):
     actName = "featureextract"
