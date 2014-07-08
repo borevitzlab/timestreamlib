@@ -66,12 +66,15 @@ class PipelineManager(object):
         pl = pipeline.ImagePipeline(self.ts.data["settings"])
         for img in img_iter:
             if img is None:
-                self.log.info('Missing Image at %s', img.path)
+                self.log.info('Missing Image')
             else:
-                self.log.info("Processing %s", img.path)
-                # set visualise to False to run in batch mode
-                context = {"rts":self.ts, "wts":self.ts_out, "img":img}
-                result = pl.process(context, [img], True)
+                try:
+                    self.log.info("Processing %s", img.path)
+                    # set visualise to False to run in batch mode
+                    context = {"rts":self.ts, "wts":self.ts_out, "img":img}
+                    result = pl.process(context, [img], True)
+                except:
+                    self.log.error("DOES NOT COMPUTE %s", img.path)
 
 if __name__ == "__main__":
     pmgr = PipelineManager()
