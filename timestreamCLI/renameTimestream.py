@@ -27,8 +27,7 @@ OPTIONS:
 def process_image((img, out_ts)):
     # get output path
     split = path.basename(img).split('_')[1:]
-    dest = path.join(
-                     out_ts,
+    dest = path.join(out_ts,
                      split[0],
                      "_".join(split[0:2]),
                      "_".join(split[0:3]),
