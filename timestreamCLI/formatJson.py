@@ -25,10 +25,10 @@ expt_fmt = {
 def main():
     dirs = filter(ists, glob(r'*/*'))
     fullres = filter(isfullres, dirs)
-    lowres = filter(is640, dirs)
+    # lowres = filter(is640, dirs)
     expts = []
     expt_dict = {}
-    ts_dict = {}
+    # ts_dict = {}
     user = "Borevitz"
 
     ts = TimeStream()
@@ -36,7 +36,7 @@ def main():
         fr = path.basename(fr_path.rstrip("/"))
         ts_name = tsname(fr)
         ts.load(fr_path)
-        expt, loc, cam = splitname(ts_name)
+        expt, loc, _ = splitname(ts_name)
         try:
             expt_dict[expt]["expt_id"] = expt
         except KeyError:
@@ -50,7 +50,7 @@ def main():
         expt_dict[expt]["end_date"] = ts.end_datetime.strftime("%Y-%m-%d")
         expt_dict[expt]["end_time"] = ts.end_datetime.strftime("%H:%M")
         expt_dict[expt]["timestreams"].append(fr)
-        #print("TS at {} updates dict for {} to:\n{!r}".format(fr, expt,
+        # print("TS at {} updates dict for {} to:\n{!r}".format(fr, expt,
         #      expt_dict[expt]))
     for expt, dct in expt_dict.items():
         expts.append(dct)
