@@ -109,10 +109,12 @@ def ts_guess_manifest_v1(ts_path):
     retval = {}
     # get a sorted list of all files
     all_files = []
-    for root, _, files in os.walk(ts_path):
+    for root, folders, files in os.walk(ts_path):
+        for folder in folders:
+            if folder.startswith("_"):
+                folders.remove(folder)
         for fle in files:
-            if not path.dirname(fle).startswith('_'):
-                all_files.append(path.join(root, fle))
+            all_files.append(path.join(root, fle))
     all_files = sorted(all_files)
     # find most common extension, and assume this is the ext
     exts = collections.Counter(IMAGE_EXT_CONSTANTS)
@@ -162,6 +164,7 @@ def ts_guess_manifest_v1(ts_path):
 
 def all_files_with_ext_sorted(topdir, ext, cs=False):
     itr = all_files_with_ext(topdir, ext, cs)
+    return itr
     return sorted(list(itr))
 
 def all_files_with_ext(topdir, ext, cs=False):
@@ -191,7 +194,12 @@ def all_files_with_ext(topdir, ext, cs=False):
         ext = ext.lower()
     # OK, walk the dir. we only care about files, hence why dirs never gets
     # touched
-    for root, dirs, files in os.walk(topdir):
+    for root, folders, files in os.walk(topdir):
+        folders = sorted(folders)
+        files = sorted(files)
+        for folder in folders:
+            if folder.startswith("_"):
+                folders.remove(folder)
         for fpath in files:
             # split out ext, and do any case-conversion we need
             fname, fext = path.splitext(fpath)
