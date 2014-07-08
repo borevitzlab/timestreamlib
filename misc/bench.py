@@ -1,8 +1,5 @@
-import Image
 import wand.image
 import cv2
-import numpy as np
-import scipy.misc
 
 def ocv(src, dest, size=(640, 480)):
     img = cv2.imread(src)
@@ -21,6 +18,7 @@ def pillow(src, dest, size=(640, 480)):
     img.save(dest, "JPEG")
 
 def pil(src, dest, size=(640, 480)):
+    import Image
     img = Image.open(src)
     img.thumbnail(size, Image.ANTIALIAS)
     img.save(dest, "JPEG")
