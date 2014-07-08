@@ -6,7 +6,7 @@ Created on Wed Jun 25 13:31:54 2014
 """
 from __future__ import division, print_function
 
-import sys, os
+import os
 import logging
 import timestream
 from timestream import manipulate
@@ -41,13 +41,13 @@ class PipelineManager(object):
         setting_file = os.path.join(self.input_path, '_data', 'pipeline.yml')
         with open(setting_file) as ymlfh:
             self.settings = yaml.load(ymlfh)
-        #create new timestream for output data
+        # create new timestream for output data
         self.ts = timestream.TimeStream()
         self.ts.load(self.input_path)
         self.log.info('timestream path = %s', self.ts.path)
         self.ts.data["settings"] = self.settings
         self.ts.data["settingPath"] = os.path.dirname(setting_file)
-        #create new timestream for output data
+        # create new timestream for output data
         self.ts_out = timestream.TimeStream()
         self.ts_out.create(self.output_path)
         self.ts_out.data["settings"] = self.settings
@@ -87,7 +87,8 @@ class PipelineManager(object):
                     self.log.info("Processing %s", img.path)
                     # set visualise to False to run in batch mode
                     context = {"rts":self.ts, "wts":self.ts_out, "img":img}
-                    result = pl.process(context, [img], visualise=False)
+                    # result = process() removed as we don't use result yet
+                    pl.process(context, [img], visualise=False)
                 except:
                     self.log.error("DOES NOT COMPUTE %s", img.path)
 
