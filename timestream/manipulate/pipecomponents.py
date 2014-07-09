@@ -218,7 +218,8 @@ class ColorCardDetector ( PipeComponent ):
 
 class ImageColorCorrector ( PipeComponent ):
     actName = "colorcorrect"
-    argNames = {"mess": [False, "Correct image color"]}
+    argNames = {"mess": [False, "Correct image color"],
+                "writeImage": [False, "Whether to write processing image to output timestream", False]}
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray]
@@ -239,6 +240,15 @@ class ImageColorCorrector ( PipeComponent ):
             print('Skip color correction')
             self.imageCorrected = image
         self.image = image # display
+
+        # save processed image if selected so
+        if self.writeImage:
+            print('   Save corrected image')
+            img = timestream.TimeStreamImage()
+            img.datetime = context["img"].datetime
+            img.pixels = self.imageCorrected
+            img.data["processed"] = "yes"
+            context["wts"].write_image(img)
 
         return([self.imageCorrected])
 
