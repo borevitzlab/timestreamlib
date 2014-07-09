@@ -274,7 +274,7 @@ class TimeStream(object):
             self.write_metadata()
             # Actually write image
             ts_make_dirs(fpath)
-            cv2.imwrite(fpath, image.pixels)
+            cv2.imwrite(fpath, image.pixels[:,:,::-1])
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
 
