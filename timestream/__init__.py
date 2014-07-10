@@ -103,8 +103,8 @@ class TimeStream(object):
     @version.setter
     def version(self, version):
         if not isinstance(version, int) or version < 1 or version > 2:
-            msg = "Invalid TimeStream version {}.".format(repr(version)) + \
-                  " Must be an int, 1 or 2"
+            msg = "Invalid TimeStream version {}.".format(repr(version))
+            msg += " Must be an int, 1 or 2"
             LOG.error(msg)
             raise ValueError(msg)
         self._version = version
@@ -137,6 +137,13 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        # This is required to ensure that path.dirname() of timestreams with
+        # relative paths rooted at the current directory returns ".", not "",
+        # or the timestream itself.
+        dotslash = ".{}".format(os.pathsep)
+        if not ts_path.startswith(os.pathsep):
+            if not ts_path.startswith(dotslash):
+                ts_path = "{}{}".format(dotslash, ts_path)
         self._path = ts_path
         self.data_dir = path.join(self._path, "_data")
         if (not path.isdir(self.data_dir)) and path.isdir(ts_path):
@@ -175,6 +182,13 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        # This is required to ensure that path.dirname() of timestreams with
+        # relative paths rooted at the current directory returns ".", not "",
+        # or the timestream itself.
+        dotslash = ".{}".format(os.pathsep)
+        if not ts_path.startswith(os.pathsep):
+            if not ts_path.startswith(dotslash):
+                ts_path = "{}{}".format(dotslash, ts_path)
         if not path.exists(path.dirname(ts_path)):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
