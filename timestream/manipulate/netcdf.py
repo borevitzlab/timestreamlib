@@ -34,7 +34,7 @@ def ts_to_tsnc(ts_path, tsnc_path):
     ys = root.createVariable("y", 'u4', ('y',))
     xs = root.createVariable("x", 'u4', ('x',))
     # create actual pixel array
-    px_type = 'u{d}'.format(mat0.dtype.itemsize)
+    px_type = 'u{:d}'.format(mat0.dtype.itemsize)
     pixels = root.createVariable("pixel", px_type, ('t', 'y', 'x', 'z'),
             zlib=True)
     log.info("Created netcdf4 file {} with pixel array dimensions {!r}".format(
