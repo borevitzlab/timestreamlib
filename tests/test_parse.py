@@ -48,36 +48,36 @@ class TestAllFilesWithExt(TestCase):
     def test_with_timestream_ext_jpg(self):
         res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_jpggccaps(self):
         res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_jpg_cs(self):
         res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg",
                                  cs=True)
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
         res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG",
                                  cs=True)
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
 
     def test_with_timestream_ext_xyz(self):
         res = all_files_with_ext(helpers.FILES["timestream_manifold"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
 
     def test_with_emptydir_ext_xyz(self):
         res = all_files_with_ext(helpers.FILES["empty_dir"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
 
     def test_with_bad_param_types(self):
@@ -137,7 +137,7 @@ class TestIterImages(TestCase):
         """Test ts_iter_images with a timestream with a manifold"""
         res = ts_iter_images(helpers.FILES["timestream_manifold"])
         self.assertTrue(isgenerator(res))
-        self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
+        self.assertListEqual(list(res), helpers.TS_MANIFOLD_FILES_JPG)
 
 
 class TestGuessManifest(TestCase):
