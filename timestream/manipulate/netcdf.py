@@ -21,7 +21,12 @@ def ts_to_tsnc(ts_path, tsnc_path):
     ts = root.createGroup('timestream')
     # Make dimensions
     # Kludge time!!!
-    mat0 = next(ts_iter_numpy([imgs[0], ]))[1]
+    mat0 = None
+    while mat0 is None:
+        try:
+            mat0 = next(ts_iter_numpy([imgs[0], ]))[1]
+        except StopIteration:
+            raise ValueError("Didn't find a valid image in {}".format(ts_path))
     dimy = root.createDimension('y', mat0.shape[0])
     dimx = root.createDimension('x', mat0.shape[1])
     dimz = root.createDimension('z', mat0.shape[2])
@@ -42,6 +47,8 @@ def ts_to_tsnc(ts_path, tsnc_path):
     # iteratively add images
     count = 0
     for img, mat in mats:
+        if mat is None:
+            continue
         n_dates = len(root.dimensions['t'])
         time = ts_parse_date_path(img)
         times[n_dates] = date2num([time,], units=times.units,
@@ -50,7 +57,6 @@ def ts_to_tsnc(ts_path, tsnc_path):
         count += 1
         log.debug("Processed {}. Matrix shape is {!r}".format(img,
             pixels.shape))
-        if count % 2 == 0:
-            log.log(NOEOL, "Processed {: 5d} images.\r".format(count))
+        log.log(NOEOL, "Processed {: 5d} images.\r".format(count))
     log.info("Processed {: 5d} images. ts_to_tsnc finished!".format(count))
     root.close()
