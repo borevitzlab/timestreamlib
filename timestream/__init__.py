@@ -137,12 +137,12 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
-        ts_path = ts_path.rstrip(os.pathsep)
+        ts_path = ts_path.rstrip(os.sep)
         # This is required to ensure that path.dirname() of timestreams with
         # relative paths rooted at the current directory returns ".", not "",
         # or the timestream itself.
-        dotslash = ".{}".format(os.pathsep)
-        if not ts_path.startswith(os.pathsep):
+        dotslash = ".{}".format(os.sep)
+        if not ts_path.startswith(os.sep):
             if not ts_path.startswith(dotslash):
                 ts_path = "{}{}".format(dotslash, ts_path)
         self._path = ts_path
@@ -184,12 +184,12 @@ class TimeStream(object):
             LOG.error(msg)
             raise TypeError(msg)
         # Basename will trip over the trailing slash, if given.
-        ts_path = ts_path.rstrip(os.pathsep)
+        ts_path = ts_path.rstrip(os.sep)
         # This is required to ensure that path.dirname() of timestreams with
         # relative paths rooted at the current directory returns ".", not "",
         # or the timestream itself.
-        dotslash = ".{}".format(os.pathsep)
-        if not ts_path.startswith(os.pathsep):
+        dotslash = ".{}".format(os.sep)
+        if not ts_path.startswith(os.sep):
             if not ts_path.startswith(dotslash):
                 ts_path = "{}{}".format(dotslash, ts_path)
         if not path.exists(path.dirname(ts_path)):
