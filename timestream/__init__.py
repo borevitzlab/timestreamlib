@@ -137,6 +137,7 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        ts_path = ts_path.rstrip(os.pathsep)
         # This is required to ensure that path.dirname() of timestreams with
         # relative paths rooted at the current directory returns ".", not "",
         # or the timestream itself.
@@ -182,6 +183,8 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        # Basename will trip over the trailing slash, if given.
+        ts_path = ts_path.rstrip(os.pathsep)
         # This is required to ensure that path.dirname() of timestreams with
         # relative paths rooted at the current directory returns ".", not "",
         # or the timestream itself.
@@ -201,7 +204,7 @@ class TimeStream(object):
         self.start_datetime = start
         self.end_datetime = end
         if name is None:
-            self.name = path.basename(ts_path.rstrip('/'))
+            self.name = path.basename(ts_path)
         if type:
             self.image_type = type
         else:
