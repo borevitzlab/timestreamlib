@@ -39,7 +39,7 @@ from timestream.parse import (
     _is_ts_v2,
     _ts_date_to_path,
     ts_guess_manifest_v1,
-    all_files_with_ext_sorted,
+    all_files_with_ext,
     ts_parse_date_path,
     ts_parse_date,
     ts_format_date,
@@ -327,7 +327,7 @@ class TimeStream(object):
             setattr(self, datum, value)
 
     def iter_by_files(self):
-        for fpath in all_files_with_ext_sorted(
+        for fpath in all_files_with_ext(
                 self.path, self.extension, cs=False):
             img = TimeStreamImage()
             img.parent_timestream = self

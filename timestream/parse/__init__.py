@@ -162,10 +162,6 @@ def ts_guess_manifest_v1(ts_path):
     return retval
 
 
-def all_files_with_ext_sorted(topdir, ext, cs=False):
-    itr = all_files_with_ext(topdir, ext, cs)
-    return sorted(list(itr))
-
 def all_files_with_ext(topdir, ext, cs=False):
     """Iterates over files with extension ``ext`` recursively from ``topdir``
     """
@@ -194,8 +190,9 @@ def all_files_with_ext(topdir, ext, cs=False):
     # OK, walk the dir. we only care about files, hence why dirs never gets
     # touched
     for root, folders, files in os.walk(topdir):
-        folders = sorted(folders)
-        files = sorted(files)
+        # These *must* be in place, not f = sorted(f)
+        folders.sort()
+        files.sort()
         for folder in folders:
             if folder.startswith("_"):
                 folders.remove(folder)
