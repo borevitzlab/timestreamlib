@@ -326,7 +326,10 @@ def ts_iter_numpy(fname_iter):
     for img in fname_iter:
         try:
             import skimage.io as imgio
-            yield (img, imgio.imread(img, plugin="freeimage"))
+            try:
+                yield (img, imgio.imread(img, plugin="freeimage"))
+            except RuntimeError:
+                yield (img, None)
         except ImportError:
             LOG.warn("Couln't load scikit image io module. " +
                      "Raw images not supported")
