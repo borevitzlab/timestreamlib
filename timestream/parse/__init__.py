@@ -328,7 +328,8 @@ def ts_iter_numpy(fname_iter):
             import skimage.io as imgio
             try:
                 yield (img, imgio.imread(img, plugin="freeimage"))
-            except RuntimeError:
+            except RuntimeError as exc:
+                LOG.error(str(exc))
                 yield (img, None)
         except ImportError:
             LOG.warn("Couln't load scikit image io module. " +
