@@ -1,3 +1,4 @@
+from itertools import izip, imap
 import logging
 import netCDF4 as ncdf
 from netCDF4 import num2date, date2num, date2index
@@ -7,7 +8,7 @@ from timestream.manipulate import (
         )
 from timestream.parse import (
         ts_iter_images,
-        ts_iter_numpy,
+        read_image,
         ts_parse_date_path,
         )
 
@@ -15,17 +16,18 @@ def ts_to_tsnc(ts_path, tsnc_path):
     log = logging.getLogger("CONSOLE")
     # Get timestream images
     imgs = list(ts_iter_images(ts_path))
-    mats = ts_iter_numpy(imgs)
     # Make netcdf4 file
     root = ncdf.Dataset(tsnc_path, 'w', format="NETCDF4")
     ts = root.createGroup('timestream')
     # Make dimensions
     # Kludge time!!!
     mat0 = None
+    mat_n = 0
     while mat0 is None:
         try:
-            mat0 = next(ts_iter_numpy([imgs[0], ]))[1]
-        except StopIteration:
+            mat0 = read_image(imgs[mat_n])
+            mat_n += 1
+        except IndexError:
             raise ValueError("Didn't find a valid image in {}".format(ts_path))
     dimy = root.createDimension('y', mat0.shape[0])
     dimx = root.createDimension('x', mat0.shape[1])
@@ -46,7 +48,8 @@ def ts_to_tsnc(ts_path, tsnc_path):
         tsnc_path, pixels.shape))
     # iteratively add images
     count = 0
-    for img, mat in mats:
+    for img_n, mat in enumerate(imap(read_image, imgs)):
+        img = imgs[img_n]
         if mat is None:
             continue
         n_dates = len(root.dimensions['t'])
