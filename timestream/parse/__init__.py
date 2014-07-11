@@ -317,6 +317,18 @@ def _ts_date_to_path(ts_info, date, n=0):
                            n=n)
     return date.strftime(pth)
 
+def read_image(img):
+    try:
+        import skimage.io as imgio
+        try:
+            return imgio.imread(img, plugin="freeimage")
+        except (ValueError, RuntimeError) as exc:
+            LOG.error(str(exc))
+            return None
+    except ImportError:
+        LOG.warn("Couln't load scikit image io module. " +
+                 "Raw images not supported")
+        return cv2.imread(img)
 
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
@@ -324,15 +336,4 @@ def ts_iter_numpy(fname_iter):
     ``(img_path, img_matrix)``.
     """
     for img in fname_iter:
-        try:
-            import skimage.io as imgio
-            try:
-                yield (img, imgio.imread(img, plugin="freeimage"))
-            except RuntimeError as exc:
-                LOG.error(str(exc))
-                yield (img, None)
-        except ImportError:
-            LOG.warn("Couln't load scikit image io module. " +
-                     "Raw images not supported")
-            yield (img, cv2.imread(img))
-
+        yield (img, read_image(img))
