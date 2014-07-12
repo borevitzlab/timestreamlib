@@ -61,54 +61,23 @@ class PotSegmenter(object):
         raise NotImplementedError()
 
 class PotSegmenter_KmeansSquare(PotSegmenter):
-    def __init__(self, mGrowth=30, growBy=5, stopVal=0.1):
+    def __init__(self):
         """PotSegmenter_Kmeans: Segmenter by k-means
 
         Steps:
-        1. Analyze increasing subsquares in the image.
-        2. Calculate a k-means (k=2) of the current subsquare.
+        1. Calculate relative features.
+        2. Calculate a k-means (k=2)
         3. Remove noise and bring close connected components together.
-        4. We stop when less than 98% of the side pixels are 1.
-        5. Recalculate enclosing square.
-
-        Args:
-          mGrowth (int): Max pixels to grow in any direction.
         """
-        self.mGrowth = mGrowth
-        self.growBy = growBy
-        self.stopVal = stopVal
 
     def segment(self, iph, hints):
-        """Segment a growing subimage centered at iph"""
-        oRect = iph.rect #keep original rect in case we need to revert
-        foundSeg = False # Ture when a segmentation is found
-        for i in range(int(round(self.mGrowth/self.growBy))):
-            try:
-                iph.increaseRect(by=self.growBy)
-            except ValueError:
-                break
+        """Segment subimage centered at iph"""
+        fts = self.getFeatures(iph.image)
 
-            mask = self.calcKmeans(iph.image)
-            mask = np.uint8(mask)
+        mask = self.calcKmeans(fts)
 
-            se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
-
-            # Stop when <2% of the rect perifery is 1
-            perifery = np.concatenate((mask[0,:], \
-                                        mask[mask.shape[0]-1,:], \
-                                        mask[1:mask.shape[0]-2,0], \
-                                        mask[1:mask.shape[0]-2,mask.shape[1]-1]))
-            if float(sum(perifery))/len(perifery) < self.stopVal:
-                foundSeg = True
-                break
-
-        # FIXME: What do we do when we don't find a segmentation?
-        if not foundSeg:
-            iph.rect = oRect
-            mask = np.array( np.zeros( (abs(iph.rect[2]-iph.rect[0]),
-                                        abs(iph.rect[3]-iph.rect[1])) ),
-                             dtype = np.dtype("uint8") )
+        se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
 
         return ([mask, hints])
 
@@ -131,8 +100,60 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
                 10, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
+        labels = labels.astype(np.uint8)
 
         return (labels)
+
+    def getFeatures(sefl, img):
+        def normRange(F):
+            """ Streach values to [0,1], change to np.float32."""
+            F = F.astype(np.float32)
+            m = np.min(F)
+            F -= m
+            M = np.max(F)
+            F /= float(M)
+            return (F)
+
+        retVal = None
+        imglab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+
+        # Add a and b from cieL*a*b
+        retVal = imglab[:,:,1:3].astype(np.float32)
+        retVal[:,:,0] = normRange(retVal[:,:,0])
+        retVal[:,:,1] = normRange(retVal[:,:,1])
+
+        # Calculate texture response filter from Minervini 2013
+        # FIXME: The pill radius, gaussian size and sigmas should be user
+        #        defined.
+        falloff = 1.0/50.0
+        pillsize = 7
+        gaussize = 17
+        sdH = 4
+        sdL = 1
+
+        # pillbox feature (F1)
+        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
+                (pillsize,pillsize))
+        pillse = pillse.astype(float)
+        pillse = pillse/sum(sum(pillse))
+        F1 = cv2.filter2D(imglab[:,:,1], -1, pillse)
+
+        # Difference of Gaussian (DoG) featrue (F2)
+        G1 = cv2.getGaussianKernel(gaussize, sdH)
+        G2 = cv2.getGaussianKernel(gaussize, sdL)
+        G1 = G1 * cv2.transpose(G1)
+        G2 = G2 * cv2.transpose(G2)
+        F2 = cv2.filter2D(imglab[:,:,0], -1, G1-G2)
+
+        F = np.exp( -falloff * np.abs(F1+F2) )
+        F = normRange(F)
+        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
+
+        # FIXME: try cv2.merge
+        retVal = np.concatenate((retVal, F), axis=2)
+
+        return (retVal)
+
 
 #FIXME: Find a better place to put this.
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
