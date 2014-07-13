@@ -75,7 +75,7 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         """Segment subimage centered at iph"""
         fts = self.getFeatures(iph.image)
 
-        mask = self.calcKmeans(fts)
+        mask = self.calcKmeans(fts, attempts=20)
 
         #FIXME: do this check if we don't have mean centers.
         FG = sum(sum(mask==1))
@@ -92,7 +92,7 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         return ([mask, hints])
 
-    def calcKmeans(self, img):
+    def calcKmeans(self, img, maxIter=10, epsilon=1, attempts=10):
         """Calculate mask based on k-means
 
         Don't do any checks.
@@ -100,6 +100,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         Args:
           img: 3D structure where x,y are image axis and z represents
                different features.
+          maxIter: maximum num of iterations per attempt
+          epsilon: stopping difference
+          attempts: times we try with different centers
         """
         oShape = img.shape
         img = np.float32(img)
@@ -107,8 +110,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         # k-means. max 10 iters. Stop if diff < 1. Init centers at random
         compactness,labels,centers = cv2.kmeans(img, 2, \
-                (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), \
-                10, cv2.KMEANS_RANDOM_CENTERS)
+                ( cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, \
+                  maxIter, epsilon ), \
+                attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
         labels = labels.astype(np.uint8)
