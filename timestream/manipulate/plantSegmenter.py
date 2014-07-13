@@ -18,6 +18,7 @@
 
 import numpy as np
 from scipy import spatial
+from scipy import signal
 from itertools import chain
 from skimage.measure import regionprops
 from skimage.morphology import label
@@ -76,8 +77,18 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         mask = self.calcKmeans(fts)
 
+        #FIXME: do this check if we don't have mean centers.
+        FG = sum(sum(mask==1))
+        BG = sum(sum(mask==0))
+        if BG < FG:
+            mask = -(mask-1)
+
         se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
+
+        # When complexity is large, image is too noisy.
+        if self.calcComplexity(mask) > 0.3:
+            mask[:] = 0
 
         return ([mask, hints])
 
@@ -154,6 +165,23 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         return (retVal)
 
+    def calcComplexity(self, mask, size=5):
+        """Apply Parrott et. al. 2008"""
+        se = np.ones([size,size])
+        convMask = signal.convolve2d(mask, se)
+
+        freq = [ float(convMask[np.where(convMask==i)].shape[0]) \
+                for i in range((size*size)+1) ]
+        freq = np.array(freq)
+        freq = freq/sum(freq)
+
+        # be carefull with ln(0)
+        freq = freq + 0.00001
+
+        # spatial complexity
+        sc = -sum(freq*np.log(freq)) / np.log(freq.shape[0])
+
+        return (sc)
 
 #FIXME: Find a better place to put this.
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
