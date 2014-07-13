@@ -243,7 +243,20 @@ class ImagePotHandler(object):
 
         self._fc = FeatureCalculator()
         self._features = {}
-        self._mask = None
+        self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
+                                np.abs(self._rect[3]-self._rect[1])] ) - 1
+
+    @property
+    def ps(self):
+        return self._ps
+
+    @ps.setter
+    def ps(self, ps):
+        self._ps = ps
+
+    @ps.deleter
+    def ps(self):
+        self._ps = None
 
     @property
     def id(self):
@@ -256,10 +269,15 @@ class ImagePotHandler(object):
 
     @property
     def mask(self): # not settable nor delettable
-        if self._mask == None:
-            hints = {} # FIXME: incorporate the hints from  iphPrev
-            self._mask, hint = self.ps.segment(self, hints)
-        return (self._mask)
+        if -1 in self._mask: #no mask yet
+            if self._ps is not None:
+                hints = {} # FIXME: incorporate the hints from  iphPrev
+                self._mask, hint = self._ps.segment(self, hints)
+                return self._mask
+            else:
+                return self._mask + 1
+
+        return self._mask #existing mask
 
     @property # not deletable
     def rect(self):
@@ -270,8 +288,10 @@ class ImagePotHandler(object):
         if sum(r[0:2] < 0) > 0 or sum(r[[3,2]] > self.si.shape[0:2]) > 0:
             raise ValueError("Rect overflows original image")
 
-        self._mask = None #FIXME: Reset everything that depends on self._mask
         self._rect = r
+        self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
+                                np.abs(self._rect[3]-self._rect[1])] ) - 1
+        #FIXME: Reset everything that depends on self._mask
 
     def maskedImage(self, inSuper=False):
         """Returns segmented pixels on a black background
@@ -295,10 +315,10 @@ class ImagePotHandler(object):
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
         if inSuper:
-            superBlack = np.zeros(self.si.shape, self.si.dtype)
-            superBlack[self._rect[1]:self._rect[3], \
+            superI = self.si
+            superI[self._rect[1]:self._rect[3], \
                        self._rect[0]:self._rect[2], :] = retVal
-            retVal = superBlack
+            retVal = superI
 
         return (retVal)
 
@@ -443,9 +463,14 @@ class ImagePotMatrix(object):
         return (featureNames)
 
     def show(self):
-        """ Show the image with the plot squares on top. """
+        """ Show segmented image with the plot squares on top. """
+        sImage = self.image
+        for tray in self.its:
+            for pot in tray.pots:
+                sImage = sImage | pot.maskedImage(inSuper=True)
+
         plt.figure()
-        plt.imshow(self.image.astype(np.uint8))
+        plt.imshow(sImage.astype(np.uint8))
         plt.hold(True)
 
         for tray in self.its:
