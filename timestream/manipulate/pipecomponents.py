@@ -150,9 +150,11 @@ class ImageUndistorter ( PipeComponent ):
 
     def show(self):
         plt.figure()
+        plt.subplot(211)
         plt.imshow(self.image)
         plt.title('Original image')
-        plt.figure()
+
+        plt.subplot(212)
         plt.imshow(self.imageUndistorted)
         plt.title('Undistorted image')
         plt.show()
@@ -206,12 +208,14 @@ class ColorCardDetector ( PipeComponent ):
 
     def show(self):
         plt.figure()
+        plt.subplot(211)
         plt.imshow(self.image)
         plt.hold(True)
         plt.plot([self.loc[0]], [self.loc[1]], 'ys')
         plt.text(self.loc[0]-30, self.loc[1]-15, 'ColorCard', color='yellow')
         plt.title('Detected color card')
-        plt.figure()
+
+        plt.subplot(212)
         plt.imshow(self.foundCard)
         plt.title('Detected color card')
         plt.show()
@@ -254,9 +258,11 @@ class ImageColorCorrector ( PipeComponent ):
 
     def show(self):
         plt.figure()
+        plt.subplot(211)
         plt.imshow(self.image)
         plt.title('Image without color correction')
-        plt.figure()
+
+        plt.subplot(212)
         plt.imshow(self.imageCorrected)
         plt.title('Color-corrected image')
         plt.show()
