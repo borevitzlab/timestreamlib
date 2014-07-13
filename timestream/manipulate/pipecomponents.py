@@ -28,6 +28,7 @@ import timestream
 import os
 import os.path
 import time
+import sys
 
 class PipeComponent ( object ):
     # Name has to be unique among pipecomponents
@@ -449,7 +450,8 @@ class PlantExtractor ( PipeComponent ):
         self.ipm = ps.ImagePotMatrix(img, centers=centers)
         retImg = np.zeros(img.shape, dtype=img.dtype)
         for key, iph in self.ipm.iter_through_pots():
-            print ("Segmenting pot %s"% key)
+            sys.stdout.write("\rSegmenting pot %s" % key)
+            sys.stdout.flush()
             # We Init the segmenter and segment.
             iph.ps = self.segmenter
             retImg = retImg | iph.maskedImage(inSuper=True)
