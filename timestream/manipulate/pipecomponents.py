@@ -448,7 +448,6 @@ class PlantExtractor ( PipeComponent ):
             iph.ps = self.segmenter
             retImg = retImg | iph.maskedImage(inSuper=True)
 
-        self.ipm.show()
         return [retImg, self.ipm]
 
     def show(self):
