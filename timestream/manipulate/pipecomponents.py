@@ -452,7 +452,8 @@ class PlantExtractor ( PipeComponent ):
 
     def __init__(self, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
-        # FIXME: check if method exists
+        if self.meth not in ps.segmentingMethods.keys():
+            raise ValueError ("%s is not a valid method" % self.meth)
         self.segmenter = ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
