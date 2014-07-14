@@ -62,20 +62,30 @@ class PotSegmenter(object):
         raise NotImplementedError()
 
 class PotSegmenter_KmeansSquare(PotSegmenter):
-    def __init__(self):
+    def __init__(self, maxIter=10, epsilon=1, attempts=20):
         """PotSegmenter_Kmeans: Segmenter by k-means
+
+        Args:
+          maxIter: maximum num of iterations per attempt
+          epsilon: stopping difference
+          attempts: times we try with different centers
 
         Steps:
         1. Calculate relative features.
         2. Calculate a k-means (k=2)
         3. Remove noise and bring close connected components together.
+        4. Ignore if complexity is too high
         """
+        self.maxIter = maxIter
+        self.epsilon = epsilon
+        self.attempts = attempts
+        self.maxComplexity = 0.3
 
     def segment(self, iph, hints):
         """Segment subimage centered at iph"""
         fts = self.getFeatures(iph.image)
 
-        mask = self.calcKmeans(fts, attempts=20)
+        mask = self.calcKmeans(fts)
 
         #FIXME: do this check if we don't have mean centers.
         FG = sum(sum(mask==1))
@@ -87,12 +97,12 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
 
         # When complexity is large, image is too noisy.
-        if self.calcComplexity(mask) > 0.3:
+        if self.calcComplexity(mask) > self.maxComplexity:
             mask[:] = 0
 
         return ([mask, hints])
 
-    def calcKmeans(self, img, maxIter=10, epsilon=1, attempts=10):
+    def calcKmeans(self, img):
         """Calculate mask based on k-means
 
         Don't do any checks.
@@ -100,9 +110,6 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         Args:
           img: 3D structure where x,y are image axis and z represents
                different features.
-          maxIter: maximum num of iterations per attempt
-          epsilon: stopping difference
-          attempts: times we try with different centers
         """
         oShape = img.shape
         img = np.float32(img)
@@ -111,8 +118,8 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         # k-means. max 10 iters. Stop if diff < 1. Init centers at random
         compactness,labels,centers = cv2.kmeans(img, 2, \
                 ( cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, \
-                  maxIter, epsilon ), \
-                attempts, cv2.KMEANS_RANDOM_CENTERS)
+                  self.maxIter, self.epsilon ), \
+                self.attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
         labels = labels.astype(np.uint8)

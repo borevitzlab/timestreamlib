@@ -445,7 +445,7 @@ class PlantExtractor ( PipeComponent ):
     argNames = {"mess": [False, "Extract plant biometrics", "default message"], \
                 "minIntensity": [False, "Skip image segmentation if intensity below this value", 0],\
                 "meth": [False, "Segmentation Method", "k-means-square"], \
-                "methargs": [False, "Specific Method Arguments", {}]}
+                "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}]}
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
