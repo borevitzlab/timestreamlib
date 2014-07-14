@@ -66,23 +66,3 @@ def setup_console_logger():
     ch.setFormatter(fmt)
     log.addHandler(ch)
     log.setLevel(logging.INFO)
-
-
-def ts_parallel_map(ts_iter, func, args, procs=None):
-    """Map ``func(item, *args)`` for each item in ``ts_iter`` in parallel"""
-    log = logging.getLogger("CONSOLE")
-    # Setup pool
-    if procs == None:
-        procs = int(multiprocessing.cpu_count() * 0.9)
-    pool = multiprocessing.Pool(procs)
-    log.debug("Made pool with {:d} processes".format(procs))
-    # Setup args
-    func_args = [ts_iter,]
-    func_args.extend([cycle(arg) for arg in args])
-    func_args = izip(*func_args)
-    log.debug("Made argument list")
-    # Run imap
-    for ret in pool.imap(func, func_args):
-        yield ret
-    pool.close()
-    pool.join()
