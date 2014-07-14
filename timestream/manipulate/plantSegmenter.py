@@ -98,7 +98,11 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         # When complexity is large, image is too noisy.
         if self.calcComplexity(mask) > self.maxComplexity:
-            mask[:] = 0
+            if "iphPrev" in hints.keys() and hints["iphPrev"] is not None:
+                # Same as previous iph, if we have it.
+                mask = hints["iphPrev"].mask
+            else:
+                mask[:] = 0
 
         return ([mask, hints])
 
@@ -245,6 +249,12 @@ class ImagePotHandler(object):
             self.iphPrev = None
         elif isinstance(iphPrev, ImagePotHandler):
             self.iphPrev = iphPrev
+            # avoid a run on memory
+            self.iphPrev.iphPrev = None
+
+            # We don't actually want the previous pot to run the segmentation
+            # code again.
+            self.iphPrev.ps = None
         else:
             raise TypeError("iphPrev must be an instance of ImagePotHandler")
 
@@ -278,7 +288,8 @@ class ImagePotHandler(object):
     def mask(self): # not settable nor delettable
         if -1 in self._mask: #no mask yet
             if self._ps is not None:
-                hints = {} # FIXME: incorporate the hints from  iphPrev
+                hints = {"iphPrev":self.iphPrev}
+                # FIXME: here we loose track of the hints
                 self._mask, hint = self._ps.segment(self, hints)
                 return self._mask
             else:
