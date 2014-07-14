@@ -52,11 +52,11 @@ class PotSegmenter(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def segment(self, iph, hints):
+    def segment(self, img, hints):
         """Method that returns segmented images.
 
         Args:
-          iph (ImagePotHandler): Image pot to segment
+          img (np.ndarray): Image to segment
           hints (dict): dictionary with hints useful for segmentation
         """
         raise NotImplementedError()
@@ -81,9 +81,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         self.attempts = attempts
         self.maxComplexity = 0.3
 
-    def segment(self, iph, hints):
+    def segment(self, img, hints):
         """Segment subimage centered at iph"""
-        fts = self.getFeatures(iph.image)
+        fts = self.getFeatures(img)
 
         mask = self.calcKmeans(fts)
 
@@ -98,9 +98,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         # When complexity is large, image is too noisy.
         if self.calcComplexity(mask) > self.maxComplexity:
-            if "iphPrev" in hints.keys() and hints["iphPrev"] is not None:
-                # Same as previous iph, if we have it.
-                mask = hints["iphPrev"].mask
+            if "maskPrev" in hints.keys() and hints["maskPrev"] is not None:
+                # Same as previous mask, if we have it.
+                mask = hints["maskPrev"]
             else:
                 mask[:] = 0
 
@@ -252,8 +252,7 @@ class ImagePotHandler(object):
             # avoid a run on memory
             self.iphPrev.iphPrev = None
 
-            # We don't actually want the previous pot to run the segmentation
-            # code again.
+            # Don't let previous pot run segmentation code
             self.iphPrev.ps = None
         else:
             raise TypeError("iphPrev must be an instance of ImagePotHandler")
@@ -288,9 +287,9 @@ class ImagePotHandler(object):
     def mask(self): # not settable nor delettable
         if -1 in self._mask: #no mask yet
             if self._ps is not None:
-                hints = {"iphPrev":self.iphPrev}
+                hints = {"maskPrev":self.iphPrev.mask}
                 # FIXME: here we loose track of the hints
-                self._mask, hint = self._ps.segment(self, hints)
+                self._mask, hint = self._ps.segment(self.image, hints)
                 return self._mask
             else:
                 return self._mask + 1
