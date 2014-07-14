@@ -333,7 +333,7 @@ class ImagePotHandler(object):
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
         if inSuper:
-            superI = self.si
+            superI = self.si.copy()
             superI[self._rect[1]:self._rect[3], \
                        self._rect[0]:self._rect[2], :] = retVal
             retVal = superI
@@ -485,7 +485,7 @@ class ImagePotMatrix(object):
         sImage = self.image
         for tray in self.its:
             for pot in tray.pots:
-                sImage = sImage | pot.maskedImage(inSuper=True)
+                sImage = sImage & pot.maskedImage(inSuper=True)
 
         plt.figure()
         plt.imshow(sImage.astype(np.uint8))

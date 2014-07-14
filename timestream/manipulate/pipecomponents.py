@@ -466,7 +466,7 @@ class PlantExtractor ( PipeComponent ):
             sys.stdout.flush()
             # We Init the segmenter and segment.
             iph.ps = self.segmenter
-            retImg = retImg | iph.maskedImage(inSuper=True)
+            retImg = retImg & iph.maskedImage(inSuper=True)
 
         return [retImg, self.ipm]
 
