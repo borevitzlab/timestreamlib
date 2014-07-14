@@ -388,7 +388,7 @@ class ImagePotMatrix(object):
                 retVal.append(tuple(pot.rect))
             return(retVal)
 
-    def __init__(self, image, centers = None, rects = None):
+    def __init__(self, image, centers = None, rects = None, ipmPrev = None):
         """ImagePotMatrix: To house all the ImagePotHandlers
 
         Args:
@@ -402,6 +402,15 @@ class ImagePotMatrix(object):
         Attributes:
           its: Dictionary of image tray instances.
         """
+        if ipmPrev == None:
+            self.ipmPrev = None
+        elif isinstance(ipmPrev, ImagePotMatrix):
+            self.ipmPrev = ipmPrev
+            # avoid a run on memory
+            self.ipmPrev.ipmPrev = None
+        else:
+            raise TypeError("ipmPrev must be an instance of ImagePotHandler")
+
         potIndex = 1
         self.its = []
         if (centers is None and rects is None):
@@ -411,8 +420,14 @@ class ImagePotMatrix(object):
             for i, tray in enumerate(rects):
                 tmpTray = []
                 for rect in tray:
+
+                    # Get previous pot if present
+                    iphPrev = None
+                    if self.ipmPrev is not None:
+                        iphPrev = self.ipmPrev.getPot(potIndex)
+
                     tmpTray.append(ImagePotHandler(potIndex, \
-                            rects[i][j], image))
+                            rects[i][j], image, iphPrev=iphPrev))
                     potIndex += 1
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
@@ -426,10 +441,18 @@ class ImagePotMatrix(object):
                 trayTmp = []
                 for center in tray:
 
+                    # Calc rect
                     pt1 = np.array(center) - growM
                     pt2 = np.array(center) + growM
                     rect = pt1.tolist() + pt2.tolist()
-                    trayTmp.append(ImagePotHandler(potIndex, rect, image))
+
+                    # Get previous pot if present
+                    iphPrev = None
+                    if self.ipmPrev is not None:
+                        iphPrev = self.ipmPrev.getPot(potIndex)
+
+                    trayTmp.append(ImagePotHandler(potIndex, rect, image, \
+                            iphPrev=iphPrev))
                     potIndex += 1
 
                 self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))

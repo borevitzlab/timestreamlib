@@ -59,11 +59,12 @@ startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
 #timeInterval = 15 * 60
 endDate = None
 timeInterval = 24 * 60 * 60
+context = {"rts":ts, "wts":ts_out}
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate, interval=timeInterval ):
     if img is None:
         print('Missing Image')
     else:
         print("Process", img.path, '...'),
-        context = {"rts":ts, "wts":ts_out, "img":img}
+        context["img"] = img
         result = pl.process(context, [img], visualise)
         print("Done")

@@ -459,8 +459,11 @@ class PlantExtractor ( PipeComponent ):
     def __call__(self, context, *args):
         img = args[0]
         centers = args[1]
-        self.ipm = ps.ImagePotMatrix(img, centers=centers)
-        retImg = np.zeros(img.shape, dtype=img.dtype)
+        ipmPrev = None
+        if "ipm" in context.keys():
+            ipmPrev = context["ipm"]
+        self.ipm = ps.ImagePotMatrix(img, centers=centers, ipmPrev=ipmPrev)
+        retImg = img.copy()
         for key, iph in self.ipm.iter_through_pots():
             sys.stdout.write("\rSegmenting pot %s" % key)
             sys.stdout.flush()
@@ -468,6 +471,8 @@ class PlantExtractor ( PipeComponent ):
             iph.ps = self.segmenter
             retImg = retImg & iph.maskedImage(inSuper=True)
 
+        # Put current image pot matrix in context for the next run
+        context["ipm"] = self.ipm
         return [retImg, self.ipm]
 
     def show(self):
