@@ -287,7 +287,9 @@ class ImagePotHandler(object):
     def mask(self): # not settable nor delettable
         if -1 in self._mask: #no mask yet
             if self._ps is not None:
-                hints = {"maskPrev":self.iphPrev.mask}
+                hints = {}
+                if self.iphPrev is not None:
+                    hints["maskPrev"] = self.iphPrev.mask
                 # FIXME: here we loose track of the hints
                 self._mask, hint = self._ps.segment(self.image, hints)
                 return self._mask
