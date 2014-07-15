@@ -127,7 +127,7 @@ def findRoundedCorner(Image, InitRect, searchDistance = 20, Threshold = 20):
         diff1 = np.mean(np.abs(initPot[:,-1,:] - initPot[:,-i-1,:]))
         diff2 = np.mean(np.abs(initPot[0,:,:]  - initPot[i,:,:]))
         diff3 = np.mean(np.abs(initPot[-1,:,:] - initPot[-i-1,:,:]))
-        print([diff0, diff1, diff2, diff3])
+#        print([diff0, diff1, diff2, diff3])
         if diff0 > Threshold and not foundLeftEdgeX:
             xLeftNew = topLeft[0]+i
             foundLeftEdgeX = True
@@ -438,14 +438,13 @@ def correctColorVectorised(Image, ColorMatrix, ColorConstant, ColorGamma):
     return ImageCorrected
 
 def rotateImage(Image, RotationAngle = 0.0):
-    Image_ = Image
     if RotationAngle%90.0 == 0:
         k = RotationAngle//90.0
-        Image_ = np.rot90(Image_, k)
+        Image_ = np.rot90(Image, k)
     elif RotationAngle != 0:
-        center=tuple(np.array(Image_.shape[0:2])/2)
+        center=tuple(np.array(Image.shape[1::-1])/2)
         rot_mat = cv2.getRotationMatrix2D(center, RotationAngle,1.0)
-        Image_ = cv2.warpAffine(Image_, rot_mat, Image_.shape[0:2],flags=cv2.INTER_LINEAR)
+        Image_ = cv2.warpAffine(Image, rot_mat, Image.shape[1::-1],flags=cv2.INTER_LINEAR)
     return Image_
 
 def matchTemplateLocation(Image, Template, EstimatedLocation, SearchRange = [0.5, 0.5], RangeInImage = True):
