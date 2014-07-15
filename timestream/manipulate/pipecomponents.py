@@ -129,7 +129,7 @@ class ImageUndistorter ( PipeComponent ):
                 "imageSize":    [True, "2x1 matrix: [width, height]"],
                 "rotationAngle": [True, "rotation angle for the image"] }
 
-    runExpects = [TimeStreamImage]
+    runExpects = [np.ndarray]
     runReturns = [np.ndarray]
 
     def __init__(self, **kwargs):
@@ -140,7 +140,7 @@ class ImageUndistorter ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image = cd.rotateImage(args[0].pixels, self.rotationAngle)
+        self.image = cd.rotateImage(args[0], self.rotationAngle)
         if self.UndistMapX != None and self.UndistMapY != None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8), \
                 self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)

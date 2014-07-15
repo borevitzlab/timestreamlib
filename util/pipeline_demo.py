@@ -70,7 +70,7 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
     else:
         print("Process", img.path, '...'),
         context["img"] = img
-        result = pl.process(context, [img], visualise)
+        result = pl.process(context, [img.pixels], visualise)
         print("Done")
 
 # Just an example of how the yaml should look
