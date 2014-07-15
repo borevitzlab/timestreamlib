@@ -246,7 +246,7 @@ class ImageColorCorrector ( PipeComponent ):
 
         meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
-        if colorMatrix != None or meanIntensity > self.minIntensity:
+        if colorMatrix != None and meanIntensity > self.minIntensity:
             self.imageCorrected = cd.correctColorVectorised(image.astype(np.float), colorMatrix, colorConstant, colorGamma)
             self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
             self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
