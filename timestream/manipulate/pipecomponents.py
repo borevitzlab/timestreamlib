@@ -293,9 +293,9 @@ class TrayDetector ( PipeComponent ):
         self.imagePyramid = cd.createImagePyramid(temp)
         self.trayPyramids = []
         for i in range(self.trayNumber):
-#            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
-            # fixed tray image so that perspective postions of the trays are fixed
-            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % 2)
+            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
+##             fixed tray image so that perspective postions of the trays are fixed
+#            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % 2)
             trayImage = cv2.imread(trayFile)[:,:,::-1]
             if trayImage == None:
                 print("Fail to read", trayFile)
