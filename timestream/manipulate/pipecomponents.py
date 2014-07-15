@@ -616,8 +616,8 @@ class ResultingImageWriter ( PipeComponent ):
     actName = "imagewrite"
     argNames = {"mess": [False, "Output Message", "Writing Image"]}
 
-    runExpects = [np.ndarray, ps.ImagePotMatrix]
-    runReturns = [np.ndarray]
+    runExpects = [np.ndarray]
+    runReturns = [None]
 
     def __init__(self, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
@@ -628,9 +628,6 @@ class ResultingImageWriter ( PipeComponent ):
         img.datetime = context["img"].datetime
         img.pixels = args[0]
         img.data["processed"] = "yes"
-        img.data["potLocations"] = args[1].asTuple
-        img.data["biometrics"] = None
         context["wts"].write_image(img)
 
-        return (img.pixels)
-
+        return (args)

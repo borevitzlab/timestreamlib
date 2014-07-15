@@ -40,17 +40,33 @@ class ImagePipeline ( object ):
                }
 
     def __init__(self, settings):
+        # FIXME: Check the first element is ok.
         self.pipeline = []
         # Add elements while checking for dependencies
         for i, setElem in enumerate(settings):
-            # First elements expects [ndarray]
-            if i > 0:
+            if i > 0: # 0 element skipped; expects ndarray.
                 compExpects = ImagePipeline.complist[setElem[0]].runExpects
                 prevReturns = self.pipeline[-1].__class__.runReturns
-                if ( not isinstance(compExpects, list) \
-                        or not isinstance(prevReturns, list) \
-                        or len(compExpects) is not len(prevReturns) \
-                        or not compExpects == prevReturns ):
+
+                # Error if compExpects and prevReturns are not lists
+                if (not isinstance(compExpects, list) \
+                        or not isinstance(prevReturns, list)):
+                    raise ValueError("Both %s and %s must handle in lists" % \
+                            (ImagePipeline.complist[setElem[0]], \
+                             self.pipeline[-1].__class__) )
+
+                # Special case for components with prevReturns = [None]
+                if len(prevReturns) > 0 and prevReturns[0] == None:
+                    # Previous [-2, -3....] prevReturns until not [None]
+                    for j in [x * -1 for x in range(2,len(self.pipeline)+1)]:
+                        prevReturns = self.pipeline[j].__class__.runReturns
+                        if prevReturns[0] is not None:
+                            break
+
+                # Error if first compExpects not contained prevReturns (in order)
+                if ( len(compExpects) > len(prevReturns) \
+                     or False in [compExpects[i] == prevReturns[i] \
+                                for i in range(len(compExpects))] ):
                     raise ValueError( "Dependency error between %s and %s" % \
                             (ImagePipeline.complist[setElem[0]], \
                              self.pipeline[-1].__class__) )
