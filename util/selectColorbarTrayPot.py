@@ -55,6 +55,20 @@ class Window(QtGui.QDialog):
         self.rotateImageButton = QtGui.QPushButton('&Rotate 90-deg')
         self.rotateImageButton.clicked.connect(self.rotateImage90Degrees)
 
+        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.slider.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.slider.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        self.slider.setTickPosition(QtGui.QSlider.TicksBothSides)
+        self.slider.setMinimum(-16)
+        self.slider.setMaximum(16)
+        self.slider.setValue(0)
+        self.slider.setTickInterval(4)
+        self.slider.setSingleStep(1)
+        self.slider.valueChanged.connect(self.rotateSmallAngle)
+
+        self.applySmallRotationButton = QtGui.QPushButton('&Apply')
+        self.applySmallRotationButton.clicked.connect(self.applySmallRotation)
+
         self.loadCamCalibButton = QtGui.QPushButton('Load &cam. param.')
         self.loadCamCalibButton.clicked.connect(self.loadCamCalib)
 
@@ -65,6 +79,9 @@ class Window(QtGui.QDialog):
         self.trayRadioButton = QtGui.QRadioButton('Select &tray')
         self.trayRadioButton.setChecked(False)
         self.trayRadioButton.clicked.connect(self.selectWhat)
+
+        self.trayRoundCheckBox = QtGui.QCheckBox('Round')
+        self.trayRoundCheckBox.setChecked(True)
 
         self.potRadioButton = QtGui.QRadioButton('Select &pot')
         self.potRadioButton.setChecked(False)
@@ -106,10 +123,21 @@ class Window(QtGui.QDialog):
         buttonlayout.addWidget(self.timestreamTimeText)
         buttonlayout.addWidget(self.initStreamButton)
         buttonlayout.addWidget(self.loadImageButton)
-        buttonlayout.addWidget(self.rotateImageButton)
         buttonlayout.addWidget(self.loadCamCalibButton)
+        buttonlayout.addWidget(self.rotateImageButton)
+
+        layoutSmallRotation = QtGui.QHBoxLayout()
+        layoutSmallRotation.addWidget(self.slider)
+        layoutSmallRotation.addWidget(self.applySmallRotationButton)
+        buttonlayout.addLayout(layoutSmallRotation)
+
         buttonlayout.addWidget(self.colorcardRadioButton)
-        buttonlayout.addWidget(self.trayRadioButton)
+
+        layoutTrayShape = QtGui.QHBoxLayout()
+        layoutTrayShape.addWidget(self.trayRadioButton)
+        layoutTrayShape.addWidget(self.trayRoundCheckBox)
+        buttonlayout.addLayout(layoutTrayShape)
+
         buttonlayout.addWidget(self.potRadioButton)
         buttonlayout.addWidget(self.zoomButton)
         buttonlayout.addWidget(self.panButton)
@@ -161,7 +189,8 @@ class Window(QtGui.QDialog):
         self.colorcardList = []
         self.trayList = []
         self.potList = []
-        self.rotationAngle = 0
+        self.rotationAngle = 0.0
+        self.smaleRotationAngle = 0.0
         self.CameraMatrix = None
         self.DistCoefs = None
         self.isDistortionCorrected = False
@@ -246,7 +275,7 @@ class Window(QtGui.QDialog):
         self.isDistortionCorrected = False
 
         if self.rotationAngle != None:
-            self.image = cd.rotateImage(self.image, self.rotationAngle)
+            self.image = cd.rotateImage(self.image, self.rotationAngle + self.smaleRotationAngle)
 
         # Undistort image if mapping available
         if not self.isDistortionCorrected and self.UndistMapX != None and self.UndistMapY != None:
@@ -367,7 +396,7 @@ class Window(QtGui.QDialog):
                           'cameraMatrix': self.CameraMatrix.tolist(), \
                           'distortCoefs': self.DistCoefs.tolist(), \
                           'imageSize': list(self.ImageSize),
-                          'rotationAngle': self.rotationAngle
+                          'rotationAngle': self.rotationAngle + self.smaleRotationAngle
                          } \
                         ]
         else:
@@ -513,6 +542,19 @@ class Window(QtGui.QDialog):
         self.status.append('Rot. angle = %d deg' %self.rotationAngle)
         self.updateFigure()
 
+    def rotateSmallAngle(self, value):
+        self.smaleRotationAngle = float(value)/4.0
+        if self.image != None:
+            self.rotatedImage = cd.rotateImage(self.image, self.smaleRotationAngle)
+            self.updateFigure(self.rotatedImage)
+            self.status.append('Rot. angle = %f deg' %(self.rotationAngle + self.smaleRotationAngle))
+
+    def applySmallRotation(self):
+        if self.image != None:
+            self.image = cd.rotateImage(self.image, self.smaleRotationAngle)
+            self.updateFigure()
+            self.status.append('Apply small angle rotation')
+
     def onMouseClicked(self, event):
         if self.panMode or self.zoomMode:
             return
@@ -531,7 +573,7 @@ class Window(QtGui.QDialog):
                 AspectRatio = self.potAspectRatio
 
             if len(self.leftClicks) == 2 and AspectRatio != None:
-                if self.potRadioButton.isChecked():
+                if self.potRadioButton.isChecked() or self.trayRoundCheckBox.isChecked():
                     Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio, Rounded = True)
                 else:
                     Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio)
