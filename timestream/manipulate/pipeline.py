@@ -39,21 +39,21 @@ class ImagePipeline ( object ):
                         ResultingFeatureWriter_csv
                }
 
-    def __init__(self, settings):
+    def __init__(self, settings, context):
         # FIXME: Check the first element is ok.
         self.pipeline = []
         # Add elements while checking for dependencies
         for i, setElem in enumerate(settings):
+            component = ImagePipeline.complist[setElem[0]]
             if i > 0: # 0 element skipped; expects ndarray.
-                compExpects = ImagePipeline.complist[setElem[0]].runExpects
+                compExpects = component.runExpects
                 prevReturns = self.pipeline[-1].__class__.runReturns
 
                 # Error if compExpects and prevReturns are not lists
                 if (not isinstance(compExpects, list) \
                         or not isinstance(prevReturns, list)):
                     raise ValueError("Both %s and %s must handle in lists" % \
-                            (ImagePipeline.complist[setElem[0]], \
-                             self.pipeline[-1].__class__) )
+                            (component, self.pipeline[-1].__class__) )
 
                 # Special case for components with prevReturns = [None]
                 if len(prevReturns) > 0 and prevReturns[0] == None:
@@ -68,10 +68,9 @@ class ImagePipeline ( object ):
                      or False in [compExpects[i] == prevReturns[i] \
                                 for i in range(len(compExpects))] ):
                     raise ValueError( "Dependency error between %s and %s" % \
-                            (ImagePipeline.complist[setElem[0]], \
-                             self.pipeline[-1].__class__) )
+                            (component, self.pipeline[-1].__class__) )
 
-            self.pipeline.append( ImagePipeline.complist[setElem[0]](**setElem[1]) )
+            self.pipeline.append( component(context, **setElem[1]) )
 
     # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.

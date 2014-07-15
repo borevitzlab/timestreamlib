@@ -48,15 +48,22 @@ for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
 #create new timestream for output data
 for outstream in outstreams:
     ts_out = timestream.TimeStream()
-    ts_out.create(outstream["outpath"])
     ts_out.data["settings"] = settings
     ts_out.data["settingPath"] = os.path.dirname(settingFile)
     ts_out.data["sourcePath"] = inputRootPath
+    ts_out.name = outstream["name"]
+    tsoutpath = os.path.join(outputRootPath, outstream["name"])
+    if "outpath" in outstream.keys():
+        tsoutpath = outstream["outpath"]
+    if not os.path.exists(os.path.dirname(tsoutpath)):
+        os.mkdir(os.path.dirname(tsoutpath))
+    ts_out.create(tsoutpath)
     context[outstream["name"]] = ts_out
 
+context["outputroot"] = outputRootPath
+
 # initialise processing pipeline
-# TODO: context could be part of initialising input here
-pl = pipeline.ImagePipeline(ts.data["settings"])
+pl = pipeline.ImagePipeline(ts.data["settings"], context)
 
 print("Iterating by date")
 startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")

@@ -57,10 +57,10 @@ class PipeComponent ( object ):
                 else:
                     raise PCExBadRunExpects(self.__class__)
 
-    # contArgs: dict containing context arguments.
+    # context: dict containing context arguments.
     #           Name and values are predefined for all pipe components.
     # *args: this component receives
-    def __call__(self, contArgs, *args):
+    def __call__(self, context, *args):
         raise NotImplementedError()
 
     @classmethod
@@ -111,7 +111,7 @@ class Tester ( PipeComponent ):
     runExpects = [ np.ndarray, np.ndarray ]
     runReturns = [ np.ndarray, np.ndarray ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(Tester, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -132,7 +132,7 @@ class ImageUndistorter ( PipeComponent ):
     runExpects = [np.ndarray]
     runReturns = [np.ndarray]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ImageUndistorter, self).__init__(**kwargs)
         self.UndistMapX, self.UndistMapY = cv2.initUndistortRectifyMap( \
             np.asarray(self.cameraMatrix), np.asarray(self.distortCoefs), \
@@ -174,7 +174,7 @@ class ColorCardDetector ( PipeComponent ):
     runExpects = [np.ndarray]
     runReturns = [np.ndarray, list]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -237,7 +237,7 @@ class ImageColorCorrector ( PipeComponent ):
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -291,7 +291,7 @@ class TrayDetector ( PipeComponent ):
     runExpects = [np.ndarray]
     runReturns = [np.ndarray, list]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(TrayDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -353,7 +353,7 @@ class PotDetector ( PipeComponent ):
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, list]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -450,7 +450,7 @@ class PlantExtractor ( PipeComponent ):
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
         if self.meth not in ps.segmentingMethods.keys():
             raise ValueError ("%s is not a valid method" % self.meth)
@@ -486,7 +486,7 @@ class FeatureExtractor ( PipeComponent ):
     runExpects = [np.ndarray, ps.ImagePotMatrix]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
@@ -504,7 +504,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
     runExpects = [np.ndarray, ps.ImagePotMatrix]
     runReturns = [np.ndarray]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter_ndarray, self).__init__(**kwargs)
 
         #np.savez_compressed expects an npz extension
@@ -556,14 +556,20 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
 class ResultingFeatureWriter_csv ( PipeComponent ):
     actName = "writefeatures_csv"
     argNames = {"mess": [False, "Default message", "Writing the features"],
-                "outputdir": [True, "Dir where the output files go"],
+                "outputdir": [False, "Dir where the output files go", None],
                 "overwrite": [False, "Whether to overwrite out files", True]}
 
     runExpects = [np.ndarray, ps.ImagePotMatrix]
     runReturns = [np.ndarray]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
+
+        if self.outputdir is None:
+            if  "outputroot" in context.keys():
+                self.outputdir = context["outputroot"]
+            else:
+                raise StandardError("Must define output directory")
 
         if os.path.exists(self.outputdir) \
                 and not os.path.isdir(self.outputdir):
@@ -619,7 +625,7 @@ class ResultingImageWriter ( PipeComponent ):
     runExpects = [np.ndarray]
     runReturns = [None]
 
-    def __init__(self, **kwargs):
+    def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
