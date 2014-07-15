@@ -2,16 +2,15 @@
 from __future__ import print_function
 import docopt
 from itertools import (
-        cycle,
-        izip,
-        imap,
-        )
-import multiprocessing as mp
+    cycle,
+    izip,
+    imap,
+)
 import os
 from os import path
-import sys
 import shutil
 from timestream.parse import ts_iter_images
+
 
 CLI = """
 USAGE:
@@ -28,14 +27,13 @@ OPTIONS:
 def process_image((img, out_ts)):
     # get output path
     split = path.basename(img).split('_')[1:]
-    dest = path.join(
-            out_ts,
-            split[0],
-            "_".join(split[0:2]),
-            "_".join(split[0:3]),
-            "_".join(split[0:4]),
-            path.basename(out_ts) + "_" + "_".join(split),
-            )
+    dest = path.join(out_ts,
+                     split[0],
+                     "_".join(split[0:2]),
+                     "_".join(split[0:3]),
+                     "_".join(split[0:4]),
+                     path.basename(out_ts) + "_" + "_".join(split),
+    )
     # make output dir if not exists
     if not path.exists(path.dirname(dest)):
         try:

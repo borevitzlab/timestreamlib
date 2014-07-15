@@ -2,26 +2,22 @@
 from __future__ import print_function
 import docopt
 import csv
-import cv2
 import logging
 import multiprocessing as mp
-import numpy as np
 import sys
 from timestream import (
-        TimeStream,
-        setup_module_logging,
-        )
+    TimeStream,
+    setup_module_logging,
+)
 from timestream.parse import (
-        ts_get_manifest,
-        iter_date_range,
-        ts_parse_date_path,
-        )
+    ts_get_manifest,
+    iter_date_range,
+)
 from datetime import (
-        date,
-        datetime,
-        time,
-        timedelta,
-        )
+    date,
+    datetime,
+    time,
+)
 
 CLI = """
 USAGE:
@@ -65,7 +61,7 @@ def main(opts):
     count = 0
     pool = mp.Pool()
     for img in pool.imap(sum_image, ts.iter_by_timepoints()):
-    #for img in map(sum_image, ts.iter_by_timepoints()):
+    # for img in map(sum_image, ts.iter_by_timepoints()):
         print("Processed {: 6d} images!".format(count), end='\r')
         sys.stdout.flush()
         count += 1
@@ -79,13 +75,13 @@ def main(opts):
     pool.join()
     print("Processed {: 6d} images!".format(count))
     print("Done collecting image sums, now making the table")
-    for date, times in sorted(res_dict.items()):
+    for this_date, times in sorted(res_dict.items()):
         row = []
-        row.append(date.isoformat())
-        start_today = datetime.combine(date.today(), time.min)
-        end_today = datetime.combine(date.today(), time.max)
+        row.append(this_date.isoformat())
+        start_today = datetime.combine(this_date.today(), time.min)
+        end_today = datetime.combine(this_date.today(), time.max)
         all_times = iter_date_range(start_today, end_today,
-                ts_info['interval'] * 60)
+                                    ts_info['interval'] * 60)
         for timepoint in all_times:
             try:
                 row.append(times[timepoint.time().isoformat()])
