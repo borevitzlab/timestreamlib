@@ -26,8 +26,10 @@ else:
 # read global settings for processing
 settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
 f = file(os.path.join(inputRootPath, '_data', 'pipeline.yml'))
-settings = yaml.load(f)
+yfile = yaml.load(f)
 f.close()
+settings = yfile["pipeline"]
+outstreams = yfile["outstreams"]
 
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
@@ -37,17 +39,20 @@ ts.load(inputRootPath)
 print('timestream path = ', ts.path)
 ts.data["settings"] = settings
 ts.data["settingPath"] = os.path.dirname(settingFile)
-
-#create new timestream for output data
-ts_out = timestream.TimeStream()
-ts_out.create(outputRootPath)
-ts_out.data["settings"] = settings
-ts_out.data["settingPath"] = os.path.dirname(settingFile)
-ts_out.data["sourcePath"] = inputRootPath
+context = {"rts":ts}
 print("Timestream instance created:")
 print("   ts.path:", ts.path)
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
+
+#create new timestream for output data
+for outstream in outstreams:
+    ts_out = timestream.TimeStream()
+    ts_out.create(outstream["outpath"])
+    ts_out.data["settings"] = settings
+    ts_out.data["settingPath"] = os.path.dirname(settingFile)
+    ts_out.data["sourcePath"] = inputRootPath
+    context[outstream["name"]] = ts_out
 
 # initialise processing pipeline
 # TODO: context could be part of initialising input here
@@ -59,7 +64,6 @@ startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
 #timeInterval = 15 * 60
 endDate = None
 timeInterval = 24 * 60 * 60
-context = {"rts":ts, "wts":ts_out}
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate, interval=timeInterval ):
     if img is None:
         print('Missing Image')
@@ -68,3 +72,22 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
         context["img"] = img
         result = pl.process(context, [img], visualise)
         print("Done")
+
+# Just an example of how the yaml should look
+#pipeline:
+#  - - imagewrite
+#    - mess: ---Writing Image---
+#      outstream: colorcorrected
+#  - - traydetect
+#    - mess: ---perform tray detection---
+#      trayFiles: Tray_%02d.png
+#      trayNumber: 8
+#  - - potdetect
+#    - mess: ---perform pot detection---
+#      potFile: Pot.png
+#
+#outstreams:
+#  - name: colorcorrected
+#    outpath: /Path/colorcorrected
+#  - name: segmented
+#    outpath: /Path/segmented

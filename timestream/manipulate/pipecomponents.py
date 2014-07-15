@@ -611,10 +611,10 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
 
         return (args[0])
 
-
 class ResultingImageWriter ( PipeComponent ):
     actName = "imagewrite"
-    argNames = {"mess": [False, "Output Message", "Writing Image"]}
+    argNames = {"mess": [False, "Output Message", "Writing Image"],
+                "outstream": [True, "Name of stream to use"]}
 
     runExpects = [np.ndarray]
     runReturns = [None]
@@ -628,6 +628,6 @@ class ResultingImageWriter ( PipeComponent ):
         img.datetime = context["img"].datetime
         img.pixels = args[0]
         img.data["processed"] = "yes"
-        context["wts"].write_image(img)
+        context[self.outstream].write_image(img)
 
         return (args)
