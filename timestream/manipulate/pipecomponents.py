@@ -165,7 +165,7 @@ class ColorCardDetector ( PipeComponent ):
     argNames = {"mess": [True, "Detect color card"], \
                 "colorcardTrueColors": [True, "Matrix representing the " \
                     + "groundtrue color card colors"],
-                "minIntensity": [True, "Skip colorcard detection if intensity below this value"],
+                "minIntensity": [False, "Skip colorcard detection if intensity below this value", 0],
                 "colorcardFile": [True, "Path to the color card file"],
                 "colorcardPosition": [True, "(x,y) of the colorcard"],
                 "settingPath": [True, "Path to setting files"]
@@ -182,7 +182,7 @@ class ColorCardDetector ( PipeComponent ):
         self.image = args[0]
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
-            print('Image is too dark, mean(I) = %f < %f. Skip color correction!' %(meanIntensity, self.minIntensity) )
+            print('Image is too dark, mean(I) = %f < %f. Skip colorcard detection!' %(meanIntensity, self.minIntensity) )
             return([self.image, [None, None, None]])
 
         self.imagePyramid = cd.createImagePyramid(self.image)
@@ -230,7 +230,9 @@ class ColorCardDetector ( PipeComponent ):
 class ImageColorCorrector ( PipeComponent ):
     actName = "colorcorrect"
     argNames = {"mess": [False, "Correct image color"],
-                "writeImage": [False, "Whether to write processing image to output timestream", False]}
+                "writeImage": [False, "Whether to write processing image to output timestream", False],
+                "minIntensity": [False, "Skip colorcard correction if intensity below this value", 0]
+                }
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray]
@@ -241,8 +243,10 @@ class ImageColorCorrector ( PipeComponent ):
     def __call__(self, context, *args):
         print(self.mess)
         image, colorcardParam = args
+
+        meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
-        if colorMatrix != None:
+        if colorMatrix != None or meanIntensity > self.minIntensity:
             self.imageCorrected = cd.correctColorVectorised(image.astype(np.float), colorMatrix, colorConstant, colorGamma)
             self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
             self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
@@ -439,8 +443,9 @@ class PotDetector ( PipeComponent ):
 class PlantExtractor ( PipeComponent ):
     actName = "plantextract"
     argNames = {"mess": [False, "Extract plant biometrics", "default message"], \
-            "meth": [False, "Segmentation Method", "k-means-square"], \
-            "methargs": [False, "Specific Method Arguments", {}]}
+                "minIntensity": [False, "Skip image segmentation if intensity below this value", 0],\
+                "meth": [False, "Segmentation Method", "k-means-square"], \
+                "methargs": [False, "Specific Method Arguments", {}]}
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
