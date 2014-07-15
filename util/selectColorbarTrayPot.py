@@ -412,6 +412,7 @@ class Window(QtGui.QDialog):
             colorcardPosition, Width, Height, Angle = cd.getRectangleParamters(self.colorcardList[0])
             colorcarddetect = ['colorcarddetect', \
                                {'mess': '---perform color card detection---', \
+                                'minIntensity': 15,\
                                 'colorcardFile': colorCardFile,\
                                 'colorcardPosition': colorcardPosition.tolist(),\
                                 'colorcardTrueColors': cd.CameraTrax_24ColorCard,
@@ -423,7 +424,9 @@ class Window(QtGui.QDialog):
                                                    'settingPath': self.settingPath}]
         self.settings.append(colorcarddetect)
 
-        colorcorrect = ['colorcorrect', {'mess': '---perform color correction---'}]
+        colorcorrect = ['colorcorrect', {'mess': '---perform color correction---',
+                                         'minIntensity': 15,\
+                                         }]
         self.settings.append(colorcorrect)
 
         if len(self.trayList) > 0:
@@ -472,8 +475,10 @@ class Window(QtGui.QDialog):
         self.settings.append(potdetect)
 
         plantextract = ['plantextract', {'mess': '---perfrom plant biometrics extraction---',
+                                         'minIntensity': 15,\
                                          'meth': 'k-means-square',
-                                         'methargs': {}}]
+                                         'methargs': {},\
+                                         }]
         self.settings.append(plantextract)
 
         imagewrite = ['imagewrite', {'mess': '---writing image---'}]

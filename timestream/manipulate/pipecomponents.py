@@ -165,6 +165,7 @@ class ColorCardDetector ( PipeComponent ):
     argNames = {"mess": [True, "Detect color card"], \
                 "colorcardTrueColors": [True, "Matrix representing the " \
                     + "groundtrue color card colors"],
+                "minIntensity": [True, "Skip colorcard detection if intensity below this value"],
                 "colorcardFile": [True, "Path to the color card file"],
                 "colorcardPosition": [True, "(x,y) of the colorcard"],
                 "settingPath": [True, "Path to setting files"]
@@ -179,6 +180,11 @@ class ColorCardDetector ( PipeComponent ):
     def __call__(self, context, *args):
         print(self.mess)
         self.image = args[0]
+        meanIntensity = np.mean(self.image)
+        if meanIntensity < self.minIntensity:
+            print('Image is too dark, mean(I) = %f < %f. Skip color correction!' %(meanIntensity, self.minIntensity) )
+            return([self.image, [None, None, None]])
+
         self.imagePyramid = cd.createImagePyramid(self.image)
 
         # TODO: move this into __init__ if context is provided
