@@ -290,9 +290,47 @@ class ImagePotHandler(object):
         # FIXME: here we loose track of the hints
         self._mask, hint = self._ps.segment(self.image, {})
 
-        if 1 not in self._mask: # if no segmentation
-            if self.iphPrev is not None: # we try previous mask
-                self._mask = self.iphPrev.mask
+        # if bad segmentation
+        if 1 not in self._mask and self.iphPrev is not None:
+            # We try previous mask. This is tricky because we need to fit the
+            # previous mask size into self._mask
+            pm = self.iphPrev.mask
+
+            vDiff = self._mask.shape[0] - pm.shape[0]
+            if vDiff < 0: # reduce pm vertically
+                side = True
+                for i in range(abs(vDiff)):
+                    if side:
+                        pm = pm[1:,:]
+                    else:
+                        pm = pm[:-1,:]
+                    side = not side
+
+            if vDiff > 0: # grow pm vertically
+                padS = np.array([1,0])
+                for i in range(abs(vDiff)):
+                    pm = np.lib.pad(pm, (padS.tolist(), (0,0)), 'constant', \
+                            constant_values = 0)
+                    padS = -(padS-1) # other side
+
+            hDiff = self._mask.shape[1] - pm.shape[1]
+            if hDiff < 0: # reduce pm horizontally
+                side = True
+                for i in range(abs(hDiff)):
+                    if side:
+                        pm = pm[:,1:]
+                    else:
+                        pm = pm[:,:-1]
+                    side = not side
+
+            if hDiff > 0: # grow pm horizontally
+                padS = np.array([1,0])
+                for i in range(abs(hDiff)):
+                    pm = np.lib.pad(pm, ((0,0), padS.tolist()), 'constant', \
+                            constant_values = 0)
+                    padS = -(padS-1) # other side
+
+            self._mask = pm
 
         return self._mask
 
