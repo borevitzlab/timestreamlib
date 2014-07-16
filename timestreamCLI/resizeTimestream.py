@@ -37,6 +37,8 @@ def process_image((img, out_ts, size)):
             "_".join(split[0:4]),
             path.basename(out_ts) + "_" + "_".join(split),
             )
+    # Force JPEG output, even w/ PNG input
+    dest = path.splitext(dest)[0] + ".JPG"
     # make output dir if not exists
     if not path.exists(path.dirname(dest)):
         try:
@@ -50,14 +52,14 @@ def process_image((img, out_ts, size)):
             w_final, h_final = size
             imgmat = cv2.imread(img)
             if imgmat is None:
-                raise cv2.error;
+                return
             if h_final < 1:
                 h, w, d = imgmat.shape
                 scale = w_final / float(w)
                 h_final = int(h * scale)
             res = cv2.resize(imgmat, (w_final, h_final),
-                             interpolation=cv2.INTER_LANCZOS4)
-            cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 100))
+                             interpolation=cv2.INTER_CUBIC)
+            cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 85))
         except cv2.error:
             print("\n[resize_image] ERROR: weird image", img, file=sys.stderr)
             print("Traceback is:\n", traceback.format_exc(), file=sys.stderr)
