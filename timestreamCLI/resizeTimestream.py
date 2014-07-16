@@ -28,14 +28,6 @@ OPTIONS:
 
 def process_image((img, out_ts, size)):
     # get output path
-    if not path.exists(img):
-        # Weird shit like this happens all the time
-        return
-    # It's klugey time!
-    with open(img, "rb") as imgfh:
-        imgfh.seek(0, 2)
-        if imgfh.tell() == 0:
-            return
     split = path.basename(img).split('_')[1:]
     dest = path.join(
             out_ts,
@@ -60,14 +52,14 @@ def process_image((img, out_ts, size)):
             w_final, h_final = size
             imgmat = cv2.imread(img)
             if imgmat is None:
-                raise cv2.error;
+                return
             if h_final < 1:
                 h, w, d = imgmat.shape
                 scale = w_final / float(w)
                 h_final = int(h * scale)
             res = cv2.resize(imgmat, (w_final, h_final),
-                             interpolation=cv2.INTER_LANCZOS4)
-            cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 100))
+                             interpolation=cv2.INTER_CUBIC)
+            cv2.imwrite(dest, res, (cv2.IMWRITE_JPEG_QUALITY, 85))
         except cv2.error:
             print("\n[resize_image] ERROR: weird image", img, file=sys.stderr)
             print("Traceback is:\n", traceback.format_exc(), file=sys.stderr)
