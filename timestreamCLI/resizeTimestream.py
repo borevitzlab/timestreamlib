@@ -28,6 +28,9 @@ OPTIONS:
 
 def process_image((img, out_ts, size)):
     # get output path
+    if not path.exists(img):
+        # Weird shit like this happens all the time
+        return
     split = path.basename(img).split('_')[1:]
     dest = path.join(
             out_ts,
