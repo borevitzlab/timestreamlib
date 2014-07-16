@@ -13,16 +13,13 @@ import timestream.manipulate.pipeline as pipeline
 import yaml
 import datetime
 
-if len(sys.argv) != 4:
-    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
-    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-processed'
-    visualise = True
+if len(sys.argv) != 3:
+    R = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/"
+    inputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-orig")
+    outputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-processed")
 else:
     inputRootPath = sys.argv[1]
     outputRootPath = sys.argv[2]
-    visualise = True
-    if sys.argv[3] == "false":
-        visualise = False
 
 # read global settings for processing
 settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
@@ -90,6 +87,11 @@ if "timeInterval" in general.keys():
     timeInterval = general["timeinterval"]
 else:
     timeInterval = 24*60*60
+
+if "visualise" in general.keys():
+    visualise = general["visualise"]
+else:
+    visualise = False
 
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
                                     end=endDate, interval=timeInterval ):
