@@ -101,6 +101,9 @@ class PCExBadRunExpects(PCException):
     def __init__(self, cls):
         self.message = "The call to %s should consider \n%s" % \
                 (cls.actName, cls.info())
+class PCExBrakeInPipeline(PCException):
+    def __init__(self, name, msg):
+        self.message = "Urecoverable error at %s: %s" % (name, msg)
 
 
 class Tester ( PipeComponent ):
@@ -319,9 +322,11 @@ class TrayDetector ( PipeComponent ):
             score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, trayPyramid, \
                 RotationAngle = 0, EstimatedLocation = self.trayPositions[i], SearchRange = SearchRange)
             if score < 0.3:
-                print('Low tray matching score. Likely tray %d is missing.' %i)
-                self.trayLocs.append(None)
-                continue
+                # FIXME: For now the pipeline does not know how to handle
+                #        missing trays.
+                raise PCExBrakeInPipeline(self.actName, \
+                    "Low tray matching score. Likely tray %d is missing." %i)
+
             self.trayLocs.append(loc)
 
         return([self.image, self.imagePyramid, self.trayLocs])

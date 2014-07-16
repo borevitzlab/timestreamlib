@@ -10,6 +10,7 @@ import sys, os
 import timestream
 import logging
 import timestream.manipulate.pipeline as pipeline
+from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
@@ -100,7 +101,11 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
     else:
         print("Process", img.path, '...'),
         context["img"] = img
-        result = pl.process(context, [img.pixels], visualise)
+        try:
+            result = pl.process(context, [img.pixels], visualise)
+        except PCExBrakeInPipeline as bip:
+            print(bip.message)
+            continue
         print("Done")
 
 # Just an example of how the yaml should look
