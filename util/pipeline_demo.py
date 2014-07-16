@@ -11,6 +11,7 @@ import timestream
 import logging
 import timestream.manipulate.pipeline as pipeline
 import yaml
+import datetime
 
 if len(sys.argv) != 4:
     inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig/'
@@ -30,6 +31,7 @@ yfile = yaml.load(f)
 f.close()
 settings = yfile["pipeline"]
 outstreams = yfile["outstreams"]
+general = yfile["general"]
 
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
@@ -66,12 +68,31 @@ context["outputroot"] = outputRootPath
 pl = pipeline.ImagePipeline(ts.data["settings"], context)
 
 print("Iterating by date")
-startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
-#endDate = timestream.parse.ts_parse_date("2014_06_19_12_00_00")
-#timeInterval = 15 * 60
-endDate = None
-timeInterval = 24 * 60 * 60
-for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate, interval=timeInterval ):
+
+if "startdate" in general.keys():
+    sd = general["startdate"]
+    startDate = datetime.datetime(sd["year"], sd["month"], sd["day"], \
+                                    sd["hour"], sd["minute"], sd["second"])
+else:
+    startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
+
+if "enddate" in general.keys():
+    ed = general["enddate"]
+    if len(ed) == 0:
+        endDate = None
+    else:
+        endDate = datetime.datetiem(ed["year"], ed["month"], ed["day"], \
+                                ed["hour"], ed["minute"], ed["second"])
+else:
+    endDate = None
+
+if "timeInterval" in general.keys():
+    timeInterval = general["timeinterval"]
+else:
+    timeInterval = 24*60*60
+
+for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
+                                    end=endDate, interval=timeInterval ):
     if img is None:
         print('Missing Image')
     else:
@@ -82,19 +103,23 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
 
 # Just an example of how the yaml should look
 #pipeline:
-#  - - imagewrite
-#    - mess: ---Writing Image---
-#      outstream: colorcorrected
-#  - - traydetect
-#    - mess: ---perform tray detection---
-#      trayFiles: Tray_%02d.png
-#      trayNumber: 8
-#  - - potdetect
-#    - mess: ---perform pot detection---
-#      potFile: Pot.png
+#  - - component1
+#    - arg1: ---Writing Image---
+#      arg2: colorcorrected
+#  - - component2
+#    - arg1: ---perform tray detection---
+#      arg2: Tray_%02d.png
+#      arg3: 8
+#  - - component3
+#    - arg1: ---perform pot detection---
+#      arg2: Pot.png
 #
 #outstreams:
 #  - name: colorcorrected
-#    outpath: /Path/colorcorrected
 #  - name: segmented
-#    outpath: /Path/segmented
+#
+#general:
+#  startdate: { year: 2014, month: 06, day: 18, hour: 12, minute: 0, second: 0}
+#  enddate: {}
+#  timeinterval: 86400
+
