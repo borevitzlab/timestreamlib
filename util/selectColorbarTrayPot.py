@@ -392,7 +392,7 @@ class Window(QtGui.QDialog):
         self.settings = []
         if self.ImageSize != None and self.CameraMatrix != None and self.DistCoefs != None:
             undistort = ['undistort', \
-                         {'mess': '---perform optical undistortion---', \
+                         {'mess': '---Perform optical undistortion---', \
                           'cameraMatrix': self.CameraMatrix.tolist(), \
                           'distortCoefs': self.DistCoefs.tolist(), \
                           'imageSize': list(self.ImageSize),
@@ -400,7 +400,7 @@ class Window(QtGui.QDialog):
                          } \
                         ]
         else:
-            undistort = ['undistort', {'mess': '---skip optical undistortion---'}]
+            undistort = ['undistort', {'mess': '---Skip optical undistortion---'}]
         self.settings.append(undistort)
 
         if len(self.colorcardList) > 0:
@@ -420,19 +420,24 @@ class Window(QtGui.QDialog):
                                }
                               ]
         else:
-            colorcarddetect = ['colorcarddetect', {'mess': '---skip color card detection---',
+            colorcarddetect = ['colorcarddetect', {'mess': '---Skip color card detection---',
                                                    'settingPath': self.settingPath}]
         self.settings.append(colorcarddetect)
 
-        colorcorrect = ['colorcorrect', {'mess': '---perform color correction---',
+        colorcorrect = ['colorcorrect', {'mess': '---Perform color correction---',
                                          'minIntensity': 15,\
                                          }]
         self.settings.append(colorcorrect)
 
+        imagewrite = ['imagewrite', {'mess': '---Write image---',
+                                     'outstream': 'colorcorrected'}]
+        self.settings.append(imagewrite)
+
+
         if len(self.trayList) > 0:
             trayMedianSize = cd.getMedianRectSize(self.trayList)
             trayImages = cd.rectifyRectImages(self.image, self.trayList, trayMedianSize)
-            trayDict = {'mess': '---perform tray detection---'}
+            trayDict = {'mess': '---Perform tray detection---'}
             trayDict['trayNumber'] = len(self.trayList)
             trayDict['trayFiles'] = 'Tray_%02d.png'
             trayDict['settingPath'] = self.settingPath
@@ -444,7 +449,7 @@ class Window(QtGui.QDialog):
             trayDict['trayPositions'] = trayPositions
             traydetect = ['traydetect', trayDict]
         else:
-            traydetect = ['traydetect', {'mess': '---skip tray detection---'}]
+            traydetect = ['traydetect', {'mess': '---Skip tray detection---'}]
         self.settings.append(traydetect)
 
         if len(self.potList) > 0:
@@ -455,7 +460,7 @@ class Window(QtGui.QDialog):
             self.potImage = self.image[topLeft[1]:topLeft[1]+Height, topLeft[0]:topLeft[0]+Width, :]
             potFile = 'Pot.png'
             cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, potFile), self.potImage[:,:,::-1].astype(np.uint8))
-            potDict = {'mess': '---perform pot detection---'}
+            potDict = {'mess': '---Perform pot detection---'}
             potDict['potPositions'] = potPosition.tolist()
             potDict['potSize'] = [int(Width), int(Height)]
             potDict['traySize'] = [int(trayMedianSize[0]), int(trayMedianSize[1])]
@@ -471,21 +476,33 @@ class Window(QtGui.QDialog):
                 potDict['potTemplateFile'] = potTemplateFile
             potdetect = ['potdetect', potDict]
         else:
-            potdetect = ['potdetect', {'mess': '---skip pot detection---'}]
+            potdetect = ['potdetect', {'mess': '---Skip pot detection---'}]
         self.settings.append(potdetect)
 
-        plantextract = ['plantextract', {'mess': '---perfrom plant biometrics extraction---',
-                                         'minIntensity': 15,\
+        plantextract = ['plantextract', {'mess': '---Extra plant biometrics---',
+                                         'minIntensity': 15,
                                          'meth': 'k-means-square',
-                                         'methargs': {},\
+                                         'methargs': { 'maxIter' : 10, 'epsilon' : 1, 'attempts' : 20 },
                                          }]
         self.settings.append(plantextract)
 
-        imagewrite = ['imagewrite', {'mess': '---writing image---'}]
+        imagewrite = ['imagewrite', {'mess': '---Write segmented image---',
+                                     'outstream': 'segmented'}]
         self.settings.append(imagewrite)
 
+        featureextract = ['featureextract', {'mess': '---Extract plant features---',
+                                             'features': ['area']}]
+        self.settings.append(featureextract)
+
+        writefeatures_csv = ['writefeatures_csv', {'mess': '---Write features---'}]
+        self.settings.append(writefeatures_csv)
+
+
+        outstreams =  [{'name': 'colorcorrected'}, {'name': 'segmented'}]
+        self.pipelineDict = {'pipeline':self.settings, 'outstreams': outstreams}
+
         with open(self.settingFileName, 'w') as outfile:
-            outfile.write( yaml.dump(self.settings, default_flow_style=None) )
+            outfile.write( yaml.dump(self.pipelineDict, default_flow_style=None) )
 
     def testPipeline(self):
         ''' try running processing pipeline based on user inputs'''
