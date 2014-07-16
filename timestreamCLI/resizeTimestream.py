@@ -31,6 +31,11 @@ def process_image((img, out_ts, size)):
     if not path.exists(img):
         # Weird shit like this happens all the time
         return
+    # It's klugey time!
+    with open(img, "rb") as imgfh:
+        imgfh.seek(0, 2)
+        if imgfh.tell() == 0:
+            return
     split = path.basename(img).split('_')[1:]
     dest = path.join(
             out_ts,
