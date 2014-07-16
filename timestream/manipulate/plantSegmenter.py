@@ -281,20 +281,20 @@ class ImagePotHandler(object):
 
     @property
     def mask(self): # not settable nor delettable
-        if -1 in self._mask: #no mask yet
-            if self._ps is not None:
-                # FIXME: here we loose track of the hints
-                self._mask, hint = self._ps.segment(self.image, {})
+        if -1 not in self._mask:
+            return self._mask
 
-                if 1 not in self._mask: # if no segmentation
-                    if self.iphPrev is not None: # we try previous mask
-                        self._mask = self.iphPrev.mask
+        if self._ps == None:
+            return self._mask + 1
 
-                return self._mask
-            else:
-                return self._mask + 1
+        # FIXME: here we loose track of the hints
+        self._mask, hint = self._ps.segment(self.image, {})
 
-        return self._mask #existing mask
+        if 1 not in self._mask: # if no segmentation
+            if self.iphPrev is not None: # we try previous mask
+                self._mask = self.iphPrev.mask
+
+        return self._mask
 
     @property # not deletable
     def rect(self):
