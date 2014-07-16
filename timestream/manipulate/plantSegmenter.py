@@ -98,11 +98,7 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         # When complexity is large, image is too noisy.
         if self.calcComplexity(mask) > self.maxComplexity:
-            if "maskPrev" in hints.keys() and hints["maskPrev"] is not None:
-                # Same as previous mask, if we have it.
-                mask = hints["maskPrev"]
-            else:
-                mask[:] = 0
+            mask[:] = 0
 
         return ([mask, hints])
 
@@ -287,11 +283,13 @@ class ImagePotHandler(object):
     def mask(self): # not settable nor delettable
         if -1 in self._mask: #no mask yet
             if self._ps is not None:
-                hints = {}
-                if self.iphPrev is not None:
-                    hints["maskPrev"] = self.iphPrev.mask
                 # FIXME: here we loose track of the hints
-                self._mask, hint = self._ps.segment(self.image, hints)
+                self._mask, hint = self._ps.segment(self.image, {})
+
+                if 1 not in self._mask: # if no segmentation
+                    if self.iphPrev is not None: # we try previous mask
+                        self._mask = self.iphPrev.mask
+
                 return self._mask
             else:
                 return self._mask + 1
