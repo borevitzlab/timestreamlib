@@ -37,6 +37,8 @@ def process_image((img, out_ts, size)):
             "_".join(split[0:4]),
             path.basename(out_ts) + "_" + "_".join(split),
             )
+    # Force JPEG output, even w/ PNG input
+    dest = path.splitext(dest)[0] + ".JPG"
     # make output dir if not exists
     if not path.exists(path.dirname(dest)):
         try:
