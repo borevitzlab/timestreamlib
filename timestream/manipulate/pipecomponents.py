@@ -616,7 +616,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
             fd.write("%f"%ts)
             for potId in potIds:
                 pot = ipm.getPot(potId)
-                fd.write(",%f"%pot.id)
+                fd.write(",%f"%pot.getCalcedFeatures()[fName])
             fd.write("\n")
             fd.close()
 
