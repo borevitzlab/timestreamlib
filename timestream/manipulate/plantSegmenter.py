@@ -48,6 +48,13 @@ class FeatureCalculator(object):
         perim = retVal[0]["Perimeter"]
         return ( (4*np.pi * area) / np.power(perim,2) )
 
+#    def compactness(self, mask):
+#        # In skimage its called solidity
+#        compactness = regionprops(mask.astype("int8"), ["Solidity"])
+#        if len(compactness) == 0:
+#            return (0.0) #FIXME: is this the best default?
+#        return (compactness[0]["Solidity"])
+
     @classmethod
     def featureMethods(cls):
         ignore = ["featureMethods"]
