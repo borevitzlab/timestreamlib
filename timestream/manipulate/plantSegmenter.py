@@ -21,7 +21,6 @@ from scipy import spatial
 from scipy import signal
 from itertools import chain
 from skimage.measure import regionprops
-from skimage.morphology import label
 import cv2
 import inspect
 import matplotlib.pyplot as plt
@@ -39,6 +38,15 @@ class FeatureCalculator(object):
         if len(perim) == 0:
             return (0.0)
         return (perim[0]["Perimeter"])
+
+    def roundness(self, mask):
+        # (4 (pi) * AREA) / PERIM^2
+        retVal = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
+        if len(retVal) == 0:
+            return (0.0)
+        area = retVal[0]["Area"]
+        perim = retVal[0]["Perimeter"]
+        return ( (4*np.pi * area) / np.power(perim,2) )
 
     @classmethod
     def featureMethods(cls):
