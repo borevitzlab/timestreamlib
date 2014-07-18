@@ -571,14 +571,13 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
         super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
 
         if self.outputdir is None:
-            if  "outputroot" in context.keys():
-                self.outputdir = context["outputroot"]
-            else:
+            if "outputroot" not in context.keys():
                 raise StandardError("Must define output directory")
 
-        if os.path.exists(self.outputdir) \
-                and not os.path.isdir(self.outputdir):
-            raise StandardError("%s is not a directory" % self.outputdir)
+            if not os.path.isdir(context["outputroot"]):
+                raise StandardError("%s is not a directory" % self.outputdir)
+
+            self.outputdir = os.path.join(context["outputroot"], "csv")
 
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
