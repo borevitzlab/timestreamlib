@@ -29,14 +29,16 @@ import matplotlib.pyplot as plt
 class FeatureCalculator(object):
 
     def area(self, mask):
-        # +1 because to make regionprops see the areas
-        lmask = label(mask.astype(np.int), background=0)+1
-        areas = regionprops(lmask, ["Area"])
-        areaAccum = 0
-        for area in areas:
-            areaAccum = areaAccum + area["Area"]
+        area = regionprops(mask.astype("int8"), ["Area"])
+        if len(area) == 0:
+            return (0.0)
+        return (area[0]["Area"])
 
-        return (areaAccum)
+    def perimeter(self, mask):
+        perim = regionprops(mask.astype("int8"), ["Perimeter"])
+        if len(perim) == 0:
+            return (0.0)
+        return (perim[0]["Perimeter"])
 
     @classmethod
     def featureMethods(cls):
