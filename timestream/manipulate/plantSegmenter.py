@@ -55,6 +55,12 @@ class FeatureCalculator(object):
 #            return (0.0) #FIXME: is this the best default?
 #        return (compactness[0]["Solidity"])
 
+#    def eccentricity(self, mask):
+#        ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
+#        if len(ecce) == 0:
+#            return (0.0) #FIXME: is this the best default?
+#        return (ecce[0]["Eccentricity"])
+
     @classmethod
     def featureMethods(cls):
         ignore = ["featureMethods"]
