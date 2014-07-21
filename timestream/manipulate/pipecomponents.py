@@ -539,6 +539,7 @@ class FeatureExtractor ( PipeComponent ):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
+        print(self.mess)
         ipm = args[1]
         for key, iph in ipm.iter_through_pots():
             iph.calcFeatures(self.features)
@@ -566,6 +567,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
             raise StandardError("File %s already exists" % self.outputfile)
 
     def __call__(self, context, *args):
+        print(self.mess)
         ipm = args[1]
 
         # Get timestamp of current image.
@@ -637,6 +639,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
                             % outputfile)
 
     def __call__(self, context, *args):
+        print(self.mess)
         ipm = args[1]
         ts = time.mktime(context["img"].datetime.timetuple()) * 1000
 
