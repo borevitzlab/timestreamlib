@@ -370,7 +370,7 @@ class ImagePotHandler(object):
     @mask.setter
     def mask(self, m):
         if ( not isinstance(m, np.ndarray) \
-                or m.dtype is not np.dtype("float64") \
+                or m.dtype != np.dtype("float64") \
                 or m.shape != self._mask.shape ):
             raise ValueError("Invalid mask assigment")
         self._mask = m

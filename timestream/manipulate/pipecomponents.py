@@ -29,6 +29,7 @@ import os
 import os.path
 import time
 import sys
+import cPickle
 
 class PipeComponent ( object ):
     # Name has to be unique among pipecomponents
@@ -450,7 +451,8 @@ class PlantExtractor ( PipeComponent ):
     argNames = {"mess": [False, "Extract plant biometrics", "default message"], \
                 "minIntensity": [False, "Skip image segmentation if intensity below this value", 0],\
                 "meth": [False, "Segmentation Method", "k-means-square"], \
-                "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}]}
+                "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
+                "parallel": [False, "Whether to run in parallel", False]}
 
     runExpects = [np.ndarray, list]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
@@ -462,23 +464,65 @@ class PlantExtractor ( PipeComponent ):
         self.segmenter = ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
+        print(self.mess)
         img = args[0]
         centers = args[1]
         ipmPrev = None
         if "ipm" in context.keys():
             ipmPrev = context["ipm"]
         self.ipm = ps.ImagePotMatrix(img, centers=centers, ipmPrev=ipmPrev)
-        retImg = img.copy()
+
+        # Set the segmenter in all the pots
         for key, iph in self.ipm.iter_through_pots():
-            sys.stdout.write("\rSegmenting pot %s" % key)
-            sys.stdout.flush()
-            # We Init the segmenter and segment.
             iph.ps = self.segmenter
-            retImg = retImg & iph.maskedImage(inSuper=True)
+
+        # Segment all pots and put
+        retImg = self.segAllPots(img.copy())
 
         # Put current image pot matrix in context for the next run
         context["ipm"] = self.ipm
         return [retImg, self.ipm]
+
+    def segAllPots(self, img):
+        if not self.parallel:
+            for key, iph in self.ipm.iter_through_pots():
+                img = img & iph.maskedImage(inSuper=True)
+            return (img)
+
+        # Parallel from here: We create a child process for each pot and pipe
+        # the pickled result back to the parent.
+        childPids = []
+        for key, iph in self.ipm.iter_through_pots():
+            In, Out = os.pipe()
+            pid = os.fork()
+            if pid != 0: # In parent
+                os.close(Out)
+                childPids.append([iph, pid, In])
+                continue
+
+            ## ---- Child Section ---- ##
+            try:
+                os.close(In)
+                msk = cPickle.dumps(iph.getSegmented())
+                cOut = os.fdopen(Out, "wb", sys.getsizeof(msk))
+                cOut.write(msk)
+                cOut.close()
+            except e:
+                raise RuntimeError("Unknown error segmenting %s %e"%iph.id)
+            finally:
+                os._exit(0)
+            ## ---- Child Section ---- ##
+
+        for iph, pid, In in childPids:
+            pIn = os.fdopen(In, "rb")
+            msk = cPickle.loads(pIn.read())
+            os.waitpid(pid, 0)
+            pIn.close()
+            iph.mask = msk
+            img = img & iph.maskedImage(inSuper=True)
+
+        return (img)
+
 
     def show(self):
         self.ipm.show()
