@@ -145,9 +145,8 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
                 self.attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
-        labels = labels.astype(np.uint8)
 
-        return (labels)
+        return (labels.astype(np.float64))
 
     def getFeatures(sefl, img):
         def normRange(F):
@@ -279,7 +278,8 @@ class ImagePotHandler(object):
         self._fc = FeatureCalculator()
         self._features = {}
         self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
-                                np.abs(self._rect[3]-self._rect[1])] ) - 1
+                                np.abs(self._rect[3]-self._rect[1])], \
+                                dtype=np.dtype("float64")) - 1
 
     @property
     def ps(self):
@@ -302,24 +302,23 @@ class ImagePotHandler(object):
         return ( self.si[self._rect[1]:self._rect[3],
                             self._rect[0]:self._rect[2], :] )
 
-    @property
-    def mask(self): # not settable nor delettable
-        if -1 not in self._mask:
-            return self._mask
+    def getSegmented(self):
+        """Does not change internals of instance
 
-        if self._ps == None:
-            return self._mask + 1
-
+            This method is used to parallelize the pot segmentation
+            calculation so we should avoid changing the inner struct
+            of the instance.
+        """
         # FIXME: here we loose track of the hints
-        self._mask, hint = self._ps.segment(self.image, {})
+        msk, hint = self._ps.segment(self.image, {})
 
         # if bad segmentation
-        if 1 not in self._mask and self.iphPrev is not None:
+        if 1 not in msk and self.iphPrev is not None:
             # We try previous mask. This is tricky because we need to fit the
-            # previous mask size into self._mask
+            # previous mask size into msk
             pm = self.iphPrev.mask
 
-            vDiff = self._mask.shape[0] - pm.shape[0]
+            vDiff = msk.shape[0] - pm.shape[0]
             if vDiff < 0: # reduce pm vertically
                 side = True
                 for i in range(abs(vDiff)):
@@ -336,7 +335,7 @@ class ImagePotHandler(object):
                             constant_values = 0)
                     padS = -(padS-1) # other side
 
-            hDiff = self._mask.shape[1] - pm.shape[1]
+            hDiff = msk.shape[1] - pm.shape[1]
             if hDiff < 0: # reduce pm horizontally
                 side = True
                 for i in range(abs(hDiff)):
@@ -353,9 +352,28 @@ class ImagePotHandler(object):
                             constant_values = 0)
                     padS = -(padS-1) # other side
 
-            self._mask = pm
+            msk = pm
 
-        return self._mask
+        return msk
+
+    @property
+    def mask(self):
+        if -1 not in self._mask:
+            return self._mask
+
+        if self._ps == None:
+            return np.zeros(self._mask.shape, np.dtype("float64"))
+
+        self._mask = self.getSegmented()
+        return (self._mask)
+
+    @mask.setter
+    def mask(self, m):
+        if ( not isinstance(m, np.ndarray) \
+                or m.dtype is not np.dtype("float64") \
+                or m.shape != self._mask.shape ):
+            raise ValueError("Invalid mask assigment")
+        self._mask = m
 
     @property # not deletable
     def rect(self):
@@ -368,7 +386,8 @@ class ImagePotHandler(object):
 
         self._rect = r
         self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
-                                np.abs(self._rect[3]-self._rect[1])] ) - 1
+                                np.abs(self._rect[3]-self._rect[1])], \
+                                dtype=np.dtype("float64")) - 1
         #FIXME: Reset everything that depends on self._mask
 
     def maskedImage(self, inSuper=False):
