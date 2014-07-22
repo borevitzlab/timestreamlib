@@ -620,7 +620,8 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
                 raise StandardError("Must define output directory")
 
             if not os.path.isdir(context["outputroot"]):
-                raise StandardError("%s is not a directory" % self.outputdir)
+                raise StandardError("%s is not a directory" % \
+                        context["outputroot"])
 
             self.outputdir = os.path.join(context["outputroot"], "csv")
 

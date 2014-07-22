@@ -14,13 +14,11 @@ from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
-if len(sys.argv) != 3:
+if len(sys.argv) != 2:
     R = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/"
     inputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-orig")
-    outputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-processed")
 else:
     inputRootPath = sys.argv[1]
-    outputRootPath = sys.argv[2]
 
 # read global settings for processing
 settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
@@ -52,7 +50,9 @@ for outstream in outstreams:
     ts_out.data["settingPath"] = os.path.dirname(settingFile)
     ts_out.data["sourcePath"] = inputRootPath
     ts_out.name = outstream["name"]
-    tsoutpath = os.path.join(outputRootPath, outstream["name"])
+
+    # timeseries output input path plus a suffix
+    tsoutpath = os.path.abspath(inputRootPath) + '-' + outstream["name"]
     if "outpath" in outstream.keys():
         tsoutpath = outstream["outpath"]
     if not os.path.exists(os.path.dirname(tsoutpath)):
@@ -60,7 +60,11 @@ for outstream in outstreams:
     ts_out.create(tsoutpath)
     context[outstream["name"]] = ts_out
 
-context["outputroot"] = outputRootPath
+# We put everything else that is not an time series into outputroot.
+context["outputroot"] = os.path.abspath(inputRootPath) + '-results'
+if not os.path.exists(context["outputroot"]):
+    os.mkdir(context["outputroot"])
+
 
 # Dictionary where we put all values that should be added with an image as soon
 # as it is output with the TimeStream
