@@ -62,6 +62,10 @@ for outstream in outstreams:
 
 context["outputroot"] = outputRootPath
 
+# Dictionary where we put all values that should be added with an image as soon
+# as it is output with the TimeStream
+context["outputwithimage"] = {}
+
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(ts.data["settings"], context)
 

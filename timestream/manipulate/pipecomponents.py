@@ -323,10 +323,7 @@ class TrayDetector ( PipeComponent ):
 
         # add tray location information
         date = context["img"].datetime
-        for outstream in context["outstreams"]:
-            ts_out = context[outstream["name"]]
-            ts_out.image_data[parse.ts_format_date(date)]["trayLocs"] = self.trayLocs
-            ts_out.write_metadata()
+        context["outputwithimage"]["trayLocs"] = self.trayLocs
 
         return([self.image, self.imagePyramid, self.trayLocs])
 
@@ -426,10 +423,7 @@ class PotDetector ( PipeComponent ):
 
         # add pot location information
         date = context["img"].datetime
-        for outstream in context["outstreams"]:
-            ts_out = context[outstream["name"]]
-            ts_out.image_data[parse.ts_format_date(date)]["potLocs"] = self.potLocs2
-            ts_out.write_metadata()
+        context["outputwithimage"]["potLocs"] = self.potLocs2
 
         return([self.image, self.potLocs2])
 
@@ -690,6 +684,11 @@ class ResultingImageWriter ( PipeComponent ):
         img.datetime = context["img"].datetime
         img.pixels = args[0]
         img.data["processed"] = "yes"
-        context[self.outstream].write_image(img)
+        for key, value in context["outputwithimage"].iteritems():
+            img.data[key] = value
+
+        ts_out = context[self.outstream]
+        ts_out.write_image(img)
+        ts_out.write_metadata()
 
         return (args)

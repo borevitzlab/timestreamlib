@@ -68,7 +68,6 @@ for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
 
 #create new timestream for output data
-context["outstreams"] = outstreams
 for outstream in outstreams:
     ts_out = timestream.TimeStream()
     ts_out.data["settings"] = settings
@@ -85,8 +84,11 @@ for outstream in outstreams:
     context[outstream["name"]] = ts_out
     print("   ts_out.path:", ts_out.path)
 
-
 context["outputroot"] = outputRootPath
+
+# Dictionary where we put all values that should be added with an image as soon
+# as it is output with the TimeStream
+context["outputwithimage"] = {}
 
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(ts.data["settings"], context)
