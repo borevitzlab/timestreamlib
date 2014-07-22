@@ -93,6 +93,74 @@ class PotSegmenter(object):
         """
         raise NotImplementedError()
 
+    def getFeatures(self, img):
+        def normRange(F):
+            """ Streach values to [0,1], change to np.float32."""
+            F = F.astype(np.float32)
+            m = np.min(F)
+            F -= m
+            M = np.max(F)
+            F /= float(M)
+            return (F)
+
+        retVal = None
+        imglab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+
+        # Add a and b from cieL*a*b
+        retVal = imglab[:,:,1:3].astype(np.float32)
+        retVal[:,:,0] = normRange(retVal[:,:,0])
+        retVal[:,:,1] = normRange(retVal[:,:,1])
+
+        # Calculate texture response filter from Minervini 2013
+        # FIXME: The pill radius, gaussian size and sigmas should be user
+        #        defined.
+        falloff = 1.0/50.0
+        pillsize = 7
+        gaussize = 17
+        sdH = 4
+        sdL = 1
+
+        # pillbox feature (F1)
+        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
+                (pillsize,pillsize))
+        pillse = pillse.astype(float)
+        pillse = pillse/sum(sum(pillse))
+        F1 = cv2.filter2D(imglab[:,:,1], -1, pillse)
+
+        # Difference of Gaussian (DoG) featrue (F2)
+        G1 = cv2.getGaussianKernel(gaussize, sdH)
+        G2 = cv2.getGaussianKernel(gaussize, sdL)
+        G1 = G1 * cv2.transpose(G1)
+        G2 = G2 * cv2.transpose(G2)
+        F2 = cv2.filter2D(imglab[:,:,0], -1, G1-G2)
+
+        F = np.exp( -falloff * np.abs(F1+F2) )
+        F = normRange(F)
+        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
+
+        # FIXME: try cv2.merge
+        retVal = np.concatenate((retVal, F), axis=2)
+
+        return (retVal)
+
+    def calcComplexity(self, mask, size=5):
+        """Apply Parrott et. al. 2008"""
+        se = np.ones([size,size])
+        convMask = signal.convolve2d(mask, se)
+
+        freq = [ float(convMask[np.where(convMask==i)].shape[0]) \
+                for i in range((size*size)+1) ]
+        freq = np.array(freq)
+        freq = freq/sum(freq)
+
+        # be carefull with ln(0)
+        freq = freq + 0.00001
+
+        # spatial complexity
+        sc = -sum(freq*np.log(freq)) / np.log(freq.shape[0])
+
+        return (sc)
+
 class PotSegmenter_KmeansSquare(PotSegmenter):
     def __init__(self, maxIter=10, epsilon=1, attempts=20):
         """PotSegmenter_Kmeans: Segmenter by k-means
@@ -161,74 +229,6 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
 
         return (labels.astype(np.float64))
-
-    def getFeatures(sefl, img):
-        def normRange(F):
-            """ Streach values to [0,1], change to np.float32."""
-            F = F.astype(np.float32)
-            m = np.min(F)
-            F -= m
-            M = np.max(F)
-            F /= float(M)
-            return (F)
-
-        retVal = None
-        imglab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-
-        # Add a and b from cieL*a*b
-        retVal = imglab[:,:,1:3].astype(np.float32)
-        retVal[:,:,0] = normRange(retVal[:,:,0])
-        retVal[:,:,1] = normRange(retVal[:,:,1])
-
-        # Calculate texture response filter from Minervini 2013
-        # FIXME: The pill radius, gaussian size and sigmas should be user
-        #        defined.
-        falloff = 1.0/50.0
-        pillsize = 7
-        gaussize = 17
-        sdH = 4
-        sdL = 1
-
-        # pillbox feature (F1)
-        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
-                (pillsize,pillsize))
-        pillse = pillse.astype(float)
-        pillse = pillse/sum(sum(pillse))
-        F1 = cv2.filter2D(imglab[:,:,1], -1, pillse)
-
-        # Difference of Gaussian (DoG) featrue (F2)
-        G1 = cv2.getGaussianKernel(gaussize, sdH)
-        G2 = cv2.getGaussianKernel(gaussize, sdL)
-        G1 = G1 * cv2.transpose(G1)
-        G2 = G2 * cv2.transpose(G2)
-        F2 = cv2.filter2D(imglab[:,:,0], -1, G1-G2)
-
-        F = np.exp( -falloff * np.abs(F1+F2) )
-        F = normRange(F)
-        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
-
-        # FIXME: try cv2.merge
-        retVal = np.concatenate((retVal, F), axis=2)
-
-        return (retVal)
-
-    def calcComplexity(self, mask, size=5):
-        """Apply Parrott et. al. 2008"""
-        se = np.ones([size,size])
-        convMask = signal.convolve2d(mask, se)
-
-        freq = [ float(convMask[np.where(convMask==i)].shape[0]) \
-                for i in range((size*size)+1) ]
-        freq = np.array(freq)
-        freq = freq/sum(freq)
-
-        # be carefull with ln(0)
-        freq = freq + 0.00001
-
-        # spatial complexity
-        sc = -sum(freq*np.log(freq)) / np.log(freq.shape[0])
-
-        return (sc)
 
 #FIXME: Find a better place to put this.
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
