@@ -93,23 +93,40 @@ class PotSegmenter(object):
         """
         raise NotImplementedError()
 
-    def getFeatures(self, img):
-        def normRange(F):
-            """ Streach values to [0,1], change to np.float32."""
-            F = F.astype(np.float32)
-            m = np.min(F)
-            F -= m
-            M = np.max(F)
-            F /= float(M)
-            return (F)
+    def normRange(self, F, minVal=None, maxVal=None):
+        """ Normalize values to [0,1]
 
+        Arguments:
+          minVal (numeric): minimum value of F range
+          maxVal (numeric): maximum value of F range
+        """
+        F = F.astype(np.float32)
+
+        m = np.min(F)
+        if minVal is not None:
+            if minVal < m:
+                raise ValueError("Cannot be Normalize to less than minimum")
+            m = minVal
+
+        M = np.max(F)
+        if maxVal is not None:
+            if maxVal > M:
+                raise ValueError("Cannot be Normalized to more than maximum")
+            M = maxVal
+
+        F -= m
+        F /= (float(M) + 0.00000001)
+        return (F)
+
+
+    def getFeatures(self, img):
         retVal = None
         imglab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
 
         # Add a and b from cieL*a*b
         retVal = imglab[:,:,1:3].astype(np.float32)
-        retVal[:,:,0] = normRange(retVal[:,:,0])
-        retVal[:,:,1] = normRange(retVal[:,:,1])
+        retVal[:,:,0] = self.normRange(retVal[:,:,0])
+        retVal[:,:,1] = self.normRange(retVal[:,:,1])
 
         # Calculate texture response filter from Minervini 2013
         # FIXME: The pill radius, gaussian size and sigmas should be user
@@ -135,7 +152,7 @@ class PotSegmenter(object):
         F2 = cv2.filter2D(imglab[:,:,0], -1, G1-G2)
 
         F = np.exp( -falloff * np.abs(F1+F2) )
-        F = normRange(F)
+        F = self.normRange(F)
         F = np.reshape(F, (F.shape[0], F.shape[1], 1))
 
         # FIXME: try cv2.merge
