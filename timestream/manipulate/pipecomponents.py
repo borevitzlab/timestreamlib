@@ -23,7 +23,7 @@ import numpy as np
 import cv2
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as ps
-from timestream import TimeStreamImage
+from timestream import TimeStreamImage, parse
 import timestream
 import os
 import os.path
@@ -260,15 +260,6 @@ class ImageColorCorrector ( PipeComponent ):
             self.imageCorrected = image
         self.image = image # display
 
-        # save processed image if selected so
-        if self.writeImage:
-            print('   Save corrected image')
-            img = timestream.TimeStreamImage()
-            img.datetime = context["img"].datetime
-            img.pixels = self.imageCorrected
-            img.data["processed"] = "yes"
-            context["wts"].write_image(img)
-
         return([self.imageCorrected])
 
     def show(self):
@@ -329,6 +320,13 @@ class TrayDetector ( PipeComponent ):
                     "Low tray matching score. Likely tray %d is missing." %i)
 
             self.trayLocs.append(loc)
+
+        # add tray location information
+        date = context["img"].datetime
+        for outstream in context["outstreams"]:
+            ts_out = context[outstream["name"]]
+            ts_out.image_data[parse.ts_format_date(date)]["trayLocs"] = self.trayLocs
+            ts_out.write_metadata()
 
         return([self.image, self.imagePyramid, self.trayLocs])
 
@@ -425,6 +423,13 @@ class PotDetector ( PipeComponent ):
                     potLocs_.append(estimateLoc)
             self.potLocs2.append(potLocs)
             self.potLocs2_.append(potLocs_)
+
+        # add pot location information
+        date = context["img"].datetime
+        for outstream in context["outstreams"]:
+            ts_out = context[outstream["name"]]
+            ts_out.image_data[parse.ts_format_date(date)]["potLocs"] = self.potLocs2
+            ts_out.write_metadata()
 
         return([self.image, self.potLocs2])
 
