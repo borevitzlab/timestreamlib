@@ -101,12 +101,6 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
           maxIter: maximum num of iterations per attempt
           epsilon: stopping difference
           attempts: times we try with different centers
-
-        Steps:
-        1. Calculate relative features.
-        2. Calculate a k-means (k=2)
-        3. Remove noise and bring close connected components together.
-        4. Ignore if complexity is too high
         """
         self.maxIter = maxIter
         self.epsilon = epsilon
@@ -114,16 +108,19 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         self.maxComplexity = 0.3
 
     def segment(self, img, hints):
-        """Segment subimage centered at iph"""
+        """Segment subimage centered at iph
+
+        Steps:
+        1. Calculate relative features.
+        2. Calculate a k-means (k=2)
+        3. Remove noise and bring close connected components together.
+        4. Ignore if complexity is too high
+
+        """
+
         fts = self.getFeatures(img)
 
         mask = self.calcKmeans(fts)
-
-        #FIXME: do this check if we don't have mean centers.
-        FG = sum(sum(mask==1))
-        BG = sum(sum(mask==0))
-        if BG < FG:
-            mask = -(mask-1)
 
         se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
@@ -154,6 +151,14 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
                 self.attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
+
+        labels = labels.astype(np.float64)
+        #FIXME: do this check if we don't have mean centers.
+        FG = sum(sum(labels==1))
+        BG = sum(sum(labels==0))
+        if BG < FG:
+            labels = -(labels-1)
+
 
         return (labels.astype(np.float64))
 
