@@ -88,7 +88,7 @@ if "enddate" in general.keys():
 else:
     endDate = None
 
-if "timeInterval" in general.keys():
+if "timeinterval" in general.keys():
     timeInterval = general["timeinterval"]
 else:
     timeInterval = 24*60*60
@@ -98,12 +98,30 @@ if "visualise" in general.keys():
 else:
     visualise = False
 
+if "starthourrange" in general.keys():
+    sr = general["starthourrange"]
+    startHourRange = datetime.time(sr["hour"], sr["minute"], sr["second"])
+else:
+    startHourRange = datetime.time(0,0,0)
+
+if "endhourrange" in general.keys():
+    er = general["endhourrange"]
+    endHourRange = datetime.time(er["hour"], er["minute"], er["second"])
+else:
+    endHourRange = datetime.time(23,59,59)
+
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
                                     end=endDate, interval=timeInterval ):
-    if img is None:
+
+    if img is None or img.pixels is None:
         print('Missing Image')
-    else:
+        continue
+
+    rStart = datetime.datetime.combine(img.datetime.date(), startHourRange)
+    rEnd = datetime.datetime.combine(img.datetime.date(), endHourRange)
+    if img.datetime >= rStart and img.datetime <= rEnd:
         print("Process", img.path, '...'),
+        print("Time stamp", img.datetime)
         context["img"] = img
         try:
             result = pl.process(context, [img.pixels], visualise)
@@ -132,5 +150,7 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
 #general:
 #  startdate: { year: 2014, month: 06, day: 18, hour: 12, minute: 0, second: 0}
 #  enddate: {}
+#  starthourrange: { hour: 10, minute: 0, second: 0}
+#  endhourrange: { hour: 15, minute: 0, second: 0}
 #  timeinterval: 86400
 
