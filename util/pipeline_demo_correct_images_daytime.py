@@ -18,15 +18,15 @@ import datetime
 # default values
 startDate = None
 endDate = None
-timeInterval = 60 * 60 # every hour
+timeInterval = 24 * 60 * 60 # every hour
 timeStart = datetime.time(8,0,0) # 8AM
 timeEnd   = datetime.time(15, 0,0) # 3PM
 visualise = False
 
-if len(sys.argv) != 4:
-    inputRootPath  = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig'
-    outputRootPath = '/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-corr'
-    startDate = timestream.parse.ts_parse_date("2014_06_18_00_00_00")
+if len(sys.argv) <= 2:
+    inputRootPath  = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres-orig'
+    outputRootPath = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres'
+    startDate = timestream.parse.ts_parse_date("2013_08_06_12_00_00")
 else:
     try:
         inputRootPath = sys.argv[1]
@@ -42,15 +42,16 @@ else:
         print('Try running with provided info')
 
 # read global settings for processing
-settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
-f = file(os.path.join(inputRootPath, '_data', 'pipeline.yml'))
-settings = yaml.load(f)
+settingFile = os.path.join(inputRootPath, '_data', 'pipeline_v2.yml')
+f = file(os.path.join(inputRootPath, '_data', 'pipeline_v2.yml'))
+yfile = yaml.load(f)
 f.close()
+settings = yfile["pipeline"]
+outstreams = yfile["outstreams"]
+general = yfile["general"]
 
-# run only 3 stages, from distortion correction to color correction
-settings = settings[:3]
-# set writeImage flag to write corrected image into output timestream
-settings[2][1]['writeImage'] = True
+#outstreams = outstreams[:1]
+#settings = settings[:6]
 
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
@@ -60,26 +61,76 @@ ts.load(inputRootPath)
 print('timestream path = ', ts.path)
 ts.data["settings"] = settings
 ts.data["settingPath"] = os.path.dirname(settingFile)
-
-#create new timestream for output data
-ts_out = timestream.TimeStream()
-ts_out.create(outputRootPath)
-ts_out.data["settings"] = settings
-ts_out.data["settingPath"] = os.path.dirname(settingFile)
-ts_out.data["sourcePath"] = inputRootPath
+context = {"rts":ts}
 print("Timestream instance created:")
 print("   ts.path:", ts.path)
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
 
+#create new timestream for output data
+context["outstreams"] = outstreams
+for outstream in outstreams:
+    ts_out = timestream.TimeStream()
+    ts_out.data["settings"] = settings
+    ts_out.data["settingPath"] = os.path.dirname(settingFile)
+    ts_out.data["sourcePath"] = inputRootPath
+    ts_out.name = outstream["name"]
+    base_name = os.path.basename(outputRootPath)
+    tsoutpath = os.path.join(outputRootPath, base_name + '-' + outstream["name"])
+    if "outpath" in outstream.keys():
+        tsoutpath = outstream["outpath"]
+    if not os.path.exists(os.path.dirname(tsoutpath)):
+        os.mkdir(os.path.dirname(tsoutpath))
+    ts_out.create(tsoutpath)
+    context[outstream["name"]] = ts_out
+    print("   ts_out.path:", ts_out.path)
+
+
+context["outputroot"] = outputRootPath
+
 # initialise processing pipeline
-# TODO: context could be part of initialising input here
-pl = pipeline.ImagePipeline(ts.data["settings"])
+pl = pipeline.ImagePipeline(ts.data["settings"], context)
+
+print("Iterating by date")
+
+if "startdate" in general.keys():
+    sd = general["startdate"]
+    if len(sd) == 0:
+        startDate = None
+    else:
+        startDate = datetime.datetime(sd["year"], sd["month"], sd["day"], \
+                                      sd["hour"], sd["minute"], sd["second"])
+else:
+    startDate = None #timestream.parse.ts_parse_date("2014_06_18_12_00_00")
+
+if "enddate" in general.keys():
+    ed = general["enddate"]
+    if len(ed) == 0:
+        endDate = None
+    else:
+        endDate = datetime.datetiem(ed["year"], ed["month"], ed["day"], \
+                                ed["hour"], ed["minute"], ed["second"])
+else:
+    endDate = None
+
+if "timeInterval" in general.keys():
+    timeInterval = general["timeinterval"]
+else:
+    timeInterval = 24*60*60
+
+if "visualise" in general.keys():
+    visualise = general["visualise"]
+else:
+    visualise = False
 
 print("Iterating by date and time range")
 #endDate = timestream.parse.ts_parse_date("2014_06_19_12_00_00")
 #timeInterval = 15 * 60
-for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate, interval=timeInterval ):
+print(startDate)
+print(endDate)
+print(timeInterval)
+#for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate, interval=timeInterval ):
+for img in ts.iter_by_timepoints(remove_gaps=False):
     if img is None or img.pixels is None:
         print('Missing Image')
     else:
@@ -88,8 +139,8 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, end=endDate
         startOfDay = datetime.datetime.combine(img.datetime.date(), timeStart)
         endOfDay = datetime.datetime.combine(img.datetime.date(), timeEnd)
         if img.datetime >= startOfDay and img.datetime <= endOfDay:
-            context = {"rts":ts, "wts":ts_out, "img":img}
-            result = pl.process(context, [img], visualise)
+            context["img"] = img
+            result = pl.process(context, [img.pixels], visualise)
         else:
             print('Skip this time slot', img.datetime)
 
