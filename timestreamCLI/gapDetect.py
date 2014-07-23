@@ -29,14 +29,6 @@ OPTIONS:
                         and day-wise timepoints as columns.
 """
 
-def sum_image(img):
-    pixels = img.pixels
-    if pixels is not None:
-        img.data['sum'] = pixels.sum()
-    else:
-        img.data['sum'] = "NA"
-    return img.clone()
-
 def setup_header(ts_info):
     start_today = datetime.combine(date.today(), time.min)
     end_today = datetime.combine(date.today(), time.max)
@@ -59,21 +51,14 @@ def main(opts):
     res_dict = {}
     print("Collecting image sums...")
     count = 0
-    pool = mp.Pool()
-    for img in pool.imap(sum_image, ts.iter_by_timepoints()):
-    # for img in map(sum_image, ts.iter_by_timepoints()):
-        print("Processed {: 6d} images!".format(count), end='\r')
-        sys.stdout.flush()
+    for img in ts.iter_by_timepoints():
         count += 1
-        pix_sum = str(img.data['sum'])
         img_dt = img.datetime
         try:
-            res_dict[img_dt.date()][img_dt.time().isoformat()] = pix_sum
+            res_dict[img_dt.date()][img_dt.time().isoformat()] = 1
         except KeyError:
-            res_dict[img_dt.date()] = {img_dt.time().isoformat(): pix_sum}
-    pool.close()
-    pool.join()
-    print("Processed {: 6d} images!".format(count))
+            res_dict[img_dt.date()] = {img_dt.time().isoformat(): 1}
+    print("Processed {} images!".format(count))
     print("Done collecting image sums, now making the table")
     for this_date, times in sorted(res_dict.items()):
         row = []
@@ -86,7 +71,7 @@ def main(opts):
             try:
                 row.append(times[timepoint.time().isoformat()])
             except KeyError:
-                row.append("NA")
+                row.append("0")
         out_csv.writerow(row)
     print("All done!")
 
