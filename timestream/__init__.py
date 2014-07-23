@@ -354,8 +354,20 @@ class TimeStream(object):
             end = self.end_datetime
         if not interval:
             interval = self.interval * 60
+        # iterate thru times
         for time in iter_date_range(start, end, interval):
-            img_path = ts_get_image(self.path, time)
+            # Format the path below the ts root
+            relpath = _ts_date_to_path(self.name, self.extension, time, 0)
+            # Join to make "absolute" path, i.e. path including ts_path
+            img_path = path.join(self.path, relpath)
+            # not-so-silently fail if we can't find the image
+            if path.exists(img_path):
+                LOG.debug("Image at {} in {} is {}.".format(time, self.path,
+                                                            img_path))
+            else:
+                LOG.debug("Expected image {} at {} did not exist.".format(
+                    img_path, time, self.path))
+                img_path = None
             if remove_gaps and img_path is None:
                 continue
             elif img_path is None:
