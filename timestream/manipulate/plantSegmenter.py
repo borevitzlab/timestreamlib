@@ -72,8 +72,8 @@ class StatParamCalculator(object):
         return (ecce[0]["Eccentricity"])
 
     @classmethod
-    def featureMethods(cls):
-        ignore = ["featureMethods"]
+    def statParamMethods(cls):
+        ignore = ["statParamMethods"]
         meths = inspect.getmembers(cls, predicate=inspect.ismethod)
         retVal = []
         for meth in meths:
@@ -589,7 +589,7 @@ class ImagePotHandler(object):
             raise TypeError("feats should be a list")
 
         if "all" in feats:
-            feats = StatParamCalculator.featureMethods()
+            feats = StatParamCalculator.statParamMethods()
 
         for featName in feats:
             # calc not-indexed feats
