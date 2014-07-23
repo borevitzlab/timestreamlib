@@ -629,7 +629,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
             os.makedirs(self.outputdir)
 
         # Are there any feature csv files? We check all possible features.
-        for fName in ps.FeatureCalculator.featureMethods():
+        for fName in ps.StatParamCalculator.featureMethods():
             outputfile = os.path.join(self.outputdir, fName+".csv")
             if os.path.exists(outputfile):
                 if self.overwrite:

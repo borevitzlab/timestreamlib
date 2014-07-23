@@ -26,7 +26,7 @@ import inspect
 import matplotlib.pyplot as plt
 import skimage
 
-class FeatureCalculator(object):
+class StatParamCalculator(object):
 
     def area(self, mask):
         area = regionprops(mask.astype("int8"), ["Area"])
@@ -306,7 +306,7 @@ class ImagePotHandler(object):
         else:
             raise TypeError("iphPrev must be an instance of ImagePotHandler")
 
-        self._fc = FeatureCalculator()
+        self._fc = StatParamCalculator()
         self._features = {}
         self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
                                 np.abs(self._rect[3]-self._rect[1])], \
@@ -473,7 +473,7 @@ class ImagePotHandler(object):
             raise TypeError("feats should be a list")
 
         if "all" in feats:
-            feats = FeatureCalculator.featureMethods()
+            feats = StatParamCalculator.featureMethods()
 
         for featName in feats:
             # calc not-indexed feats
