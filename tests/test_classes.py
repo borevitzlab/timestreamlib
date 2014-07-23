@@ -47,7 +47,7 @@ from timestream.parse.validate import (
 class TestTimeStreamLoad(TestCase):
     """Test loading of TimeStream classes. Tests read_metadata as well."""
 
-    def _check_ts_instance_ts_manifold_v1(self, ts_path):
+    def _check_ts_instance_ts_v1(self, ts_path):
         """Check members of a TimeStream class instance"""
         inst = TimeStream()
         inst.load(ts_path)
@@ -58,20 +58,18 @@ class TestTimeStreamLoad(TestCase):
             if key == "name":
                 continue
             self.assertEqual(getattr(inst, key),
-                             helpers.TS_MANIFOLD_DICT_PARSED[key])
+                             helpers.TS_DICT_PARSED[key])
         return inst
 
     def test_timestream_init(self):
         """Test TimeStream initialisation with good timestream"""
-        self._check_ts_instance_ts_manifold_v1(
-                helpers.FILES["timestream_manifold"])
-        self._check_ts_instance_ts_manifold_v1(
-                helpers.FILES["timestream_nomanifold"])
-        self._check_ts_instance_ts_manifold_v1(
+        self._check_ts_instance_ts_v1(
+                helpers.FILES["timestream"])
+        self._check_ts_instance_ts_v1(
                 helpers.FILES["timestream_gaps"])
-        self._check_ts_instance_ts_manifold_v1(
+        self._check_ts_instance_ts_v1(
                 helpers.FILES["timestream_datafldr"])
-        self._check_ts_instance_ts_manifold_v1(
+        self._check_ts_instance_ts_v1(
                 helpers.FILES["timestream_imgdata"])
 
     def test_timestream_load_bad(self):
@@ -88,24 +86,24 @@ class TestTimeStreamLoad(TestCase):
         with self.assertRaises(ValueError):
             inst = TimeStream()
             inst.version = 42
-            inst.load(helpers.FILES["timestream_manifold"])
+            inst.load(helpers.FILES["timestream"])
 
     def test_read_metatdata_weird(self):
         """Do weird things to TimeStream instance and check methods raise"""
         inst = TimeStream()
         with self.assertRaises(RuntimeError):
             inst.read_metadata()
-        inst.load(helpers.FILES["timestream_manifold"])
+        inst.load(helpers.FILES["timestream"])
         del inst.path
         with self.assertRaises(RuntimeError):
             inst.read_metadata()
 
     def test_load_jsons(self):
-        inst = self._check_ts_instance_ts_manifold_v1(
+        inst = self._check_ts_instance_ts_v1(
             helpers.FILES["timestream_imgdata"])
         self.assertIn("has_data", inst.data)
         self.assertIs(inst.data["has_data"], True)
-        for img_date_str in helpers.TS_MANIFOLD_DATES:
+        for img_date_str in helpers.TS_DATES:
             self.assertIn(img_date_str, inst.image_data)
             self.assertIn("has_data", inst.image_data[img_date_str])
             self.assertIs(inst.image_data[img_date_str]["has_data"], True)
@@ -159,8 +157,8 @@ class TestTimeStreamImageFromFile(TestCase):
     def test_ts_image_from_file(self):
         """Test TimeStreamImage.from_file() with valid parameters"""
         img = TimeStreamImage()
-        img.from_file(helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
+        img.from_file(helpers.TS_FILES_JPG[0])
+        self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
 
     def test_ts_image_from_file_truncated(self):
         """Test TimeStreamImage.from_file() with valid parameters"""
@@ -173,17 +171,17 @@ class TestTimeStreamImageFromFile(TestCase):
     def test_ts_image_from_file_parent(self):
         """Test TimeStreamImage.from_file() with valid parameters & parent"""
         ts = TimeStream()
-        ts.load(helpers.FILES["timestream_manifold"])
+        ts.load(helpers.FILES["timestream"])
         img = TimeStreamImage()
         img.parent_timestream = ts
-        img.from_file(helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.path, helpers.TS_MANIFOLD_FILES_JPG[0])
-        self.assertEqual(img.datetime, helpers.TS_MANIFOLD_DATES_PARSED[0])
+        img.from_file(helpers.TS_FILES_JPG[0])
+        self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
+        self.assertEqual(img.datetime, helpers.TS_DATES_PARSED[0])
 
     def test_image_from_file_bad_params(self):
         """Test TimeStreamImage.from_file() with invalid parameters"""
         ts = TimeStream()
-        ts.load(helpers.FILES["timestream_manifold"])
+        ts.load(helpers.FILES["timestream"])
         img = TimeStreamImage()
         with self.assertRaises(TypeError):
             img.from_file(123)
@@ -237,15 +235,15 @@ class TestTimeStreamIterByFiles(TestCase):
     def test_iter_by_files(self):
         """Test TimeStream().iter_by_files with a good timestream"""
         ts = TimeStream()
-        ts.load(helpers.FILES["timestream_manifold"])
+        ts.load(helpers.FILES["timestream"])
         res = ts.iter_by_files()
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
-            self.assertEqual(image.path, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(image.path, helpers.TS_FILES_JPG[iii])
             self.assertEqual(image.datetime,
-                             helpers.TS_MANIFOLD_DATES_PARSED[iii])
-            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
-            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+                             helpers.TS_DATES_PARSED[iii])
+            self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
+            self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
 class TestTimeStreamIterByTimepoints(TestCase):
     """Test TimeStream().iter_by_timepoints"""
@@ -253,17 +251,17 @@ class TestTimeStreamIterByTimepoints(TestCase):
     def test_iter_by_timepoints_full(self):
         """Test TimeStream().iter_by_timepoints with a complete timestream"""
         ts = TimeStream()
-        ts.load(helpers.FILES["timestream_manifold"])
+        ts.load(helpers.FILES["timestream"])
         res = ts.iter_by_timepoints()
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
             # Check lazy-loading
             self.assertIsNone(image._pixels)
-            self.assertEqual(image.path, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(image.path, helpers.TS_FILES_JPG[iii])
             self.assertEqual(image.datetime,
-                             helpers.TS_MANIFOLD_DATES_PARSED[iii])
-            self.assertEqual(image.pixels.dtype, helpers.TS_MANIFOLD_JPG_DTYPE)
-            self.assertEqual(image.pixels.shape, helpers.TS_MANIFOLD_JPG_SHAPE)
+                             helpers.TS_DATES_PARSED[iii])
+            self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
+            self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
     def test_iter_by_timepoints_withgaps(self):
         """Test TimeStream().iter_by_timepoints with a complete timestream"""
@@ -292,11 +290,13 @@ class TestTimeStreamIterByTimepoints(TestCase):
                 # Missing images
                 self.assertIsNone(image)
                 continue
+            print(iii)
+            self.assertIsNot(image, None)
             # Check lazy-loading
             self.assertIsNone(image._pixels)
             # We don't check path, as it's got a different timestream name
             self.assertEqual(image.datetime,
-                             helpers.TS_MANIFOLD_DATES_PARSED[iii])
+                             helpers.TS_DATES_PARSED[iii])
             # We don't check pixels to save time. We know if this fails, it
             # will fail above, or be a problem in our data files which should
             # change the date and make the previous statement fail.
