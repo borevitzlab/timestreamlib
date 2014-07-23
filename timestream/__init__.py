@@ -59,6 +59,7 @@ from timestream.util.imgmeta import (
 LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
+
 def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
                          stream=stderr):
     """Setup debug console logging. Designed for interactive use."""
@@ -71,6 +72,7 @@ def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
     cons.setFormatter(fmt)
     log.addHandler(cons)
     log.setLevel(level)
+
 
 class TimeStream(object):
     """A TimeStream, including metadata and parsers"""
@@ -274,7 +276,7 @@ class TimeStream(object):
             self.write_metadata()
             # Actually write image
             ts_make_dirs(fpath)
-            cv2.imwrite(fpath, image.pixels[:,:,::-1])
+            cv2.imwrite(fpath, image.pixels[:, :, ::-1])
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
 
@@ -496,7 +498,7 @@ class TimeStreamImage(object):
             except ImportError:
                 LOG.warn("Couln't load scikit image io module. " +
                          "Raw images will not be loaded correctly")
-                self._pixels = cv2.imread(self.path)[:,:,::-1]
+                self._pixels = cv2.imread(self.path)[:, :, ::-1]
         return self._pixels
 
     @pixels.setter
