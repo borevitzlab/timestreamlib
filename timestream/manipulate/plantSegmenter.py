@@ -21,6 +21,7 @@ from scipy import spatial
 from scipy import signal
 from itertools import chain
 from skimage.measure import regionprops
+from skimage.measure import label
 import cv2
 import inspect
 import matplotlib.pyplot as plt
@@ -125,7 +126,7 @@ class FeatureCalculator(object):
         m = np.min(F)
         M = np.max(F)
         if rangeVal is not None:
-            if rangeVal[0] < np.min(F) or rangeVal[1] > np.max(F):
+            if rangeVal[0] > np.min(F) or rangeVal[1] < np.max(F):
                 raise ValueError("Values out of normalization range")
             m = rangeVal[0]
             M = rangeVal[1]
@@ -199,7 +200,15 @@ class FeatureCalculator(object):
 
         return F
 
-    def getFeatures(self, feats, norm):
+    def G4mB3mR1(self, norm):
+        # We ignore the norm here becase we always FULL_NORM
+        F = 4 * self.normRange(self._imgRGB[:,:,1], rangeVal=(0,255) ) \
+            - 3 * self.normRange(self._imgRGB[:,:,2], rangeVal=(0,255)) \
+            - 1 * self.normRange(self._imgRGB[:,:,0], rangeVal=(0,255))
+        F = np.reshape(F, (F.shape[0], F.shape[0], 1))
+        return(F)
+
+    def getFeatures(self, feats, norm = RELATIVE_NORM):
         """ Calc features in feats (by name). Order matters"""
         retVal = None
         for f in feats:
@@ -244,6 +253,45 @@ class PotSegmenter(object):
 
         return (sc)
 
+class PotSegmenter_Method1(PotSegmenter):
+    def __init__(self, threshold=0.6, kSize=5, blobMinSize=50):
+        self.threshold = threshold
+        if kSize%2 == 0:
+            raise ValueError("kSize must be inpair")
+        self.kSize = kSize
+        if blobMinSize < 10:
+            raise ValueError("blobMinSize should be greater than 10")
+        self.blobMinSize = blobMinSize
+
+    def segment(self, img, hints):
+        """Segment using a simple method
+
+        Steps:
+        1. Get feature G4mB3mR1
+        2. Apply a median filter
+        3. Apply a hard threshold.
+        4. Remove all blobs greater than self.blobMinSize
+        """
+        fc = FeatureCalculator(img)
+        fts = fc.getFeatures( ["G4mB3mR1"] )
+        mask = cv2.medianBlur(fts, self.kSize)
+        v, mask = cv2.threshold(mask, self.threshold, 1, cv2.THRESH_BINARY)
+
+        # Remove all blobs that are greater than self.blobMinSize
+        mask = label(mask, background=0)
+        if -1 in mask: # skimage is going to change in 0.12
+            mask += 1
+
+        for i in range(1,np.max(mask)+1):
+            indx = np.where(mask == i)
+            if indx[0].shape[0] < self.blobMinSize:
+                mask[indx] = 0
+
+        indx = np.where(mask!=0)
+        mask[indx] = 1
+
+        return ([mask,hints])
+
 class PotSegmenter_KmeansSquare(PotSegmenter):
     def __init__(self, maxIter=10, epsilon=1, attempts=20):
         """PotSegmenter_Kmeans: Segmenter by k-means
@@ -270,8 +318,7 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         """
 
         fc = FeatureCalculator(img)
-        fts = fc.getFeatures( ["LAB_A", "LAB_B", "minervini"], \
-                FeatureCalculator.RELATIVE_NORM)
+        fts = fc.getFeatures( ["LAB_A", "LAB_B", "minervini"])
 
         mask = self.calcKmeans(fts)
 
@@ -316,7 +363,8 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         return (labels.astype(np.float64))
 
 #FIXME: Find a better place to put this.
-segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare}
+segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare,
+        "method1": PotSegmenter_Method1}
 
 class ImagePotHandler(object):
     def __init__(self, id, rect, superImage, ps=None, iphPrev=None):

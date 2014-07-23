@@ -460,6 +460,7 @@ class PlantExtractor ( PipeComponent ):
         super(PlantExtractor, self).__init__(**kwargs)
         if self.meth not in ps.segmentingMethods.keys():
             raise ValueError ("%s is not a valid method" % self.meth)
+        #FIXME: Check the arg names. Inform an error in yaml file if error.
         self.segmenter = ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
