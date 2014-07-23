@@ -80,6 +80,139 @@ class StatParamCalculator(object):
                 retVal.append(meth[0])
         return (retVal)
 
+class FeatureCalculator(object):
+    RELATIVE_NORM = 1
+    FULL_NORM = 2
+
+    def __init__(self, img):
+        """Calculating the image pixel features (transformations)
+
+        getFeatures should be the only method called from outside
+
+        Attributes:
+          _imgRGB (np.ndarray): Input image
+          (_)imgLAB (np.ndarray): Image in CIELAB color space
+          feats (dictionary): Holds all the possible feature methods.
+
+        """
+        self._imgRGB = img.astype(np.uint8)
+        self._imgLAB = None
+
+        ignore = ["__init__", "imgLAB", "normRange", \
+                    "_oneLAB", "_oneRGB", "getFeatures"]
+        fMeths = inspect.getmembers(self, predicate=inspect.ismethod)
+        self.feats = {}
+        for feat in fMeths:
+            if ( not feat[0] in ignore ):
+                self.feats[feat[0]] = feat[1]
+
+    @property
+    def imgLAB(self):
+        if self._imgLAB is None:
+            # Transformation is from uint8. Ranges are [0,255] for all dims.
+            # http://docs.opencv.org/modules/imgproc/doc/miscellaneous_transformations.html
+            self._imgLAB = cv2.cvtColor(self._imgRGB, cv2.COLOR_BGR2LAB)
+        return self._imgLAB
+
+    def normRange(self, F, rangeVal=None):
+        """ Normalize values to [0,1]
+
+        Arguments:
+          minVal (numeric): minimum value of F range
+          maxVal (numeric): maximum value of F range
+        """
+        F = F.astype(np.float32)
+        m = np.min(F)
+        M = np.max(F)
+        if rangeVal is not None:
+            if rangeVal[0] < np.min(F) or rangeVal[1] > np.max(F):
+                raise ValueError("Values out of normalization range")
+            m = rangeVal[0]
+            M = rangeVal[1]
+
+        F -= m
+        M -= m
+        F /= (float(M) + 0.00000001)
+        return (F)
+
+    def _oneRGB(self, norm, dim):
+        retVal = None
+        if norm == FeatureCalculator.RELATIVE_NORM:
+            retVal = self.normRange(self._imgRGB[:,:dim])
+        elif norm == FeatureCalculator.FULL_NORM:
+            retVal = self.normRange(self._imgRGB[:,:,dim], rangeVal=(0,255))
+        else:
+            raise ValueError("Must select relative or full normalization")
+        retVal = np.reshape(retVal, (retVal.shape[0], retVal.shape[1], 1))
+        return retVal
+    def RGB_R(self, norm):
+        return self._oneRGB(norm, 0)
+    def RGB_G(self, norm):
+        return self._oneRGB(norm, 1)
+    def RGB_B(self, norm):
+        return self._oneRGB(norm, 2)
+
+    def _oneLAB(self, norm, dim):
+        retVal = None
+        if norm == FeatureCalculator.RELATIVE_NORM:
+            retVal = self.normRange(self.imgLAB[:,:,dim])
+        elif norm == FeatureCalculator.FULL_NORM:
+            retVal = self.normRange(self.imgLAB[:,:,dim], rangeVal=(0,255))
+        else:
+            raise ValueError("Must select relative or full normalization")
+        retVal = np.reshape(retVal, (retVal.shape[0], retVal.shape[1], 1))
+        return retVal
+    def LAB_L(self, norm):
+        return self._oneLAB(norm, 0)
+    def LAB_A(self, norm):
+        return self._oneLAB(norm, 1)
+    def LAB_B(self, norm):
+        return self._oneLAB(norm, 2)
+
+    def minervini(self, norm):
+        # Calculate texture response filter from Minervini 2013
+        # FIXME: radius, gaussian size and sigmas should be user defined.
+        falloff = 1.0/50.0
+        pillsize = 7
+        gaussize = 17
+        sdH = 4
+        sdL = 1
+
+        # pillbox feature (F1)
+        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
+                (pillsize,pillsize))
+        pillse = pillse.astype(float)
+        pillse = pillse/sum(sum(pillse))
+        F1 = cv2.filter2D(self.imgLAB[:,:,1], -1, pillse)
+
+        # Difference of Gaussian (DoG) featrue (F2)
+        G1 = cv2.getGaussianKernel(gaussize, sdH)
+        G2 = cv2.getGaussianKernel(gaussize, sdL)
+        G1 = G1 * cv2.transpose(G1)
+        G2 = G2 * cv2.transpose(G2)
+        F2 = cv2.filter2D(self.imgLAB[:,:,0], -1, G1-G2)
+
+        F = np.exp( -falloff * np.abs(F1+F2) )
+        #FIXME: We are ignoring norm for now.
+        F = self.normRange(F)
+        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
+
+        return F
+
+    def getFeatures(self, feats, norm):
+        """ Calc features in feats (by name). Order matters"""
+        retVal = None
+        for f in feats:
+            if f not in self.feats.keys():
+                raise ValueError("%s is not a valid feature"%f)
+            if retVal is None:
+                retVal = self.feats[f](norm)
+                continue
+
+            retVal = np.concatenate((retVal, self.feats[f](norm)), axis=2)
+
+        return retVal
+
 class PotSegmenter(object):
     def __init__(self, *args, **kwargs):
         pass
@@ -92,73 +225,6 @@ class PotSegmenter(object):
           hints (dict): dictionary with hints useful for segmentation
         """
         raise NotImplementedError()
-
-    def normRange(self, F, minVal=None, maxVal=None):
-        """ Normalize values to [0,1]
-
-        Arguments:
-          minVal (numeric): minimum value of F range
-          maxVal (numeric): maximum value of F range
-        """
-        F = F.astype(np.float32)
-
-        m = np.min(F)
-        if minVal is not None:
-            if minVal < m:
-                raise ValueError("Cannot be Normalize to less than minimum")
-            m = minVal
-
-        M = np.max(F)
-        if maxVal is not None:
-            if maxVal > M:
-                raise ValueError("Cannot be Normalized to more than maximum")
-            M = maxVal
-
-        F -= m
-        F /= (float(M) + 0.00000001)
-        return (F)
-
-
-    def getFeatures(self, img):
-        retVal = None
-        imglab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-
-        # Add a and b from cieL*a*b
-        retVal = imglab[:,:,1:3].astype(np.float32)
-        retVal[:,:,0] = self.normRange(retVal[:,:,0])
-        retVal[:,:,1] = self.normRange(retVal[:,:,1])
-
-        # Calculate texture response filter from Minervini 2013
-        # FIXME: The pill radius, gaussian size and sigmas should be user
-        #        defined.
-        falloff = 1.0/50.0
-        pillsize = 7
-        gaussize = 17
-        sdH = 4
-        sdL = 1
-
-        # pillbox feature (F1)
-        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
-                (pillsize,pillsize))
-        pillse = pillse.astype(float)
-        pillse = pillse/sum(sum(pillse))
-        F1 = cv2.filter2D(imglab[:,:,1], -1, pillse)
-
-        # Difference of Gaussian (DoG) featrue (F2)
-        G1 = cv2.getGaussianKernel(gaussize, sdH)
-        G2 = cv2.getGaussianKernel(gaussize, sdL)
-        G1 = G1 * cv2.transpose(G1)
-        G2 = G2 * cv2.transpose(G2)
-        F2 = cv2.filter2D(imglab[:,:,0], -1, G1-G2)
-
-        F = np.exp( -falloff * np.abs(F1+F2) )
-        F = self.normRange(F)
-        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
-
-        # FIXME: try cv2.merge
-        retVal = np.concatenate((retVal, F), axis=2)
-
-        return (retVal)
 
     def calcComplexity(self, mask, size=5):
         """Apply Parrott et. al. 2008"""
@@ -203,7 +269,9 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 
         """
 
-        fts = self.getFeatures(img)
+        fc = FeatureCalculator(img)
+        fts = fc.getFeatures( ["LAB_A", "LAB_B", "minervini"], \
+                FeatureCalculator.RELATIVE_NORM)
 
         mask = self.calcKmeans(fts)
 
