@@ -332,6 +332,11 @@ class TimeStream(object):
             img = TimeStreamImage()
             img.parent_timestream = self
             img.from_file(fpath)
+            img_date = ts_format_date(img.datetime)
+            try:
+                img.data = self.image_data[img_date]
+            except KeyError:
+                img.data = {}
             yield img
 
     def iter_by_timepoints(self, remove_gaps=True, start=None, end=None,
@@ -357,6 +362,11 @@ class TimeStream(object):
                 img = TimeStreamImage(datetime=time)
                 img.parent_timestream = self
                 img.from_file(img_path)
+                img_date = ts_format_date(img.datetime)
+                try:
+                    img.data = self.image_data[img_date]
+                except KeyError:
+                    img.data = {}
                 yield img
 
 

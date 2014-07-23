@@ -59,6 +59,7 @@ class TestTimeStreamLoad(TestCase):
                 continue
             self.assertEqual(getattr(inst, key),
                              helpers.TS_MANIFOLD_DICT_PARSED[key])
+        return inst
 
     def test_timestream_init(self):
         """Test TimeStream initialisation with good timestream"""
@@ -70,6 +71,8 @@ class TestTimeStreamLoad(TestCase):
                 helpers.FILES["timestream_gaps"])
         self._check_ts_instance_ts_manifold_v1(
                 helpers.FILES["timestream_datafldr"])
+        self._check_ts_instance_ts_manifold_v1(
+                helpers.FILES["timestream_imgdata"])
 
     def test_timestream_load_bad(self):
         """Test TimeStream initialisation with bad/non timestream"""
@@ -96,6 +99,16 @@ class TestTimeStreamLoad(TestCase):
         del inst.path
         with self.assertRaises(RuntimeError):
             inst.read_metadata()
+
+    def test_load_jsons(self):
+        inst = self._check_ts_instance_ts_manifold_v1(
+            helpers.FILES["timestream_imgdata"])
+        self.assertIn("has_data", inst.data)
+        self.assertIs(inst.data["has_data"], True)
+        for img_date_str in helpers.TS_MANIFOLD_DATES:
+            self.assertIn(img_date_str, inst.image_data)
+            self.assertIn("has_data", inst.image_data[img_date_str])
+            self.assertIs(inst.image_data[img_date_str]["has_data"], True)
 
 
 class TestTimeStreamInit(TestCase):
