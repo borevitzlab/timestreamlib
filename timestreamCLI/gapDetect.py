@@ -43,7 +43,7 @@ def main(opts):
     ts_info = ts_get_manifest(ts_name)
     times = setup_header(ts_info)
     out_csv = csv.writer(out_fh)
-    header = ["", ]
+    header = ["Date", ]
     header.extend(times)
     out_csv.writerow(header)
     ts = TimeStream()
