@@ -21,10 +21,23 @@ else:
     inputRootPath = sys.argv[1]
 
 # read global settings for processing
-if len(sys.argv) > 2 and os.path.isfile(sys.argv[2]):
+if len(sys.argv) > 1 and os.path.isfile(sys.argv[2]):
     settingFile = sys.argv[2]
 else:
     settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+
+if len(sys.argv) > 2:
+    outputRootPath = sys.argv[3]
+    if os.path.isfile(outputRootPath):
+        raise IOError("%s is a file"%outputRootPath)
+    if not os.path.exists(outputRootPath):
+        os.makedirs(outputRootPath)
+    outputRootPath = os.path.join (outputRootPath, \
+            os.path.basename(os.path.abspath(inputRootPath)))
+else:
+    outputRootPath = inputRootPath
+
+
 f = file(settingFile)
 yfile = yaml.load(f)
 f.close()
@@ -55,7 +68,7 @@ for outstream in outstreams:
     ts_out.name = outstream["name"]
 
     # timeseries output input path plus a suffix
-    tsoutpath = os.path.abspath(inputRootPath) + '-' + outstream["name"]
+    tsoutpath = os.path.abspath(outputRootPath) + '-' + outstream["name"]
     if "outpath" in outstream.keys():
         tsoutpath = outstream["outpath"]
     if not os.path.exists(os.path.dirname(tsoutpath)):
@@ -64,7 +77,7 @@ for outstream in outstreams:
     context[outstream["name"]] = ts_out
 
 # We put everything else that is not an time series into outputroot.
-context["outputroot"] = os.path.abspath(inputRootPath) + '-results'
+context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
 if not os.path.exists(context["outputroot"]):
     os.mkdir(context["outputroot"])
 
