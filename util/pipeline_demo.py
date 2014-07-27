@@ -14,15 +14,18 @@ from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
-if len(sys.argv) != 2:
+if len(sys.argv) < 2:
     R = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/"
     inputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-orig")
 else:
     inputRootPath = sys.argv[1]
 
 # read global settings for processing
-settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
-f = file(os.path.join(inputRootPath, '_data', 'pipeline.yml'))
+if len(sys.argv) > 2 and os.path.isfile(sys.argv[2]):
+    settingFile = sys.argv[2]
+else:
+    settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+f = file(settingFile)
 yfile = yaml.load(f)
 f.close()
 settings = yfile["pipeline"]
