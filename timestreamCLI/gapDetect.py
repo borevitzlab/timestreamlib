@@ -19,6 +19,7 @@ from datetime import (
     time,
 )
 
+
 CLI = """
 USAGE:
 gapDetect -i IN_TIMESTREAM -o OUT_CSV
@@ -29,12 +30,14 @@ OPTIONS:
                         and day-wise timepoints as columns.
 """
 
+
 def setup_header(ts_info):
     start_today = datetime.combine(date.today(), time.min)
     end_today = datetime.combine(date.today(), time.max)
     times = iter_date_range(start_today, end_today, ts_info['interval'] * 60)
     times = [x.strftime("%H:%M:%S") for x in times]
     return times
+
 
 def main(opts):
     setup_module_logging(logging.ERROR)
@@ -49,9 +52,12 @@ def main(opts):
     ts = TimeStream()
     ts.load(ts_name)
     res_dict = {}
-    print("Collecting image sums...")
+    print("Collecting image data for {}...".format(ts_name))
     count = 0
     for img in ts.iter_by_timepoints():
+        if count % 5 == 0:
+            print("Processed {} images!".format(count), end='\r')
+            sys.stdout.flush()
         count += 1
         img_dt = img.datetime
         try:
