@@ -14,6 +14,7 @@ import numpy as np
 import cv2
 import logging
 import sys, os
+import itertools
 
 def getTrayPotID(code, traysPerChamber = 8, gridSize = [5,4]):
     if len(code) != 4:
@@ -35,18 +36,21 @@ def updateDicBins(dic, key, value):
     else:
         dic[key].append(value)
 
-
+interval = None
 if len(sys.argv) < 5:
-    inputRootPathLeft  = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres/BVZ0018-GC05L-C01~fullres-orig-corr'
-    inputRootPathRight = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres/BVZ0018-GC05R-C01~fullres-orig-corr'
+    inputRootPathLeft  = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres-30min/BVZ0018-GC05L-C01~fullres-orig-corr'
+    inputRootPathRight = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min/BVZ0018-GC05R-C01~fullres-orig-corr'
     inputPotConfig     = '/home/chuong/Data/CVS/BVZ0018_plant_position_new_updated_chamber5.csv'
-    outputRootPath     = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0018/BVZ0018-GC05B-C01~fullres-unr'
+    outputRootPath     = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min-unr'
 else:
-    inputRootPathLeft  = sys.argv[1]
-    inputRootPathRight = sys.argv[2]
-    inputPotConfig     = sys.argv[3]
-    outputRootPath     = sys.argv[4]
-
+    try:
+        inputRootPathLeft  = sys.argv[1]
+        inputRootPathRight = sys.argv[2]
+        inputPotConfig     = sys.argv[3]
+        outputRootPath     = sys.argv[4]
+        interval           = int(sys.argv[5])
+    except:
+        pass
 
 timestream.setup_module_logging(level=logging.INFO)
 tsL = timestream.TimeStream()
@@ -106,9 +110,22 @@ imgHeight = rows*potWidth*potsPerPlant
 print(noPlants, rows*cols)
 print(imgWidth, imgHeight, imgWidth/imgHeight, 16/9)
 
-for imgL,imgR in zip(tsL.iter_by_timepoints(start=getattr(tsL, "start_datetime"), interval = 24*60*60), 
-                     tsR.iter_by_timepoints(start=getattr(tsR, "start_datetime"), interval = 24*60*60)):
+startL=getattr(tsL, "start_datetime")
+startR=getattr(tsR, "start_datetime")
+endL = getattr(tsL, "end_datetime")
+endR = getattr(tsR, "end_datetime")
+if startL > startR:
+    start = startL
+else:
+    start = startR
+if endL < endR:
+    end = endL
+else:
+    end = endR
+print(start, end)
 
+for imgL,imgR in itertools.izip(tsL.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None), 
+                                tsR.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None)):
     if imgL is None or imgL.pixels is None or \
        imgR is None or imgR.pixels is None:
         print('Missing Image')
@@ -119,6 +136,8 @@ for imgL,imgR in zip(tsL.iter_by_timepoints(start=getattr(tsL, "start_datetime")
         datetimeStrR = timestream.parse.ts_format_date(imgR.datetime)
         if datetimeStrL != datetimeStrR:
             print("Warning: Image pair is not captured at the same time.")
+            
+        # TODO: use previous pot data if this is missing
         potLocsChamberL = tsL.image_data[datetimeStrL]['potLocs']
         potLocsChamberR = tsR.image_data[datetimeStrR]['potLocs']
         
