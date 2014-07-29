@@ -43,9 +43,8 @@ for img in ts.iter_by_timepoints(start=start, end=end, interval = interval):
     imgResized = cv2.resize(img.pixels, (img.pixels.shape[1]//scale, img.pixels.shape[0]//scale))
     timestamp = timestream.parse.ts_format_date(img.datetime)
     cv2.putText(imgResized, timestamp, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), thickness = 1)
-    cv2.imshow(windowName, imgResized)
+    cv2.imshow(windowName, imgResized[:,:,::-1])
     k = cv2.waitKey(delay)
-    print(k)
     if k == 1048603:
         # escape key is pressed
         break
