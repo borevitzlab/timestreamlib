@@ -22,7 +22,7 @@ else:
     try:
         inputRootPath = sys.argv[1]
         delay = int(sys.argv[2])
-        interval = sys.argv[3]
+        interval = int(sys.argv[3])
         start = sys.argv[4]
         end = sys.argv[5]
     except:
