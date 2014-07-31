@@ -162,16 +162,16 @@ chamberIDs = ['GC02', 'GC05']
 chambers = {}
 chambers['GC02'] = {}
 chambers['GC05'] = {}
-#chambers['GC02']['leftChamberRootPath']  = '/fast/phenomics/ts_cache/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-orig'
-#chambers['GC02']['rightChamberRootPath'] = '/fast/phenomics/ts_cache/Borevitz/BVZ0036/BVZ0036-GC02R-C01~fullres-orig'
-#chambers['GC05']['leftChamberRootPath']  = '/fast/phenomics/ts_cache/Borevitz/BVZ0036/BVZ0036-GC05L-C01~fullres-orig'
-#chambers['GC05']['rightChamberRootPath'] = '/fast/phenomics/ts_cache/Borevitz/BVZ0036/BVZ0036-GC05R-C01~fullres-orig'
+#chambers['GC02']['leftChamberRootPath']  = '/home/chuong/Data/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-30min/BVZ0036-GC02L-C01~fullres-orig-corr'
+#chambers['GC02']['rightChamberRootPath'] = '/home/chuong/Data/Borevitz/BVZ0036/BVZ0036-GC02R-C01~fullres-30min/BVZ0036-GC02R-C01~fullres-orig-corr'
+#chambers['GC05']['leftChamberRootPath']  = '/home/chuong/Data/Borevitz/BVZ0036/BVZ0036-GC05L-C01~fullres-30min/BVZ0036-GC05L-C01~fullres-orig-corr'
+#chambers['GC05']['rightChamberRootPath'] = '/home/chuong/Data/Borevitz/BVZ0036/BVZ0036-GC05R-C01~fullres-30min/BVZ0036-GC05R-C01~fullres-orig-corr'
 #outputRootPath = '/home/chuong/Data/Borevitz/BVZ0036/BVZ0036-GC02+05B-C01~fullres-30min-unr'
 chambers['GC02']['leftChamberRootPath']  = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC02L-C01~fullres-30min/BVZ0036-GC02L-C01~fullres-orig-corr'
 chambers['GC02']['rightChamberRootPath'] = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC02R-C01~fullres-30min/BVZ0036-GC02R-C01~fullres-orig-corr'
 chambers['GC05']['leftChamberRootPath']  = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC05L-C01~fullres-30min/BVZ0036-GC05L-C01~fullres-orig-corr'
 chambers['GC05']['rightChamberRootPath'] = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC05R-C01~fullres-30min/BVZ0036-GC05R-C01~fullres-orig-corr'
-outputRootPath = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC02+05B-C01~fullres-30min-unr'
+outputRootPath = '/home/chuong/north1ws/Data/Borevitz/BVZ0036/BVZ0036-GC02+05B-C01~fullres-30min-unr-sel'
 
 timestream.setup_module_logging(level=logging.INFO)
 
@@ -206,10 +206,10 @@ noPlants = len(plantList)
 
 AR = [9, 16]
 AR2 = [AR[0]/potsPerPlant, AR[1]/noChambers]
-cols = int(round(math.sqrt(noPlants*AR2[1]/AR2[0])))
-rows = int(round(noPlants/cols))
-imgWidth  = cols*potWidth*noChambers
-imgHeight = rows*potWidth*potsPerPlant
+cols = int(math.ceil(math.sqrt(noPlants*AR2[1]/AR2[0])))
+rows = int(math.ceil(noPlants/cols))
+imgWidth  = potWidth*cols*noChambers
+imgHeight = potWidth*rows*potsPerPlant
 print(noPlants, rows*cols)
 print(imgWidth, imgHeight, imgWidth/imgHeight, 16/9)
 
@@ -231,7 +231,9 @@ print(start, end)
 #for chamberID in ['GC02', 'GC05']:
 #    for tsID in ['leftChamberTS', 'rightChamberTS']:
 #        iterators = iterators + (chambers[chamberID][tsID ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),)
-        
+
+windowName = 'Derandomised image'
+cv2.moveWindow(windowName, 10,10)        
 for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
                                               chambers['GC02']['rightChamberTS'].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
                                               chambers['GC05']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
@@ -284,6 +286,9 @@ for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ]
                 for j, potImg in enumerate(potImgDic[name]):
                     if j < potsPerPlant:
                         imgDerandon[(row+j)*potWidth: (row+j+1)*potWidth, (col+k)*potWidth: (col+k+1)*potWidth, :] = potImg
+                    else:
+                        print("There are more than {} pots for {} ({} pots).".format(potsPerPlant, name, len(potImgDic[name])))
+                        break
 
         lineThickness = 5 #pixels
         for row in range(rows):
@@ -304,9 +309,9 @@ for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ]
         fontBaseSize = 20 # pixel
         for i,name in enumerate(plantList):
             row, col = divmod(i, cols)
-            row = row*potsPerPlant # allow maximum 3 pots per plant
+            row = row*potsPerPlant
             col = col*noChambers
-            pos = (int((col+0.5)*potWidth) - int(len(name)*fontScale*fontBaseSize/2.0), int((row+2.9)*potWidth))
+            pos = (int((col+noChambers/2.0)*potWidth) - int(len(name)*fontScale*fontBaseSize/2.0), int((row+potsPerPlant-0.1)*potWidth))
             cv2.putText(imgDerandon, name, pos, font, fontScale, (255,255,255), thickness = textThickness)
 
 
@@ -316,11 +321,11 @@ for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ]
         ts_out.write_image(img)
         ts_out.write_metadata()
         
-        scale = imgDerandon.pixels.shape[0]//1000 + 1
-        imgResized = cv2.resize(imgDerandon.pixels, (imgDerandon.pixels.shape[1]//scale, imgDerandon.pixels.shape[0]//scale))
+        scale = img.pixels.shape[0]//1000 + 1
+        imgResized = cv2.resize(img.pixels, (img.pixels.shape[1]//scale, img.pixels.shape[0]//scale))
         timestamp = timestream.parse.ts_format_date(img.datetime)
         cv2.putText(imgResized, timestamp, (10,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), thickness = 1)
-        cv2.imshow('Derandomised image', imgResized[:,:,::-1])
+        cv2.imshow(windowName, imgResized[:,:,::-1])
         k = cv2.waitKey(1000)
         if k == 1048603:
             # escape key is pressed

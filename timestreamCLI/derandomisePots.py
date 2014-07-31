@@ -41,7 +41,7 @@ if len(sys.argv) < 5:
     inputRootPathLeft  = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres-30min/BVZ0018-GC05L-C01~fullres-orig-corr'
     inputRootPathRight = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min/BVZ0018-GC05R-C01~fullres-orig-corr'
     inputPotConfig     = '/home/chuong/Data/CVS/BVZ0018_plant_position_new_updated_chamber5.csv'
-    outputRootPath     = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min-unr'
+    outputRootPath     = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05B-C01~fullres-30min-unr'
 else:
     try:
         inputRootPathLeft  = sys.argv[1]
@@ -103,8 +103,8 @@ noPlants = len(plantList)
 
 AR = [9, 16]
 AR2 = [AR[0]/potsPerPlant, AR[1]]
-cols = int(round(math.sqrt(noPlants*AR2[1]/AR2[0])))
-rows = int(round(noPlants/cols))
+cols = int(math.ceil(math.sqrt(noPlants*AR2[1]/AR2[0])))
+rows = int(math.ceil(noPlants/cols))
 imgWidth  = cols*potWidth
 imgHeight = rows*potWidth*potsPerPlant
 print(noPlants, rows*cols)
