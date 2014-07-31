@@ -6,6 +6,7 @@ Created on Wed Jun 25 13:31:54 2014
 """
 from __future__ import absolute_import, division, print_function
 
+import docopt
 import sys, os
 import timestream
 import logging
@@ -14,29 +15,26 @@ from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
-if len(sys.argv) < 2:
-    R = "/mnt/phenocam/a_data/TimeStreams/Borevitz/BVZ0036/"
-    inputRootPath = os.path.join(R,"BVZ0036-GC02L-C01~fullres-orig")
-else:
-    inputRootPath = sys.argv[1]
+CLI_OPTS = """
+USAGE:
+    pipeline_demo.py (-y YML | -f YML_FILE) -i IN -o OUT
 
-# read global settings for processing
-if len(sys.argv) > 1 and os.path.isfile(sys.argv[2]):
-    settingFile = sys.argv[2]
-else:
-    settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+OPTIONS:
+    -y YML      Path to pipeline yml file
+    -f YML_FILE Yaml file name, under input_ts/_data/YML_FILE
+    -i IN       Input timestream
+    -o OUT      Output timestream
+"""
 
-if len(sys.argv) > 2:
-    outputRootPath = sys.argv[3]
-    if os.path.isfile(outputRootPath):
-        raise IOError("%s is a file"%outputRootPath)
-    if not os.path.exists(outputRootPath):
-        os.makedirs(outputRootPath)
-    outputRootPath = os.path.join (outputRootPath, \
-            os.path.basename(os.path.abspath(inputRootPath)))
-else:
-    outputRootPath = inputRootPath
+opts = docopt.docopt(CLI_OPTS)
+print(opts)
+inputRootPath = opts['-i']
+outputRootPath = opts['-o']
 
+if opts['-y']:
+    settingFile = opts['-y']
+else:
+    settingFile = os.path.join(inputRootPath, '_data', opts['-f'])
 
 f = file(settingFile)
 yfile = yaml.load(f)
