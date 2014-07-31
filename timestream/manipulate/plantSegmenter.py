@@ -51,10 +51,6 @@ class StatParamCalculator(object):
         return ( (4*np.pi * area) / np.power(perim,2) )
 
     def compactness(self, mask):
-        major, minor, sub = [int(x) for x in skimage.__version__.split(".")]
-        if ( minor < 10 and major <= 0 ):
-            return (-1)
-
         # In skimage its called solidity
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
         if len(compactness) == 0:
@@ -62,10 +58,6 @@ class StatParamCalculator(object):
         return (compactness[0]["Solidity"])
 
     def eccentricity(self, mask):
-        major, minor, sub = [int(x) for x in skimage.__version__.split(".")]
-        if ( minor < 10 and major <= 0 ):
-            return (-1)
-
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) == 0:
             return (0.0) #FIXME: is this the best default?
