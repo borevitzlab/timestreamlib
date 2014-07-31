@@ -654,7 +654,7 @@ class ImagePotMatrix(object):
             # Calc rects for every center. Growth will be half the min
             # distance between centers
             flattened = list(chain.from_iterable(centers))
-            growM = round(min(spatial.distance.pdist(flattened))/3)
+            growM = round(min(spatial.distance.pdist(flattened))/2)
             for i, tray in enumerate(centers):
                 trayTmp = []
                 for center in tray:
