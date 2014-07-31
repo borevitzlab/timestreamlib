@@ -17,24 +17,34 @@ import datetime
 
 CLI_OPTS = """
 USAGE:
-    pipeline_demo.py (-y YML | -f YML_FILE) -i IN -o OUT
+    pipeline_demo.py -i IN [-o OUT] [-y YML]
 
 OPTIONS:
     -y YML      Path to pipeline yml file
-    -f YML_FILE Yaml file name, under input_ts/_data/YML_FILE
-    -i IN       Input timestream
-    -o OUT      Output timestream
+    -i IN       Input timestream directory
+    -o OUT      Output directory
 """
 
 opts = docopt.docopt(CLI_OPTS)
 print(opts)
 inputRootPath = opts['-i']
-outputRootPath = opts['-o']
+
+if opts['-o']:
+    outputRootPath = opts['-o']
+
+    if os.path.isfile(outputRootPath):
+        raise IOError("%s is a file"%outputRootPath)
+    if not os.path.exists(outputRootPath):
+        os.makedirs(outputRootPath)
+    outputRootPath = os.path.join (outputRootPath, \
+            os.path.basename(os.path.abspath(inputRootPath)))
+else:
+    outputRootPath = inputRootPath
 
 if opts['-y']:
     settingFile = opts['-y']
 else:
-    settingFile = os.path.join(inputRootPath, '_data', opts['-f'])
+    settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
 
 f = file(settingFile)
 yfile = yaml.load(f)
