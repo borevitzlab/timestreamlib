@@ -194,6 +194,10 @@ class PCFGConfig(PCFGSection):
     def __str__(self):
         return "".join(self.listIndexes(withVals=True, endline="\n"))
 
+    def iter_by_index(self):
+        for index in self.listIndexes():
+            yield(index)
+
     @classmethod
     def createSection(cls, confElems, depth, name):
         """ Initialize configuration sections from dictionary.
