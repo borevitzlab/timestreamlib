@@ -136,19 +136,22 @@ class PCFGSection(object):
             else:
                 self.__dict__["__subsections"][index[0]] = value
 
-    def asOutput(self):
+    def listIndexes(self, withVals = False, endline=""):
         retStr = []
         for key in self.__dict__["__subsections"].keys():
             tmpstr = None
             if isinstance(self.__dict__["__subsections"][key], PCFGSection):
-                tmpstr = self.__dict__["__subsections"][key].asOutput()
+                tmpstr = self.__dict__["__subsections"][key].\
+                                listIndexes(withVals, endline)
                 for i in range(len(tmpstr)):
                     tmpstr[i] = self.__dict__["__name"] + "." + tmpstr[i]
                 retStr.extend(tmpstr)
             else: # Config value
-                tmpstr = str(self.__dict__["__subsections"][key])
+                tmpstr = ""
+                if withVals:
+                    tmpstr = "=" + str(self.__dict__["__subsections"][key])
                 retStr.append(self.__dict__["__name"] + "." \
-                        + str(key) + " = " + tmpstr + "\n")
+                        + str(key) + tmpstr + endline)
 
         return retStr
 
@@ -189,7 +192,7 @@ class PCFGConfig(PCFGSection):
         return yDict
 
     def __str__(self):
-        return "".join(self.asOutput())
+        return "".join(self.listIndexes(withVals=True, endline="\n"))
 
     @classmethod
     def createSection(cls, confElems, depth, name):
