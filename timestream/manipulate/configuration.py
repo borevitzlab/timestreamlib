@@ -143,8 +143,13 @@ class PCFGSection(object):
             if isinstance(self.__dict__["__subsections"][key], PCFGSection):
                 tmpstr = self.__dict__["__subsections"][key].\
                                 listIndexes(withVals, endline)
+
+                # We prefix the name only when its not the root.
+                prefixName = ""
+                if self.__dict__["__name"] != "-":
+                    prefixName = self.__dict__["__name"] + "."
                 for i in range(len(tmpstr)):
-                    tmpstr[i] = self.__dict__["__name"] + "." + tmpstr[i]
+                    tmpstr[i] = prefixName + tmpstr[i]
                 retStr.extend(tmpstr)
             else: # Config value
                 tmpstr = ""
@@ -232,3 +237,16 @@ class PCFGConfig(PCFGSection):
             retVal = confElems
 
         return retVal
+
+    @classmethod
+    def merge(cls, A, B):
+        """ Merge the contents of A onto B.
+
+        All what is in a will be create or replaced in B
+
+        Args:
+          A,B (PCFGConfig): Configuration instances
+        """
+
+        for aindex in A.iter_by_index():
+            B.setVal(aindex, A.getVal(aindex))
