@@ -39,12 +39,12 @@ class ImagePipeline ( object ):
                         ResultingFeatureWriter_csv
                }
 
-    def __init__(self, settings, context):
+    def __init__(self, plConf, context):
         # FIXME: Check the first element is ok.
         self.pipeline = []
         # Add elements while checking for dependencies
-        for i, setElem in enumerate(settings):
-            component = ImagePipeline.complist[setElem[0]]
+        for i, setElem in plConf.iter_as_list():
+            component = ImagePipeline.complist[setElem["name"]]
             if i > 0: # 0 element skipped; expects ndarray.
                 compExpects = component.runExpects
                 prevReturns = self.pipeline[-1].__class__.runReturns
@@ -65,12 +65,12 @@ class ImagePipeline ( object ):
 
                 # Error if first compExpects not contained prevReturns (in order)
                 if ( len(compExpects) > len(prevReturns) \
-                     or False in [compExpects[i] == prevReturns[i] \
-                                for i in range(len(compExpects))] ):
+                     or False in [compExpects[k] == prevReturns[k] \
+                                for k in range(len(compExpects))] ):
                     raise ValueError( "Dependency error between %s and %s" % \
                             (component, self.pipeline[-1].__class__) )
 
-            self.pipeline.append( component(context, **setElem[1]) )
+            self.pipeline.append( component(context, **setElem) )
 
     # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.

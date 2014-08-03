@@ -10,6 +10,7 @@ import docopt
 import sys, os
 import timestream
 import logging
+import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
 from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
@@ -17,61 +18,93 @@ import datetime
 
 CLI_OPTS = """
 USAGE:
-    pipeline_demo.py -i IN [-o OUT] [-y YML]
+    pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML]
 
 OPTIONS:
-    -y YML      Path to pipeline yml file
     -i IN       Input timestream directory
     -o OUT      Output directory
+    -p YML      Path to pipeline yaml configuration. Defaults to
+                IN/_data/pipeline.yml
+    -t YML      Path to timestream yaml configuration. Defaults to
+                IN/_data/timestream.yml
 """
-
 opts = docopt.docopt(CLI_OPTS)
-print(opts)
+
 inputRootPath = opts['-i']
+if os.path.isfile(inputRootPath):
+    raise IOError("%s is a file. Expected a directory"%inputRootPath)
+if not os.path.exists(inputRootPath):
+    raise IOError("%s does not exists"%inputRootPath)
 
 if opts['-o']:
     outputRootPath = opts['-o']
 
-    if os.path.isfile(outputRootPath):
-        raise IOError("%s is a file"%outputRootPath)
     if not os.path.exists(outputRootPath):
         os.makedirs(outputRootPath)
+    if os.path.isfile(outputRootPath):
+        raise IOError("%s is a file"%outputRootPath)
     outputRootPath = os.path.join (outputRootPath, \
             os.path.basename(os.path.abspath(inputRootPath)))
 else:
     outputRootPath = inputRootPath
 
-if opts['-y']:
-    settingFile = opts['-y']
+# Pipeline configuration.
+if opts['-p']:
+    tmpPath = opts['-p']
 else:
-    settingFile = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+    tmpPath = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+if not os.path.isfile(tmpPath):
+    raise IOError("%s is not a file"%tmpPath)
+plConf = pipeconf.PCFGConfig(tmpPath, 2)
 
-f = file(settingFile)
-yfile = yaml.load(f)
-f.close()
-settings = yfile["pipeline"]
-outstreams = yfile["outstreams"]
-general = yfile["general"]
+# Timestream configuration
+if opts['-t']:
+    tmpPath = opts['-t']
+else:
+    tmpPath = os.path.join(inputRootPath, '_data', 'timestream.yml')
+if not os.path.isfile(tmpPath):
+    raise IOError("%s is not a file"%tmpPath)
+tsConf = pipeconf.PCFGConfig(tmpPath, 1)
+
+# Merge the two configurations
+for pComp in plConf.pipeline.listSubSecNames():
+    # get a PipLine SubSection
+    plss = plConf.getVal("pipeline."+pComp)
+
+    try:
+        # get TimeStream SubSection
+        tsss = tsConf.getVal(plss.name)
+    except pipeconf.PCFGExInvalidSubsection:
+        # No additional configuration in tsConf for "pipeline."+pComp
+        continue
+
+    # Merge timestream conf onto pipeline conf
+    pipeconf.PCFGConfig.merge(tsss, plss)
+
+# Show the user the resulting configuration:
+print(plConf)
 
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
 
 ts.load(inputRootPath)
-print('timestream path = ', ts.path)
-ts.data["settings"] = settings
-ts.data["settingPath"] = os.path.dirname(settingFile)
+# FIXME: ts.data does not have the configuration instance because it cannot be
+# handled by json.
+ts.data["settings"] = plConf.asDict()
+#ts.data["settingPath"] = os.path.dirname(settingFile)
 context = {"rts":ts}
+#FIXME: TimeStream should have a __str__ method.
 print("Timestream instance created:")
 print("   ts.path:", ts.path)
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
 
 #create new timestream for output data
-for outstream in outstreams:
+for k, outstream in plConf.outstreams.asDict().iteritems():
     ts_out = timestream.TimeStream()
-    ts_out.data["settings"] = settings
-    ts_out.data["settingPath"] = os.path.dirname(settingFile)
+    ts_out.data["settings"] = plConf.asDict()
+    #ts_out.data["settingPath"] = os.path.dirname(settingFile)
     ts_out.data["sourcePath"] = inputRootPath
     ts_out.name = outstream["name"]
 
@@ -89,52 +122,52 @@ context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
 if not os.path.exists(context["outputroot"]):
     os.mkdir(context["outputroot"])
 
-
 # Dictionary where we put all values that should be added with an image as soon
 # as it is output with the TimeStream
 context["outputwithimage"] = {}
 
 # initialise processing pipeline
-pl = pipeline.ImagePipeline(ts.data["settings"], context)
+pl = pipeline.ImagePipeline(plConf.pipeline, context)
 
-print("Iterating by date")
-
-if "startdate" in general.keys():
-    sd = general["startdate"]
-    startDate = datetime.datetime(sd["year"], sd["month"], sd["day"], \
-                                    sd["hour"], sd["minute"], sd["second"])
-else:
-    startDate = timestream.parse.ts_parse_date("2014_06_18_12_00_00")
-
-if "enddate" in general.keys():
-    ed = general["enddate"]
-    if len(ed) == 0:
-        endDate = None
+if plConf.general.hasSubSecName("startDate"):
+    sd = plConf.general.startDate
+    if sd.size == 6:
+        startDate = datetime.datetime(sd.year, sd.month, sd.day, \
+                                    sd.hour, sd.minute, sd.second)
     else:
-        endDate = datetime.datetiem(ed["year"], ed["month"], ed["day"], \
-                                ed["hour"], ed["minute"], ed["second"])
+        startDate = None
+else:
+    startDate = None
+
+if plConf.general.hasSubSecName("enDdate"):
+    ed = plConf.general.enDdate
+    if ed.size == 6:
+        endDate = datetime.datetime(ed.year, ed.month, ed.day, \
+                                ed.hour, ed.minute, ed.second)
+    else:
+        endDate = None
 else:
     endDate = None
 
-if "timeinterval" in general.keys():
-    timeInterval = general["timeinterval"]
+if plConf.general.hasSubSecName("timeInterval"):
+    timeInterval = plConf.general.timeInterval
 else:
     timeInterval = 24*60*60
 
-if "visualise" in general.keys():
-    visualise = general["visualise"]
+if plConf.general.hasSubSecName("visualise"):
+    visualise = plConf.general.visualise
 else:
     visualise = False
 
-if "starthourrange" in general.keys():
-    sr = general["starthourrange"]
-    startHourRange = datetime.time(sr["hour"], sr["minute"], sr["second"])
+if plConf.general.hasSubSecName("startHourRange"):
+    sr = plConf.general.startHourRange
+    startHourRange = datetime.time(sr.hour, sr.minute, sr.second)
 else:
     startHourRange = datetime.time(0,0,0)
 
-if "endhourrange" in general.keys():
-    er = general["endhourrange"]
-    endHourRange = datetime.time(er["hour"], er["minute"], er["second"])
+if plConf.general.hasSubSecName("endHourRange"):
+    er = plConf.general.endHourRange
+    endHourRange = datetime.time(er.hour, er.minute, er.second)
 else:
     endHourRange = datetime.time(23,59,59)
 
@@ -176,9 +209,9 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
 #  - name: segmented
 #
 #general:
-#  startdate: { year: 2014, month: 06, day: 18, hour: 12, minute: 0, second: 0}
-#  enddate: {}
-#  starthourrange: { hour: 10, minute: 0, second: 0}
-#  endhourrange: { hour: 15, minute: 0, second: 0}
-#  timeinterval: 86400
+#  startDate: { year: 2014, month: 06, day: 18, hour: 12, minute: 0, second: 0}
+#  endDate: {}
+#  startHourRange: { hour: 10, minute: 0, second: 0}
+#  endHourRange: { hour: 15, minute: 0, second: 0}
+#  timeInterval: 86400
 
