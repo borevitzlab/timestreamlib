@@ -56,6 +56,11 @@ from timestream.util.imgmeta import (
 )
 
 
+# versioneer
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
+
 LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
