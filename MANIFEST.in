@@ -1,0 +1,2 @@
+include versioneer.py
+include timestream/_version.py

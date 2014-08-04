@@ -4,7 +4,7 @@ import versioneer
 versioneer.VCS = 'git'
 versioneer.versionfile_source = 'timestream/_version.py'
 versioneer.versionfile_build = 'timestream/_version.py'
-versioneer.tag_prefix = 'v'
+versioneer.tag_prefix = ''
 versioneer.parentdir_prefix = 'timestreamlib-'
 
 desc = """
