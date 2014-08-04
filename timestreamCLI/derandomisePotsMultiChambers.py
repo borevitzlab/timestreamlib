@@ -104,16 +104,13 @@ def getTimestream(inputRootPathLeft, inputRootPathRight, inputPotConfig, chamber
     startR=getattr(tsR, "start_datetime")
     endL = getattr(tsL, "end_datetime")
     endR = getattr(tsR, "end_datetime")
-    if startL > startR:
-        start = startL
-    else:
-        start = startR
-    if endL < endR:
-        end = endL
-    else:
-        end = endR
-    print(start, end)
-    return tsL, tsR, start, end, plant2PotDic, plantSet, pot2PlantList, plantList
+    intervalL = getattr(tsL, "interval")
+    intervalR = getattr(tsR, "interval")
+    start    = max(startL, startR)
+    end      = min(endL, endR)
+    interval = max(intervalL, intervalR)
+    print('Combinded timestream of left and right chambers starts at {}, ends at {} with interval of {} min.'.format(start, end, interval))
+    return tsL, tsR, start, end, interval, plant2PotDic, plantSet, pot2PlantList, plantList
 
 def extractPot(tsL, tsR, imgL, imgR):
     datetimeStrL = timestream.parse.ts_format_date(imgL.datetime)
@@ -128,7 +125,7 @@ def extractPot(tsL, tsR, imgL, imgR):
         for potLocL,potLocR in zip(potLocsTrayL,potLocsTrayR):
             potLocListL.append(potLocL)
             potLocListR.append(potLocR)
-    potLocList = potLocListL + potLocListL      
+    potLocList = potLocListL + potLocListR
     
     potImgDic = {}
     for name in plantList:
@@ -179,12 +176,13 @@ for chamberID in chamberIDs:
     outputs = getTimestream(chambers[chamberID]['leftChamberRootPath'], 
                             chambers[chamberID]['rightChamberRootPath'], 
                             inputPotConfig, chamberID)
-    tsL, tsR, start, end, plant2PotDic, plantSet, pot2PlantList, plantList = outputs
+    tsL, tsR, start, end, interval, plant2PotDic, plantSet, pot2PlantList, plantList = outputs
 
     chambers[chamberID]['leftChamberTS' ] = tsL
     chambers[chamberID]['rightChamberTS'] = tsR
     chambers[chamberID]['start']          = start
     chambers[chamberID]['end']            = end
+    chambers[chamberID]['interval']       = interval
     chambers[chamberID]['plant2PotDic']   = plant2PotDic
     chambers[chamberID]['plantSet']       = plantSet
     chambers[chamberID]['pot2PlantList']  = pot2PlantList
@@ -213,19 +211,10 @@ imgHeight = potWidth*rows*potsPerPlant
 print(noPlants, rows*cols)
 print(imgWidth, imgHeight, imgWidth/imgHeight, 16/9)
 
-start0=chambers['GC02']['start' ]
-start1=chambers['GC05']['start']
-end0 = chambers['GC02']['end' ]
-end1 = chambers['GC05']['end' ]
-if start0 > start1:
-    start = start0
-else:
-    start = start1
-if end0 < end1:
-    end = end0
-else:
-    end = end1
-print(start, end)
+start   = max(chambers['GC02']['start' ],   chambers['GC05']['start'])
+end     = min(chambers['GC02']['end' ],     chambers['GC05']['end' ])
+interval= max(chambers['GC02']['interval'], chambers['GC05']['interval'])
+print('Combinded timestream starts at {}, ends at {} with interval of {} min.'.format(start, end, interval))
 
 #iterators = ()
 #for chamberID in ['GC02', 'GC05']:
@@ -233,11 +222,12 @@ print(start, end)
 #        iterators = iterators + (chambers[chamberID][tsID ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),)
 
 windowName = 'Derandomised image'
-cv2.moveWindow(windowName, 10,10)        
-for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
-                                              chambers['GC02']['rightChamberTS'].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
-                                              chambers['GC05']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None),
-                                              chambers['GC05']['rightChamberTS'].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None)):
+cv2.moveWindow(windowName, 10,10)
+# TODO: change interval*60 to interval once the interval is stored as seconds in timestream
+for img0L,img0R,img1L,img1R in itertools.izip(chambers['GC02']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval*60),
+                                              chambers['GC02']['rightChamberTS'].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval*60),
+                                              chambers['GC05']['leftChamberTS' ].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval*60),
+                                              chambers['GC05']['rightChamberTS'].iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval*60)):
     
     if img0L is None or img0L.pixels is None or \
        img0R is None or img0R.pixels is None or \
