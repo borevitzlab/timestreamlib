@@ -359,12 +359,12 @@ segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare,
         "method1": PotSegmenter_Method1}
 
 class ImagePotHandler(object):
-    def __init__(self, id, rect, superImage, ps=None, iphPrev=None):
+    def __init__(self, potID, rect, superImage, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
-          id (object): Should be unique between pots. Is given by the
-                       potMatrix. Is not changeable.
+          potID (object): Should be unique between pots. Is given by the
+                          potMatrix. Is not changeable.
           rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
           superImage (ndarray): Image in which the image pot is located
           ps (PotSegmenter): It can be any child class from PotSegmenter. Its
@@ -379,7 +379,7 @@ class ImagePotHandler(object):
 
         * y is vertical | x is horizontal.
         """
-        self._id = id
+        self._id = potID
 
         # FIXME: This check for ndarray should be fore TimestreamImage
         if isinstance(superImage, np.ndarray):
