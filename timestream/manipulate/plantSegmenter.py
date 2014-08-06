@@ -464,14 +464,14 @@ class ImagePotHandler(object):
             raise TypeError("ps must be an instance of PotSegmenter")
 
         if iphPrev == None:
-            self.iphPrev = None
+            self._iphPrev = None
         elif isinstance(iphPrev, ImagePotHandler):
-            self.iphPrev = iphPrev
+            self._iphPrev = iphPrev
             # avoid a run on memory
-            self.iphPrev.iphPrev = None
+            self._iphPrev.iphPrev = None
 
             # Don't let previous pot run segmentation code
-            self.iphPrev.ps = None
+            self._iphPrev.ps = None
         else:
             raise TypeError("iphPrev must be an instance of ImagePotHandler")
 
@@ -493,6 +493,24 @@ class ImagePotHandler(object):
             if not isinstance(val, (int, long, float, complex, str)):
                 raise TypeError("Soft bindings must be of type"\
                         + "int, long, float, complex or string")
+
+    @property
+    def iphPrev(self):
+        return self._iphPrev
+
+    @iphPrev.setter
+    def iphPrev(self, v):
+        if v == None:
+            self._iphPrev = None
+        elif isinstance(v, ImagePotHandler):
+            self._iphPrev = v
+            # avoid a run on memory
+            self._iphPrev.iphPrev = None
+
+            # Don't let previous pot run segmentation code
+            self._iphPrev.ps = None
+        else:
+            raise TypeError("iphPrev must be an instance of ImagePotHandler")
 
     @property
     def ps(self):
@@ -526,10 +544,10 @@ class ImagePotHandler(object):
         msk, hint = self._ps.segment(self.image, {})
 
         # if bad segmentation
-        if 1 not in msk and self.iphPrev is not None:
+        if 1 not in msk and self._iphPrev is not None:
             # We try previous mask. This is tricky because we need to fit the
             # previous mask size into msk
-            pm = self.iphPrev.mask
+            pm = self._iphPrev.mask
 
             vDiff = msk.shape[0] - pm.shape[0]
             if vDiff < 0: # reduce pm vertically
@@ -678,33 +696,31 @@ class ImagePotHandler(object):
             raise IndexError("%s does is not a soft binding"%bindKey)
         else:
             return self._sbinds[bindKey]
+    def setSbind(self, bindKey, bindValue):
+        if not isinstance(bindValue, (int, long, float, complex, str)):
+            raise TypeError("Soft bindings values must be of type"\
+                    + "int, long, float, complex or string")
+        else:
+            self._sbinds[bindKey] = bindValueval
 
 class ImagePotMatrix(object):
-    class ImageTray(object):
-        def __init__(self, pots, name):
-            self.pots = pots
-            self.name = name
-            self.numPots = len(self.pots)
-
-        @property
-        def asTuple(self):
-            retVal = []
-            for pot in self.pots:
-                retVal.append(tuple(pot.rect))
-            return(retVal)
-
-    def __init__(self, image, potRects, growM=100, ipmPrev = None):
+    def __init__(self, image, pots=[], growM=100, ipmPrev = None):
         """ImagePotMatrix: To house all the ImagePotHandlers
+
+        We make sure that their IDs are unique inside the ImagePotMatrix
+        instance. If there are two equal ids, one will overwrite the other
+        without warning.
 
         Args:
           image (ndarray): Image in which everything is located
-          potRects (list): list of tray lists. Each tray list is a list of
-            ImagePotHandler instances.
+          pots (list): It can be a list of ImagePotHandler instances, of 4
+            elment lists or of 2 elment list
           rects (list): list of tray lists. Each tray list is a list of two
             element sets. The reciprocal corners of the pot rectangle
 
         Attributes:
           its: Dictionary of image tray instances.
+          _pots: Dictionary of pots indexed by pot IDs.
         """
         if ipmPrev == None:
             self.ipmPrev = None
@@ -713,90 +729,80 @@ class ImagePotMatrix(object):
             # avoid a run on memory
             self.ipmPrev.ipmPrev = None
         else:
-            raise TypeError("ipmPrev must be an instance of ImagePotHandler")
+            raise TypeError("ipmPrev must be an instance of ImagePotMatrix")
 
-        potIndex = 1
-        self.its = []
-        if potRects is None:
-            raise TypeError("Must specify pot Rectangles")
+        # We make ImagePotHandler instances with whatever we find.
+        if not isinstance(pots, list):
+            raise TypeError("pots must be a list")
+        potIndex = -1 # Used when creating from rect
+        self._pots = {}
+        for p in pots:
+            if isinstance(p, ImagePotMatrix):
+                self._pots[p.id] = p
 
-        else:
-            for i, tray in enumerate(potRects):
-                tmpTray = []
-                for r in tray:
-                    iphPrev = None
-                    if self.ipmPrev is not None:
-                        iphPrev = self.ipmPrev.getPot(potIndex)
+            elif isinstance(p, list) and (len(p)==2 or len(p)==4):
+                iphPrev = None
+                if self.ipmPrev is not None:
+                    iphPrev = self.ipmPrev.getPot(potIndex)
+                r = ImagePotRectangle(pot, image.shape, growM=growM)
+                self._pots[potIndex] = ImagePotHandler(potIndex, r, image,
+                        iphPrev=iphPrev)
+                potIndex -= 1
 
-                    rect = ImagePotRectangle(r, image.shape, growM=growM)
-                    tmpTray.append(ImagePotHandler(potIndex, \
-                            rect, image, iphPrev=iphPrev))
-                    potIndex += 1
-
-                self.its.append(ImagePotMatrix.ImageTray(tmpTray, i))
-
-        self.image = image
+            else:
+                TypeError("Elements in pots must be ImagePotHandler, list" \
+                        + " of 2 or 4 elments")
 
     def getPot(self, potId):
-        for tray in self.its:
-            for pot in tray.pots:
-                if (pot.id == potId):
-                    return (pot)
+        if potId not in self._pots.keys():
+            raise IndexError("No pot id %d found"%potNum)
 
-        raise IndexError("No pot number %d found"%potNum)
+        return self._pots[potId]
+
+    def addPot(self, pot):
+        if not isinstance(pot, ImagePotHandler):
+            raise TypeError("Pot must be of type ImagePotHandler")
+        iphPrev = None
+        if self.ipmPrev is not None:
+            iphPrev = self.ipmPrev.getPot(pot.id)
+        pot.iphPrev = iphPrev
+        self._pots[pot.id] = pot
 
     @property
     def potIds(self):
         """Returns a list of pot ids"""
-        retVal = []
-        for tray in self.its:
-            for pot in tray.pots:
-                retVal.append(pot.id)
-        return (retVal)
+        return self._pots.keys()
 
     def iter_through_pots(self):
-        pots = []
-        for tray in self.its:
-            pots = pots + tray.pots
-
-        for i in range(len(pots)):
-            yield(i, pots[i])
-
-    @property
-    def asTuple(self):
-        mat = []
-        for tray in self.its:
-            mat.append(tray.asTuple)
-        return(mat)
+        for key, pot in self._pots.iteritems():
+            yield(key, pot)
 
     @property
     def potFeatures(self):
         """ Return a feature name list with all possible features in pots """
         featureNames = []
-        for tray in self.its:
-            for pot in tray.pots:
-                for featName in pot.getCalcedFeatures():
-                    if featName not in featureNames:
-                        featureNames.append(featName)
+        for key, pot in self._pots.iteritems():
+            for featName in pot.getCalcedFeatures():
+                if featName not in featureNames:
+                    featureNames.append(featName)
 
         return (featureNames)
 
     def show(self):
         """ Show segmented image with the plot squares on top. """
         sImage = self.image
-        for tray in self.its:
-            for pot in tray.pots:
-                sImage = sImage & pot.maskedImage(inSuper=True)
+        for key, pot in self._pots.iteritems():
+            sImage = sImage & pot.maskedImage(inSuper=True)
 
         plt.figure()
         plt.imshow(sImage.astype(np.uint8))
         plt.hold(True)
 
-        for tray in self.its:
-            for pot in tray.pots:
-                r = pot.rect
-                plt.plot([r[0], r[2], r[2], r[0], r[0]],
-                         [r[1], r[1], r[3], r[3], r[1]],
-                         linestyle="-", color="r")
+        for key, pot in self._pots.iteritems():
+            r = pot.rect
+            plt.plot([r[0], r[2], r[2], r[0], r[0]],
+                     [r[1], r[1], r[3], r[3], r[1]],
+                     linestyle="-", color="r")
+
         plt.title('Pot Rectangles')
         plt.show()

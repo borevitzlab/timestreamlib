@@ -354,7 +354,7 @@ class PotDetector ( PipeComponent ):
                 }
 
     runExpects = [np.ndarray, list]
-    runReturns = [np.ndarray, list]
+    runReturns = [np.ndarray, ps.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
@@ -425,9 +425,25 @@ class PotDetector ( PipeComponent ):
 
         # add pot location information
         date = context["img"].datetime
-        context["outputwithimage"]["potLocs"] = self.potLocs2
 
-        return([self.image, self.potLocs2])
+        # Create a new ImagePotMatrix with newly discovered locations
+        ipmPrev = None
+        if "ipm" in context.keys():
+            ipmPrev = context["ipm"]
+
+        flattened = list(chain.from_iterable(self.potLocs2))
+        growM = round(min(spatial.distance.pdist(flattened))/2)
+        ipm = ps.ImagePotMatrix(self.image, pots=[], growM=growM, ipmPrev=ipmPrev)
+        potID = 1
+        for tray in self.potLocs2:
+            for center in tray:
+                r = ps.ImagePotRectangle(center, self.image.shape, growM=growM)
+                ipm.addPot(ps.ImagePotHandler(potID, r, self.image))
+                potID += 1
+
+
+        context["outputwithimage"]["potLocs"] = self.potLocs2
+        return([self.image, ipm])
 
     def show(self):
         plt.figure()
@@ -455,7 +471,7 @@ class PlantExtractor ( PipeComponent ):
                 "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
                 "parallel": [False, "Whether to run in parallel", False]}
 
-    runExpects = [np.ndarray, list]
+    runExpects = [np.ndarray, ps.ImagePotMatrix]
     runReturns = [np.ndarray, ps.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
@@ -469,15 +485,8 @@ class PlantExtractor ( PipeComponent ):
         print(self.mess)
         img = args[0]
         centers = args[1]
-        ipmPrev = None
-        if "ipm" in context.keys():
-            ipmPrev = context["ipm"]
 
-        flattened = list(chain.from_iterable(centers))
-        growM = round(min(spatial.distance.pdist(flattened))/2)
-        self.ipm = ps.ImagePotMatrix(img, potRects=centers, growM=growM, \
-                ipmPrev=ipmPrev)
-
+        self.ipm = args[1]
         # Set the segmenter in all the pots
         for key, iph in self.ipm.iter_through_pots():
             iph.ps = self.segmenter
