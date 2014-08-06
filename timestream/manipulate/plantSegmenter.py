@@ -17,9 +17,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
-from scipy import spatial
 from scipy import signal
-from itertools import chain
 from skimage.measure import regionprops
 from skimage.measure import label
 import cv2
@@ -358,6 +356,66 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare,
         "method1": PotSegmenter_Method1}
 
+class ImagePotRectangle(object):
+    def __init__(self, rectDesc, imgSize, growM=100):
+        """ Handles all logic to do with rectangles in images.
+
+        Attribures:
+          rectDesc([x,y,x',y'])*: This is the total description of the rectangle:
+            upper left corner and lower right corner.
+          rectDesc([x,y]): This is the center of a rectangle. We will grow it by
+            growM in every direction.
+          imgSize([height, width]): Size of the image containing the rectangle.
+            Whatever img.shape returns.
+          growM(int): The maximum amount (in pixels) when we receive a coordinate.
+          * y is vertical | x is horizontal.
+
+        Raises:
+          TypeError: When we don't receive a list for a rectangle descriptor.
+        """
+        self._rect = np.array([-1,-1,-1,-1])
+
+        if not isinstance(imgSize, tuple) or len(imgSize) < 2:
+            raise TypeError("ImgSize must be a tuple of at least len 2")
+        if True in (np.array(imgSize[0:2])<1):
+            raise TypeError("ImgSize elements must be >0")
+        self._imgwidth = imgSize[1]
+        self._imgheight = imgSize[0]
+
+        if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.array))\
+                or (len(rectDesc) != 2 and len(rectDesc) != 4 ):
+            raise TypeError("Rectangle Descriptor must be a list of len 2 or 4")
+
+        elif len(rectDesc) == 4:
+            self._rect = np.array(rectDesc)
+
+        elif len(rectDesc) == 2:
+            pt1 = np.array(rectDesc) - growM
+            pt2 = np.array(rectDesc) + growM
+            self._rect = np.concatenate((pt1, pt2))
+
+        # Check to see if rect is within size.
+        if sum(self._rect < 0) > 0 \
+                or sum(self._rect[[1,3]] > self._imgheight) > 0 \
+                or sum(self._rect[[0,2]] > self._imgwidth) > 0:
+            raise TypeError("Rectangle is outside containing image dims.")
+
+    def __getitem__(self, item):
+        if item > 4 or item < 0:
+            raise IndexError("Rectangle index should be [0,3]")
+        return self._rect[int(item)]
+
+    def asList(self):
+        return self._rect
+
+    @property
+    def width(self):
+        return abs(self._rect[2]-self._rect[0])
+
+    @property
+    def height(self):
+        return abs(self._rect[3]-self._rect[1])
+
 class ImagePotHandler(object):
     def __init__(self, potID, rect, superImage, \
             softBindings=None, ps=None, iphPrev=None):
@@ -366,7 +424,7 @@ class ImagePotHandler(object):
         Args:
           potID (object): Should be unique between pots. Is given by the
             potMatrix. Is not changeable.
-          rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
+          rect (ImagePotRectangle): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
           superImage (ndarray): Image in which the image pot is located
           ps (PotSegmenter): It can be any child class from PotSegmenter. Its
             instance that has a segment method.
@@ -393,13 +451,10 @@ class ImagePotHandler(object):
         else:
             raise TypeError("superImate must be an ndarray")
 
-        rect = np.array(rect)
-        if sum(rect < 0) > 0 \
-                or sum(rect[[1,3]] > self.si.shape[0]) > 0 \
-                or sum(rect[[0,2]] > self.si.shape[1]) > 0:
-            raise TypeError("rect must fit in superImage")
-        else:
-            self._rect = rect
+        if not isinstance(rect, ImagePotRectangle):
+            raise TypeError("rect must be an instance of ImagePotRectangle")
+
+        self._rect = rect
 
         if ps == None:
             self._ps = None
@@ -422,8 +477,7 @@ class ImagePotHandler(object):
 
         self._fc = StatParamCalculator()
         self._features = {}
-        self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
-                                np.abs(self._rect[3]-self._rect[1])], \
+        self._mask = np.zeros( [self._rect.height, self._rect.width], \
                                 dtype=np.dtype("float64")) - 1
 
         if softBindings is None:
@@ -540,12 +594,23 @@ class ImagePotHandler(object):
 
     @rect.setter
     def rect(self, r):
-        if sum(r[0:2] < 0) > 0 or sum(r[[3,2]] > self.si.shape[0:2]) > 0:
-            raise ValueError("Rect overflows original image")
+        if isinstance(r, list):
+            if len(r) != 4:
+                raise TypeError("Pass a list of len 4 to set a rectangle")
+            else:
+                self._rect = ImagePotRectangle(r, self.si.shape)
 
-        self._rect = r
-        self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
-                                np.abs(self._rect[3]-self._rect[1])], \
+        elif isinstance(ImagePotRectangle):
+            # The write thing to do here is to create a new Imagepotrectangle so
+            # we are sure we relate it to the correct image shape.
+            self._rect = ImagePotRectangle(r.asList(), self.si.shape)
+
+        else:
+            raise TypeError("To set rectangle must pass list or"
+                    + "ImagePotRectangle")
+
+
+        self._mask = np.zeros( [self._rect.height, self._rect.width],
                                 dtype=np.dtype("float64")) - 1
         #FIXME: Reset everything that depends on self._mask
 
@@ -579,21 +644,14 @@ class ImagePotHandler(object):
         return (retVal)
 
     def increaseRect(self, by=5):
-        """Only increase rectangle if it fits in self.image"""
-        if sum(self._rect[0:2] < by) > 0 \
-                or sum(self._rect[[3,2]]+by > self.si.shape[0:2]) > 0:
-            raise ValueError("Increasing rect overflows original image")
-
-        # Using property to trigger assignment cleanup
-        self.rect = self._rect + np.array([-by, -by, by, by])
+        # Using property to trigger assignment, checks and cleanup
+        r = self._rect.asList() + np.array([-by, -by, by, by])
+        self.rect = r
 
     def reduceRect(self, by=5):
-        if ( abs(self._rect[0]-self._rect[2]) < 2*by \
-                or abs(self._rect[1]-self._rect[3]) < 2*by ):
-            raise ValueError("Rect is too small to decrease")
-
-        # Using property to trigger assignment cleanup
-        self.rect = self.rect + np.array([by, by, -by, -by])
+        # Using property to trigger assignment, checks and cleanup
+        r = self._rect.asList() + np.array([by, by, -by, -by])
+        self.rect = r
 
     def calcFeatures(self, feats):
         # Calc all the possible features when feats not specfied
@@ -635,16 +693,15 @@ class ImagePotMatrix(object):
                 retVal.append(tuple(pot.rect))
             return(retVal)
 
-    def __init__(self, image, centers = None, rects = None, ipmPrev = None):
+    def __init__(self, image, potRects, growM=100, ipmPrev = None):
         """ImagePotMatrix: To house all the ImagePotHandlers
 
         Args:
           image (ndarray): Image in which everything is located
-          centers (list): list of tray lists. Each tray list is a list of two
-                          element sets. The centers of the pots
+          potRects (list): list of tray lists. Each tray list is a list of
+            ImagePotHandler instances.
           rects (list): list of tray lists. Each tray list is a list of two
-                        element sets. The reciprocal corners of the pot
-                        rectangle
+            element sets. The reciprocal corners of the pot rectangle
 
         Attributes:
           its: Dictionary of image tray instances.
@@ -660,49 +717,23 @@ class ImagePotMatrix(object):
 
         potIndex = 1
         self.its = []
-        if (centers is None and rects is None):
-            raise TypeError("Must specify either center or rects")
+        if potRects is None:
+            raise TypeError("Must specify pot Rectangles")
 
-        elif (rects is not None):
-            for i, tray in enumerate(rects):
+        else:
+            for i, tray in enumerate(potRects):
                 tmpTray = []
-                for rect in tray:
-
-                    # Get previous pot if present
+                for r in tray:
                     iphPrev = None
                     if self.ipmPrev is not None:
                         iphPrev = self.ipmPrev.getPot(potIndex)
 
+                    rect = ImagePotRectangle(r, image.shape, growM=growM)
                     tmpTray.append(ImagePotHandler(potIndex, \
-                            rects[i][j], image, iphPrev=iphPrev))
+                            rect, image, iphPrev=iphPrev))
                     potIndex += 1
 
-                self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
-
-        elif (centers is not None):
-            # Calc rects for every center. Growth will be half the min
-            # distance between centers
-            flattened = list(chain.from_iterable(centers))
-            growM = round(min(spatial.distance.pdist(flattened))/2)
-            for i, tray in enumerate(centers):
-                trayTmp = []
-                for center in tray:
-
-                    # Calc rect
-                    pt1 = np.array(center) - growM
-                    pt2 = np.array(center) + growM
-                    rect = pt1.tolist() + pt2.tolist()
-
-                    # Get previous pot if present
-                    iphPrev = None
-                    if self.ipmPrev is not None:
-                        iphPrev = self.ipmPrev.getPot(potIndex)
-
-                    trayTmp.append(ImagePotHandler(potIndex, rect, image, \
-                            iphPrev=iphPrev))
-                    potIndex += 1
-
-                self.its.append(ImagePotMatrix.ImageTray(trayTmp, i))
+                self.its.append(ImagePotMatrix.ImageTray(tmpTray, i))
 
         self.image = image
 

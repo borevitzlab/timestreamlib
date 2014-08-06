@@ -25,6 +25,8 @@ import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as ps
 from timestream import TimeStreamImage, parse
 import timestream
+from itertools import chain
+from scipy import spatial
 import os
 import os.path
 import time
@@ -470,7 +472,11 @@ class PlantExtractor ( PipeComponent ):
         ipmPrev = None
         if "ipm" in context.keys():
             ipmPrev = context["ipm"]
-        self.ipm = ps.ImagePotMatrix(img, centers=centers, ipmPrev=ipmPrev)
+
+        flattened = list(chain.from_iterable(centers))
+        growM = round(min(spatial.distance.pdist(flattened))/2)
+        self.ipm = ps.ImagePotMatrix(img, potRects=centers, growM=growM, \
+                ipmPrev=ipmPrev)
 
         # Set the segmenter in all the pots
         for key, iph in self.ipm.iter_through_pots():
