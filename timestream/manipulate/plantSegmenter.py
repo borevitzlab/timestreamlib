@@ -359,29 +359,35 @@ segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare,
         "method1": PotSegmenter_Method1}
 
 class ImagePotHandler(object):
-    def __init__(self, potID, rect, superImage, ps=None, iphPrev=None):
+    def __init__(self, potID, rect, superImage, \
+            softBindings=None, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
           potID (object): Should be unique between pots. Is given by the
-                          potMatrix. Is not changeable.
+            potMatrix. Is not changeable.
           rect (list): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
           superImage (ndarray): Image in which the image pot is located
           ps (PotSegmenter): It can be any child class from PotSegmenter. Its
-                             instance that has a segment method.
+            instance that has a segment method.
           iphPrev (ImagePotHandler): The previous ImagePotHandler for this pot
-                                     position.
+            position.
+          softBindings (dict): Ids that might be used to bind the pot image in
+            other contexts (e.g {chamberID:#, universalID:#...}). We can only
+            bind to a numeric or character value.
+          * y is vertical | x is horizontal.
 
         Attributes:
           image: Return the cropped image (with rect) of superImage
           maskedImage: Return the segmented cropped image.
           features: Return the calculated features
 
-        * y is vertical | x is horizontal.
+        Raises:
+          TypeError: When the Args is of an unexpected type.
         """
         self._id = potID
 
-        # FIXME: This check for ndarray should be fore TimestreamImage
+        # FIXME: This check for ndarray should be for TimestreamImage
         if isinstance(superImage, np.ndarray):
             self.si = superImage
         else:
@@ -419,6 +425,20 @@ class ImagePotHandler(object):
         self._mask = np.zeros( [np.abs(self._rect[2]-self._rect[0]), \
                                 np.abs(self._rect[3]-self._rect[1])], \
                                 dtype=np.dtype("float64")) - 1
+
+        if softBindings is None:
+            self._sbinds = {}
+        elif not isinstance(softBindings, dict):
+            raise TypeError("Soft binding must be dictionary")
+        elif len(softBindings) < 1:
+            self._sbinds = {}
+        else:
+            self._sbinds = softBindings
+        # Check all bindings are (int, long, float, complex, str)
+        for key, val in self._sbinds.iteritems():
+            if not isinstance(val, (int, long, float, complex, str)):
+                raise TypeError("Soft bindings must be of type"\
+                        + "int, long, float, complex or string")
 
     @property
     def ps(self):
@@ -591,6 +611,15 @@ class ImagePotHandler(object):
 
     def getCalcedFeatures(self):
         return self._features
+
+    def getSbindList(self):
+        return self._sbinds.keys()
+
+    def getSbind(self, bindKey):
+        if bindkey not in self._sbinds.keys():
+            raise IndexError("%s does is not a soft binding"%bindKey)
+        else:
+            return self._sbinds[bindKey]
 
 class ImagePotMatrix(object):
     class ImageTray(object):
