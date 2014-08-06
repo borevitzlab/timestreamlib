@@ -22,7 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import timestream.manipulate.correct_detect as cd
-import timestream.manipulate.plantSegmenter as ps
+import timestream.manipulate.plantSegmenter as tm_ps
+import timestream.manipulate.pot as tm_pot
 from timestream import TimeStreamImage, parse
 import timestream
 from itertools import chain
@@ -354,7 +355,7 @@ class PotDetector ( PipeComponent ):
                 }
 
     runExpects = [np.ndarray, list]
-    runReturns = [np.ndarray, ps.ImagePotMatrix]
+    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
@@ -433,13 +434,13 @@ class PotDetector ( PipeComponent ):
 
         flattened = list(chain.from_iterable(self.potLocs2))
         growM = round(min(spatial.distance.pdist(flattened))/2)
-        ipm = ps.ImagePotMatrix(self.image, pots=[], growM=growM, ipmPrev=ipmPrev)
+        ipm = tm_pot.ImagePotMatrix(self.image, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = 1
         for tray in self.potLocs2:
             trayID = 1
             for center in tray:
-                r = ps.ImagePotRectangle(center, self.image.shape, growM=growM)
-                p = ps.ImagePotHandler(potID, r, self.image)
+                r = tm_pot.ImagePotRectangle(center, self.image.shape, growM=growM)
+                p = tm_pot.ImagePotHandler(potID, r, self.image)
                 p.setSbind("trayID", trayID)
                 ipm.addPot(p)
                 potID += 1
@@ -475,15 +476,15 @@ class PlantExtractor ( PipeComponent ):
                 "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
                 "parallel": [False, "Whether to run in parallel", False]}
 
-    runExpects = [np.ndarray, ps.ImagePotMatrix]
-    runReturns = [np.ndarray, ps.ImagePotMatrix]
+    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
+    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
-        if self.meth not in ps.segmentingMethods.keys():
+        if self.meth not in tm_ps.segmentingMethods.keys():
             raise ValueError ("%s is not a valid method" % self.meth)
         #FIXME: Check the arg names. Inform an error in yaml file if error.
-        self.segmenter = ps.segmentingMethods[self.meth](**self.methargs)
+        self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
         print(self.mess)
@@ -551,8 +552,8 @@ class FeatureExtractor ( PipeComponent ):
     argNames = {"mess": [False, "Default message","Extracting Features"],
                 "features": [False, "Features to extract", ["all"]]}
 
-    runExpects = [np.ndarray, ps.ImagePotMatrix]
-    runReturns = [np.ndarray, ps.ImagePotMatrix]
+    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
+    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
@@ -570,7 +571,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
     argNames = {"mess": [False, "Default message", "Writing the features"],
                 "outputfile": [True, "File where the output goes"]}
 
-    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
     runReturns = [np.ndarray]
 
     def __init__(self, context, **kwargs):
@@ -629,7 +630,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
                 "outputdir": [False, "Dir where the output files go", None],
                 "overwrite": [False, "Whether to overwrite out files", True]}
 
-    runExpects = [np.ndarray, ps.ImagePotMatrix]
+    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
     runReturns = [np.ndarray]
 
     def __init__(self, context, **kwargs):
@@ -649,7 +650,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
             os.makedirs(self.outputdir)
 
         # Are there any feature csv files? We check all possible features.
-        for fName in ps.StatParamCalculator.statParamMethods():
+        for fName in tm_ps.StatParamCalculator.statParamMethods():
             outputfile = os.path.join(self.outputdir, fName+".csv")
             if os.path.exists(outputfile):
                 if self.overwrite:
