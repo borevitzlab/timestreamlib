@@ -436,10 +436,14 @@ class PotDetector ( PipeComponent ):
         ipm = ps.ImagePotMatrix(self.image, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = 1
         for tray in self.potLocs2:
+            trayID = 1
             for center in tray:
                 r = ps.ImagePotRectangle(center, self.image.shape, growM=growM)
-                ipm.addPot(ps.ImagePotHandler(potID, r, self.image))
+                p = ps.ImagePotHandler(potID, r, self.image)
+                p.setSbind("trayID", trayID)
+                ipm.addPot(p)
                 potID += 1
+                trayID += 1
 
 
         context["outputwithimage"]["potLocs"] = self.potLocs2

@@ -701,7 +701,7 @@ class ImagePotHandler(object):
             raise TypeError("Soft bindings values must be of type"\
                     + "int, long, float, complex or string")
         else:
-            self._sbinds[bindKey] = bindValueval
+            self._sbinds[bindKey] = bindValue
 
 class ImagePotMatrix(object):
     def __init__(self, image, pots=[], growM=100, ipmPrev = None):
