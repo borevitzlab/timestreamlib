@@ -441,7 +441,7 @@ class PotDetector ( PipeComponent ):
             for center in tray:
                 r = tm_pot.ImagePotRectangle(center, self.image.shape, growM=growM)
                 p = tm_pot.ImagePotHandler(potID, r, self.image)
-                p.setSbind("trayID", trayID)
+                p.setMetaId("trayID", trayID)
                 ipm.addPot(p)
                 potID += 1
                 trayID += 1
@@ -714,3 +714,24 @@ class ResultingImageWriter ( PipeComponent ):
         ts_out.write_metadata()
 
         return (args)
+
+class PopulatePotMetaIds ( PipeComponent ):
+    actName = "populatepotmetaids"
+    argNames = {"mess": [False, "Output Message", "Populating Metaids"],
+                "metas": [False, \
+                        "Dictionary binidng potID with global IDS", {}]}
+
+    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
+    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
+
+    def __init__(self, context, **kwargs):
+        super(PopulatePotMetaIds, self).__init__(**kwargs)
+
+    def __call__(self,  context, *args):
+        ipm = args[1]
+        # assign all the metaids that we find in self.metas
+        for midName in self.metas.keys():
+            for potid, mval in self.metas[midName].iteritems():
+                ipm.getPot(potid).setMetaId(midName,mval)
+
+        return [args[0], ipm]
