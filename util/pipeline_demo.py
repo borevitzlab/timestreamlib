@@ -18,7 +18,7 @@ import datetime
 
 CLI_OPTS = """
 USAGE:
-    pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML]
+    pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML] [--set=CONFIG]
 
 OPTIONS:
     -i IN       Input timestream directory
@@ -27,6 +27,10 @@ OPTIONS:
                 IN/_data/pipeline.yml
     -t YML      Path to timestream yaml configuration. Defaults to
                 IN/_data/timestream.yml
+
+    --set=CONFIG        Overwrite any configuration value. CONFIG is
+                        a coma (,) separated string of name=value
+                        pairs. E.g: --set=a.b=value,c.d.e=val2,...
 """
 opts = docopt.docopt(CLI_OPTS)
 
@@ -80,6 +84,13 @@ for pComp in plConf.pipeline.listSubSecNames():
 
     # Merge timestream conf onto pipeline conf
     pipeconf.PCFGConfig.merge(tsss, plss)
+
+# Add whatever came in the command line
+if opts['--set']:
+    for setelem in opts["--set"].split(','):
+        #FIXME: print help if any exceptions.
+        cName, cVal = setelem.split("=")
+        plConf.setVal(cName, cVal)
 
 # Show the user the resulting configuration:
 print(plConf)

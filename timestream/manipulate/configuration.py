@@ -109,15 +109,15 @@ class PCFGSection(object):
 
         # set the value in the nested section
         if len(index) > 1:
-            # if exists but its not a subsection
-            if not isinstance(self.__dict__["__subsections"][index[0]], \
-                    PCFGSection):
-                raise PCFGExInvalidSubsection(index[0])
-
             # If doesn't exist, create it!
             if index[0] not in self.__dict__["__subsections"]:
                 tmpSec = PCFGSection(index[0])
                 self.__dict__["__subsections"][index[0]] = tmpSec
+
+            # if exists but its not a subsection
+            if not isinstance(self.__dict__["__subsections"][index[0]], \
+                    PCFGSection):
+                raise PCFGExInvalidSubsection(index[0])
 
             self.__dict__["__subsections"][index[0]].setVal(index[1:], value)
 
