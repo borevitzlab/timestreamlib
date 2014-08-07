@@ -136,8 +136,8 @@ class ImageUndistorter ( PipeComponent ):
                 "imageSize":    [True, "2x1 matrix: [width, height]"],
                 "rotationAngle": [True, "rotation angle for the image"] }
 
-    runExpects = [np.ndarray]
-    runReturns = [np.ndarray]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ImageUndistorter, self).__init__(**kwargs)
@@ -147,14 +147,16 @@ class ImageUndistorter ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image = cd.rotateImage(args[0], self.rotationAngle)
+        tsi = args[0]
+        self.image = cd.rotateImage(tsi.pixels, self.rotationAngle)
         if self.UndistMapX != None and self.UndistMapY != None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8), \
                 self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
         else:
             self.imageUndistorted = self.image
 
-        return([self.imageUndistorted])
+        tsi.pixels = self.imageUndistorted
+        return [tsi]
 
     def show(self):
         plt.figure()
@@ -178,17 +180,19 @@ class ColorCardDetector ( PipeComponent ):
                 "settingPath": [True, "Path to setting files"]
                 }
 
-    runExpects = [np.ndarray]
-    runReturns = [np.ndarray, list]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage, list]
 
     def __init__(self, context, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image = args[0]
+        tsi = args[0]
+        self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
+            # FIXME: this should be handled with an error.
             print('Image is too dark, mean(I) = %f < %f. Skip colorcard detection!' %(meanIntensity, self.minIntensity) )
             return([self.image, [None, None, None]])
 
@@ -218,7 +222,7 @@ class ColorCardDetector ( PipeComponent ):
             print('Cannot find color card')
             self.colorcardParams = [None, None, None]
 
-        return([self.image, self.colorcardParams])
+        return([tsi, self.colorcardParams])
 
     def show(self):
         plt.figure()
@@ -241,15 +245,16 @@ class ImageColorCorrector ( PipeComponent ):
                 "minIntensity": [False, "Skip colorcard correction if intensity below this value", 0]
                 }
 
-    runExpects = [np.ndarray, list]
-    runReturns = [np.ndarray]
+    runExpects = [TimeStreamImage, list]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        image, colorcardParam = args
+        tsi, colorcardParam = args
+        image = tsi.pixels
 
         meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
@@ -259,11 +264,13 @@ class ImageColorCorrector ( PipeComponent ):
             self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
             self.imageCorrected = self.imageCorrected.astype(np.uint8)
         else:
+            #FIXME: This should be handled with an exception.
             print('Skip color correction')
             self.imageCorrected = image
         self.image = image # display
 
-        return([self.imageCorrected])
+        tsi.pixels = self.imageCorrected
+        return([tsi])
 
     def show(self):
         plt.figure()
@@ -286,24 +293,24 @@ class TrayDetector ( PipeComponent ):
                 "settingPath": [True, "Path to setting files"]
                 }
 
-    runExpects = [np.ndarray]
-    runReturns = [np.ndarray, list]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage, list, list]
 
     def __init__(self, context, **kwargs):
         super(TrayDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image = args[0]
+        tsi = args[0]
+        self.image = tsi.pixels
         temp = np.zeros_like(self.image)
         temp[:,:,:] = self.image[:,:,:]
         temp[:,:,1] = 0 # suppress green channel
         self.imagePyramid = cd.createImagePyramid(temp)
         self.trayPyramids = []
         for i in range(self.trayNumber):
+            # fixed tray image so that perspective postions of the trays are fixed
             trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
-##             fixed tray image so that perspective postions of the trays are fixed
-#            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % 2)
             trayImage = cv2.imread(trayFile)[:,:,::-1]
             if trayImage == None:
                 print("Fail to read", trayFile)
@@ -317,8 +324,7 @@ class TrayDetector ( PipeComponent ):
             score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, trayPyramid, \
                 RotationAngle = 0, EstimatedLocation = self.trayPositions[i], SearchRange = SearchRange)
             if score < 0.3:
-                # FIXME: For now the pipeline does not know how to handle
-                #        missing trays.
+                # FIXME: For now we don't handle missing trays.
                 raise PCExBrakeInPipeline(self.actName, \
                     "Low tray matching score. Likely tray %d is missing." %i)
 
@@ -328,7 +334,8 @@ class TrayDetector ( PipeComponent ):
         date = context["img"].datetime
         context["outputwithimage"]["trayLocs"] = self.trayLocs
 
-        return([self.image, self.imagePyramid, self.trayLocs])
+        tsi.pixels = self.image
+        return([tsi, self.imagePyramid, self.trayLocs])
 
     def show(self):
         plt.figure()
@@ -354,15 +361,16 @@ class PotDetector ( PipeComponent ):
                 "settingPath": [True, "Path to setting files"]
                 }
 
-    runExpects = [np.ndarray, list]
-    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage, list, list]
+    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        self.image, self.imagePyramid, self.trayLocs = args
+        tsi, self.imagePyramid, self.trayLocs = args
+        self.image = tsi.pixels
         # read pot template image and scale to the pot size
         potFile = os.path.join(context["rts"].path, self.settingPath, self.potFile)
         potImage = cv2.imread(potFile)[:,:,::-1]
@@ -448,7 +456,8 @@ class PotDetector ( PipeComponent ):
 
 
         context["outputwithimage"]["potLocs"] = self.potLocs2
-        return([self.image, ipm])
+        tsi.pixels = self.image
+        return([tsi, ipm])
 
     def show(self):
         plt.figure()
@@ -476,8 +485,8 @@ class PlantExtractor ( PipeComponent ):
                 "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
                 "parallel": [False, "Whether to run in parallel", False]}
 
-    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
-    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
@@ -488,8 +497,8 @@ class PlantExtractor ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        img = args[0]
-        centers = args[1]
+        tsi, self.ipm = args
+        img = tsi.pixels
 
         self.ipm = args[1]
         # Set the segmenter in all the pots
@@ -497,11 +506,11 @@ class PlantExtractor ( PipeComponent ):
             iph.ps = self.segmenter
 
         # Segment all pots and put
-        retImg = self.segAllPots(img.copy())
+        tsi.pixels = self.segAllPots(img.copy())
 
         # Put current image pot matrix in context for the next run
         context["ipm"] = self.ipm
-        return [retImg, self.ipm]
+        return [tsi, self.ipm]
 
     def segAllPots(self, img):
         if not self.parallel:
@@ -552,8 +561,8 @@ class FeatureExtractor ( PipeComponent ):
     argNames = {"mess": [False, "Default message","Extracting Features"],
                 "features": [False, "Features to extract", ["all"]]}
 
-    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
-    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
@@ -571,8 +580,8 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
     argNames = {"mess": [False, "Default message", "Writing the features"],
                 "outputfile": [True, "File where the output goes"]}
 
-    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
-    runReturns = [np.ndarray]
+    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter_ndarray, self).__init__(**kwargs)
@@ -630,8 +639,8 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
                 "outputdir": [False, "Dir where the output files go", None],
                 "overwrite": [False, "Whether to overwrite out files", True]}
 
-    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
-    runReturns = [np.ndarray]
+    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
@@ -694,7 +703,7 @@ class ResultingImageWriter ( PipeComponent ):
     argNames = {"mess": [False, "Output Message", "Writing Image"],
                 "outstream": [True, "Name of stream to use"]}
 
-    runExpects = [np.ndarray]
+    runExpects = [TimeStreamImage]
     runReturns = [None]
 
     def __init__(self, context, **kwargs):
@@ -702,9 +711,10 @@ class ResultingImageWriter ( PipeComponent ):
 
     def __call__(self, context, *args):
         print (self.mess)
+        #FIXME: Can we just use args[0] here?
         img = timestream.TimeStreamImage()
         img.datetime = context["img"].datetime
-        img.pixels = args[0]
+        img.pixels = args[0].pixels
         img.data["processed"] = "yes"
         for key, value in context["outputwithimage"].iteritems():
             img.data[key] = value
@@ -721,8 +731,8 @@ class PopulatePotMetaIds ( PipeComponent ):
                 "metas": [False, \
                         "Dictionary binidng potID with global IDS", {}]}
 
-    runExpects = [np.ndarray, tm_pot.ImagePotMatrix]
-    runReturns = [np.ndarray, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
 
     def __init__(self, context, **kwargs):
         super(PopulatePotMetaIds, self).__init__(**kwargs)

@@ -185,7 +185,7 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
         print("Time stamp", img.datetime)
         context["img"] = img
         try:
-            result = pl.process(context, [img.pixels], visualise)
+            result = pl.process(context, [img], visualise)
         except PCExBrakeInPipeline as bip:
             print(bip.message)
             continue
