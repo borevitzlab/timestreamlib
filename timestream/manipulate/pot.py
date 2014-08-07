@@ -82,7 +82,7 @@ class ImagePotRectangle(object):
 
 class ImagePotHandler(object):
     def __init__(self, potID, rect, superImage, \
-            softBindings=None, ps=None, iphPrev=None):
+            metaids=None, ps=None, iphPrev=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
@@ -94,7 +94,7 @@ class ImagePotHandler(object):
             instance that has a segment method.
           iphPrev (ImagePotHandler): The previous ImagePotHandler for this pot
             position.
-          softBindings (dict): Ids that might be used to bind the pot image in
+          metaids (dict): info that might be used by the pot image in
             other contexts (e.g {chamberID:#, universalID:#...}). We can only
             bind to a numeric or character value.
           * y is vertical | x is horizontal.
@@ -144,18 +144,18 @@ class ImagePotHandler(object):
         self._mask = np.zeros( [self._rect.height, self._rect.width], \
                                 dtype=np.dtype("float64")) - 1
 
-        if softBindings is None:
-            self._sbinds = {}
-        elif not isinstance(softBindings, dict):
-            raise TypeError("Soft binding must be dictionary")
-        elif len(softBindings) < 1:
-            self._sbinds = {}
+        if metaids is None:
+            self._mids = {}
+        elif not isinstance(metaids, dict):
+            raise TypeError("Metaids must be dictionary")
+        elif len(metaids) < 1:
+            self._mids = {}
         else:
-            self._sbinds = softBindings
-        # Check all bindings are (int, long, float, complex, str)
-        for key, val in self._sbinds.iteritems():
+            self._mids = metaids
+        # Check all metaids are (int, long, float, complex, str)
+        for key, val in self._mids.iteritems():
             if not isinstance(val, (int, long, float, complex, str)):
-                raise TypeError("Soft bindings must be of type"\
+                raise TypeError("Metaids must be of type"\
                         + "int, long, float, complex or string")
 
     @property
@@ -352,20 +352,20 @@ class ImagePotHandler(object):
     def getCalcedFeatures(self):
         return self._features
 
-    def getSbindList(self):
-        return self._sbinds.keys()
+    def getMetaIdKeys(self):
+        return self._mids.keys()
 
-    def getSbind(self, bindKey):
-        if bindkey not in self._sbinds.keys():
-            raise IndexError("%s does is not a soft binding"%bindKey)
+    def getMetaId(self, mKey):
+        if mkey not in self._mids.keys():
+            raise IndexError("%s is not a meta key."%mKey)
         else:
-            return self._sbinds[bindKey]
-    def setSbind(self, bindKey, bindValue):
-        if not isinstance(bindValue, (int, long, float, complex, str)):
-            raise TypeError("Soft bindings values must be of type"\
+            return self._mids[mKey]
+    def setMetaId(self, mKey, mValue):
+        if not isinstance(mValue, (int, long, float, complex, str)):
+            raise TypeError("Metaids values must be of type"\
                     + "int, long, float, complex or string")
         else:
-            self._sbinds[bindKey] = bindValue
+            self._mids[mKey] = mValue
 
 class ImagePotMatrix(object):
     def __init__(self, image, pots=[], growM=100, ipmPrev = None):
@@ -379,8 +379,11 @@ class ImagePotMatrix(object):
           image (ndarray): Image in which everything is located
           pots (list): It can be a list of ImagePotHandler instances, of 4
             elment lists or of 2 elment list
+          growM (int): The amount of pixels that containing plots should grow if
+            they are initialized by a center.
           rects (list): list of tray lists. Each tray list is a list of two
             element sets. The reciprocal corners of the pot rectangle
+          ipmPrev (ImagePotMatrix): The previous ImagePotMatrix object.
 
         Attributes:
           its: Dictionary of image tray instances.
