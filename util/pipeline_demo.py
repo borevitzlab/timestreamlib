@@ -189,6 +189,8 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
         print('Missing Image')
         continue
 
+    # Detach img from timestream. We don't need it!
+    img.parent_timestream = None
     rStart = datetime.datetime.combine(img.datetime.date(), startHourRange)
     rEnd = datetime.datetime.combine(img.datetime.date(), endHourRange)
     if img.datetime >= rStart and img.datetime <= rEnd:

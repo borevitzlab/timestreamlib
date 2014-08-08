@@ -494,7 +494,7 @@ class TimeStreamImage(object):
 
     @parent_timestream.setter
     def parent_timestream(self, ts):
-        if not isinstance(ts, TimeStream):
+        if not isinstance(ts, TimeStream) and ts is not None:
             msg = "Parent timestream must be an instance of TimeStream."
             LOG.error(msg)
             raise TypeError(msg)
@@ -559,6 +559,16 @@ class TimeStreamImage(object):
             msg = "Cant set TimeStreamImage.pixels to something not an ndarray"
             LOG.error(msg)
             raise TypeError(msg)
+
+        # Setting _pixels will make _path invalid. Setting it to None might
+        # actually set it to a timestream default. To avoid inconsistency, make
+        # sure that this default does not exist.
+        self._path = None
+        if self.path is not None and path.exists(self.path):
+            msg = "Cannot set pixels on object bound to {}".format(self.path)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
         self._pixels = value
 
     @pixels.deleter
