@@ -281,8 +281,7 @@ class TimeStream(object):
             self.image_data[ts_format_date(image.datetime)] = image.data
             self.write_metadata()
             # Actually write image
-            ts_make_dirs(fpath)
-            cv2.imwrite(fpath, image.pixels[:, :, ::-1])
+            image.write(fpath=fpath, overwrite=True)
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
 
@@ -424,6 +423,38 @@ class TimeStreamImage(object):
         if copy_path:
             new.path = self.path
         return new
+
+    def write(self, fpath=None, overwrite=False):
+        # Use pixels property so _pixels gets popuplated
+        if self.pixels is None:
+            msg = "Image pixels must be set to write"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        #FIXME: check to see if path complies with self._timestream
+        if fpath is None:
+            fpath = self._path
+
+        if path.exists(fpath) and not overwrite:
+            msg = "Image fpath {} exists and overwrite is {}".format(fpath,
+                    overwrite)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # from this point we are overwriting
+        if path.isfile(fpath):
+            os.remove(fpath)
+
+        if not path.exists(path.dirname(fpath)):
+            os.makedirs(path.dirname(fpath))
+
+        self._path = fpath
+        cv2.imwrite(self._path, self.pixels[:, :, ::-1])
+
+    def read(self, fpath=None): # Added just to be consistent with write
+        if fpath is None:
+            # Do the actual read in pixels.
+            self.path = fpath
 
     @property
     def path(self):
