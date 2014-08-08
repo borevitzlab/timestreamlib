@@ -414,9 +414,6 @@ class PotDetector ( PipeComponent ):
             self.potLocs2.append(potLocs)
             self.potLocs2_.append(potLocs_)
 
-        # add pot location information
-        date = context["img"].datetime
-
         # Create a new ImagePotMatrix with newly discovered locations
         ipmPrev = None
         if "ipm" in context.keys():
@@ -424,21 +421,19 @@ class PotDetector ( PipeComponent ):
 
         flattened = list(chain.from_iterable(self.potLocs2))
         growM = round(min(spatial.distance.pdist(flattened))/2)
-        ipm = tm_pot.ImagePotMatrix(self.image, pots=[], growM=growM, ipmPrev=ipmPrev)
+        ipm = tm_pot.ImagePotMatrix(tsi.pixels, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = 1
         for tray in self.potLocs2:
             trayID = 1
             for center in tray:
-                r = tm_pot.ImagePotRectangle(center, self.image.shape, growM=growM)
-                p = tm_pot.ImagePotHandler(potID, r, self.image)
+                r = tm_pot.ImagePotRectangle(center, tsi.pixels.shape, growM=growM)
+                p = tm_pot.ImagePotHandler(potID, r, tsi.pixels)
                 p.setMetaId("trayID", trayID)
                 ipm.addPot(p)
                 potID += 1
                 trayID += 1
 
-
         context["outputwithimage"]["potLocs"] = self.potLocs2
-        tsi.pixels = self.image
         return([tsi, ipm])
 
     def show(self):
