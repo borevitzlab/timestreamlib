@@ -250,16 +250,17 @@ class TimeStream(object):
 
         if self.version == 1:
             fpath = _ts_date_to_path(self.name, self.extension,
-                                     image.datetime, image.subsec)
+                                     image.datetime, 0)
             fpath = path.join(self.path, fpath)
             if path.exists(fpath):
                 if overwrite_mode == "skip":
                     return
                 elif overwrite_mode == "increment":
-                    while path.exists(fpath) and image.subsec < 100:
-                        image.subsec += 1
+                    subsec = 0
+                    while path.exists(fpath) and subsec < 100:
+                        subsec += 1
                         fpath = _ts_date_to_path(self.name, image.datetime,
-                                                 image.subsec)
+                                                 subsec)
                     if path.exists(fpath):
                         msg = "Too many images at timepoint {}".format(
                             ts_format_date(image.datetime))
@@ -394,7 +395,6 @@ class TimeStreamImage(object):
     _path = None
     _datetime = None
     _pixels = None
-    subsec = 0
     data = {}
 
     def __init__(self, datetime=None):
@@ -417,7 +417,6 @@ class TimeStreamImage(object):
         new = TimeStreamImage()
         new.datetime = deepcopy(self.datetime)
         new.data = deepcopy(self.data)
-        new.subsec = self.subsec
         if copy_pixels and self.pixels is not None:
             new.pixels = self.pixels.copy()
         if copy_timestream:
