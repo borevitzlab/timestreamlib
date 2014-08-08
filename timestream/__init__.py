@@ -483,11 +483,6 @@ class TimeStreamImage(object):
             msg = "Image path must be an instance of str."
             LOG.error(msg)
             raise TypeError(msg)
-        if not path.isfile(img_path):
-            msg = "No file exists at {}. ".format(img_path) + \
-                  "``img_path`` must point to an image file"
-            LOG.error(msg)
-            raise ValueError(msg)
         self._path = img_path
 
     @property
@@ -534,6 +529,13 @@ class TimeStreamImage(object):
                       "before ``pixels`` member is accessed."
                 LOG.error(msg)
                 raise RuntimeError(msg)
+
+            if not path.isfile(self.path):
+                msg = "No file exists at {}. ".format(self.path) + \
+                      "``path`` of TimeStreamImage must point to existing file"
+                LOG.error(msg)
+                raise ValueError(msg)
+
             try:
                 import skimage.io
                 try:
