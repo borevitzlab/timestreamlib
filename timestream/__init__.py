@@ -483,6 +483,9 @@ class TimeStreamImage(object):
             msg = "Image path must be an instance of str."
             LOG.error(msg)
             raise TypeError(msg)
+
+        # _pixels is invalid when changeing _path
+        self._pixels = None
         self._path = img_path
 
     @property
