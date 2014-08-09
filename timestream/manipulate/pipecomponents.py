@@ -109,24 +109,6 @@ class PCExBrakeInPipeline(PCException):
     def __init__(self, name, msg):
         self.message = "Urecoverable error at %s: %s" % (name, msg)
 
-
-class Tester ( PipeComponent ):
-    actName = "tester"
-    argNames = { "arg1": [True, "Argument 1 example"],
-                 "arg2": [False, "Argument 2 example", 4] }
-
-    runExpects = [ np.ndarray, np.ndarray ]
-    runReturns = [ np.ndarray, np.ndarray ]
-
-    def __init__(self, context, **kwargs):
-        super(Tester, self).__init__(**kwargs)
-
-    def __call__(self, context, *args):
-        ndarray = args[0] # np.ndarray
-        print(ndarray)
-
-        return ([ndarray, ndarray])
-
 class ImageUndistorter ( PipeComponent ):
     actName = "undistort"
     argNames = {"mess": [True, "Apply lens distortion correction"],

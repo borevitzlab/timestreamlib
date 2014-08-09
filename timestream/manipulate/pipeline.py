@@ -24,7 +24,6 @@ from timestream.manipulate.pipecomponents import *
 
 class ImagePipeline ( object ):
     complist = {
-                 Tester.actName:                Tester, \
                  ImageUndistorter.actName:      ImageUndistorter,
                  ColorCardDetector.actName:     ColorCardDetector, \
                  ImageColorCorrector.actName:   ImageColorCorrector, \
