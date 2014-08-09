@@ -338,7 +338,7 @@ class TimeStream(object):
                 self.path, self.extension, cs=False):
             img = TimeStreamImage()
             img.parent_timestream = self
-            img.from_file(fpath)
+            img.path = fpath
             img_date = ts_format_date(img.datetime)
             try:
                 img.data = self.image_data[img_date]
@@ -380,7 +380,7 @@ class TimeStream(object):
             else:
                 img = TimeStreamImage(datetime=time)
                 img.parent_timestream = self
-                img.from_file(img_path)
+                img.path = img_path
                 img_date = ts_format_date(img.datetime)
                 try:
                     img.data = self.image_data[img_date]
@@ -391,20 +391,13 @@ class TimeStream(object):
 
 class TimeStreamImage(object):
     def __init__(self, datetime=None):
+        self._datetime = None
         if datetime:
-            self.datetime = datetime
+            self._datetime = datetime
         self._timestream = None
         self._path = None
-        self._datetime = None
         self._pixels = None
         self.data = {}
-
-    def from_file(self, img_path):
-        self.path = img_path
-        try:
-            self.datetime = ts_parse_date_path(img_path)
-        except ValueError:
-            self.datetime = get_exif_date(img_path)
 
     def clone(self, copy_pixels=False, copy_path=False, copy_timestream=False):
         """
@@ -501,6 +494,15 @@ class TimeStreamImage(object):
 
     @property
     def datetime(self):
+        if self._datetime:
+            return self._datetime
+
+        # Get _datetime from path (property).
+        try:
+            self.datetime = ts_parse_date_path(self.path)
+        except ValueError:
+            self.datetime = get_exif_date(self.path)
+
         return self._datetime
 
     @datetime.setter
