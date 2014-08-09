@@ -30,6 +30,7 @@ import numpy as np
 import os
 from os import path
 from sys import stderr
+from timestream.manipulate.pot import ImagePotMatrix
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -402,13 +403,15 @@ class TimeStreamImage(object):
           _path(str): This class is driven by _path. _path should be valid at
             end of all methods.!!
           _Pixels(ndarray): The actual image.
+          _ipm(ImagePotMatrix): The ImagePotMatrix instance should contain all
+            the pot specific data for this image.
           data(dict): related data.
         """
         #FIXME: datetime should always represent the module!!
-        if not datetime and not isinstance(datetime, dt):
-            msg = "datetime must be an instance of datetime"
-            LOG.error(msg)
-            raise TypeError(msg)
+        #if not datetime and not isinstance(datetime, dt):
+        #    msg = "datetime must be an instance of datetime"
+        #    LOG.error(msg)
+        #    raise TypeError(msg)
 
         self._datetime = None
         if datetime:
@@ -416,6 +419,7 @@ class TimeStreamImage(object):
         self._timestream = None
         self._path = None
         self._pixels = None
+        self._ipm = None
         self.data = {}
 
     def clone(self, copy_pixels=False, copy_path=False, copy_timestream=False):
@@ -506,6 +510,25 @@ class TimeStreamImage(object):
         # _pixels is invalid when changeing _path
         self._pixels = None
         self._path = img_path
+
+    @property
+    def ipm(self):
+        return self._ipm
+
+    @ipm.setter
+    def ipm(self, ipm):
+        if not isinstance(ipm, ImagePotMatrix):
+            msg = "ipm should be an instance of ImagePotMatrix"
+            LOG.error(msg)
+            raise TypeError(msg)
+
+        # for consistency, self and ipm.image be the same instance
+        if self is not ipm.image:
+            msg = "The TimeStreamImage needs to be the same as ipm.image"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        self._ipm = ipm
 
     @property
     def parent_timestream(self):

@@ -19,7 +19,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import timestream.manipulate.plantSegmenter as tm_ps
-from timestream import TimeStreamImage
 
 class ImagePotRectangle(object):
     def __init__(self, rectDesc, imgSize, growM=100):
@@ -391,10 +390,11 @@ class ImagePotMatrix(object):
           _image(TimeStreamImage): Image where all the pots fit. Set only once.
           _ipmPrev(ImagePotMatrix): Previous ImagePotMatrix. Set only once.
         """
-        if not isinstance(image, TimeStreamImage):
-            raise TypeError("ImagePotMatrix.image must be a TimeStreamImage")
-        else:
-            self._image = image
+        #FIXME: check for TimeStreamImage
+        #if not isinstance(image, TimeStreamImage):
+        #    raise TypeError("ImagePotMatrix.image must be a TimeStreamImage")
+        #else:
+        self._image = image
 
         if ipmPrev == None:
             self._ipmPrev = None

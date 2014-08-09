@@ -21,10 +21,10 @@ from __future__ import absolute_import, division, print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+from timestream import TimeStreamImage, parse
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
-from timestream import TimeStreamImage, parse
 import timestream
 from itertools import chain
 from scipy import spatial
@@ -345,7 +345,7 @@ class PotDetector ( PipeComponent ):
                 }
 
     runExpects = [TimeStreamImage, list, list]
-    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
@@ -422,7 +422,7 @@ class PotDetector ( PipeComponent ):
 
         flattened = list(chain.from_iterable(self.potLocs2))
         growM = round(min(spatial.distance.pdist(flattened))/2)
-        ipm = tm_pot.ImagePotMatrix(tsi, pots=[], growM=growM, ipmPrev=ipmPrev)
+        tsi.ipm = tm_pot.ImagePotMatrix(tsi, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = 1
         for tray in self.potLocs2:
             trayID = 1
@@ -430,12 +430,12 @@ class PotDetector ( PipeComponent ):
                 r = tm_pot.ImagePotRectangle(center, tsi.pixels.shape, growM=growM)
                 p = tm_pot.ImagePotHandler(potID, r, tsi.pixels)
                 p.setMetaId("trayID", trayID)
-                ipm.addPot(p)
+                tsi.ipm.addPot(p)
                 potID += 1
                 trayID += 1
 
         context.outputwithimage["potLocs"] = self.potLocs2
-        return([tsi, ipm])
+        return([tsi])
 
     def show(self):
         plt.figure()
@@ -463,8 +463,8 @@ class PlantExtractor ( PipeComponent ):
                 "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
                 "parallel": [False, "Whether to run in parallel", False]}
 
-    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
-    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
@@ -475,10 +475,10 @@ class PlantExtractor ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        tsi, self.ipm = args
+        tsi= args[0]
         img = tsi.pixels
+        self.ipm = tsi.ipm
 
-        self.ipm = args[1]
         # Set the segmenter in all the pots
         for key, iph in self.ipm.iter_through_pots():
             iph.ps = self.segmenter
@@ -489,7 +489,7 @@ class PlantExtractor ( PipeComponent ):
         # Put current image pot matrix in context for the next run
         context.setVal("ipmPrev", self.ipm)
 
-        return [tsi, self.ipm]
+        return [tsi]
 
     def segAllPots(self, img):
         if not self.parallel:
@@ -540,26 +540,26 @@ class FeatureExtractor ( PipeComponent ):
     argNames = {"mess": [False, "Default message","Extracting Features"],
                 "features": [False, "Features to extract", ["all"]]}
 
-    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
-    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
         print(self.mess)
-        ipm = args[1]
+        ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
             iph.calcFeatures(self.features)
 
-        return [args[0], ipm]
+        return [args[0]]
 
 class ResultingFeatureWriter_ndarray ( PipeComponent ):
     actName = "writefeatures_ndarray"
     argNames = {"mess": [False, "Default message", "Writing the features"],
                 "outputfile": [True, "File where the output goes"]}
 
-    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
@@ -576,7 +576,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        ipm = args[1]
+        ipm = args[0].ipm
 
         # Get timestamp of current image.
         ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
@@ -618,7 +618,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
                 "outputdir": [False, "Dir where the output files go", None],
                 "overwrite": [False, "Whether to overwrite out files", True]}
 
-    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
@@ -649,7 +649,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
 
     def __call__(self, context, *args):
         print(self.mess)
-        ipm = args[1]
+        ipm = args[0].ipm
         ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
         for fName in ipm.potFeatures:
@@ -710,17 +710,17 @@ class PopulatePotMetaIds ( PipeComponent ):
                 "metas": [False, \
                         "Dictionary binidng potID with global IDS", {}]}
 
-    runExpects = [TimeStreamImage, tm_pot.ImagePotMatrix]
-    runReturns = [TimeStreamImage, tm_pot.ImagePotMatrix]
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(PopulatePotMetaIds, self).__init__(**kwargs)
 
     def __call__(self,  context, *args):
-        ipm = args[1]
+        ipm = args[0].ipm
         # assign all the metaids that we find in self.metas
         for midName in self.metas.keys():
             for potid, mval in self.metas[midName].iteritems():
                 ipm.getPot(potid).setMetaId(midName,mval)
 
-        return [args[0], ipm]
+        return [args[0]]
