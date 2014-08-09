@@ -61,10 +61,14 @@ class PipeComponent ( object ):
                 else:
                     raise PCExBadRunExpects(self.__class__)
 
-    # context: dict containing context arguments.
-    #           Name and values are predefined for all pipe components.
-    # *args: this component receives
     def __call__(self, context, *args):
+        """ Is executed every time a component needs to do something.
+
+        Args:
+          context(PCFGSection): a tree containing context arguments. Same names
+            for all components
+          args(list): What this components receives
+        """
         raise NotImplementedError()
 
     @classmethod
@@ -167,6 +171,8 @@ class ColorCardDetector ( PipeComponent ):
 
     def __init__(self, context, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
+        self.ccf = os.path.join(context.ints.path, \
+                self.settingPath, self.colorcardFile)
 
     def __call__(self, context, *args):
         print(self.mess)
@@ -179,13 +185,9 @@ class ColorCardDetector ( PipeComponent ):
             return([self.image, [None, None, None]])
 
         self.imagePyramid = cd.createImagePyramid(self.image)
-
-        # TODO: move this into __init__ if context is provided
-        #       when initialising the pipeline
-        ccf = os.path.join(context["rts"].path, self.settingPath, self.colorcardFile)
-        self.colorcardImage = cv2.imread(ccf)[:,:,::-1]
+        self.colorcardImage = cv2.imread(self.ccf)[:,:,::-1]
         if self.colorcardImage == None:
-            raise ValueError ( "Failed to read %s" % ccf )
+            raise ValueError ( "Failed to read %s" % self.ccf )
         self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
         # create image pyramid for multiscale matching
@@ -292,7 +294,7 @@ class TrayDetector ( PipeComponent ):
         self.trayPyramids = []
         for i in range(self.trayNumber):
             # fixed tray image so that perspective postions of the trays are fixed
-            trayFile = os.path.join(context["rts"].path, self.settingPath, self.trayFiles % i)
+            trayFile = os.path.join(context.ints.path, self.settingPath, self.trayFiles % i)
             trayImage = cv2.imread(trayFile)[:,:,::-1]
             if trayImage == None:
                 print("Fail to read", trayFile)
@@ -313,8 +315,7 @@ class TrayDetector ( PipeComponent ):
             self.trayLocs.append(loc)
 
         # add tray location information
-        date = context["img"].datetime
-        context["outputwithimage"]["trayLocs"] = self.trayLocs
+        context.outputwithimage["trayLocs"] = self.trayLocs
 
         tsi.pixels = self.image
         return([tsi, self.imagePyramid, self.trayLocs])
@@ -354,9 +355,9 @@ class PotDetector ( PipeComponent ):
         tsi, self.imagePyramid, self.trayLocs = args
         self.image = tsi.pixels
         # read pot template image and scale to the pot size
-        potFile = os.path.join(context["rts"].path, self.settingPath, self.potFile)
+        potFile = os.path.join(context.ints.path, self.settingPath, self.potFile)
         potImage = cv2.imread(potFile)[:,:,::-1]
-        potTemplateFile = os.path.join(context["rts"].path, self.settingPath, self.potTemplateFile)
+        potTemplateFile = os.path.join(context.ints.path, self.settingPath, self.potTemplateFile)
         potTemplateImage = cv2.imread(potTemplateFile)[:,:,::-1]
         potTemplateImage[:,:,1] = 0 # suppress green channel
         potTemplateImage = cv2.resize(potTemplateImage.astype(np.uint8), (potImage.shape[1], potImage.shape[0]))
@@ -416,8 +417,8 @@ class PotDetector ( PipeComponent ):
 
         # Create a new ImagePotMatrix with newly discovered locations
         ipmPrev = None
-        if "ipm" in context.keys():
-            ipmPrev = context["ipm"]
+        if context.hasSubSecName("ipmPrev"):
+            ipmPrev = context.ipmPrev
 
         flattened = list(chain.from_iterable(self.potLocs2))
         growM = round(min(spatial.distance.pdist(flattened))/2)
@@ -433,7 +434,7 @@ class PotDetector ( PipeComponent ):
                 potID += 1
                 trayID += 1
 
-        context["outputwithimage"]["potLocs"] = self.potLocs2
+        context.outputwithimage["potLocs"] = self.potLocs2
         return([tsi, ipm])
 
     def show(self):
@@ -486,7 +487,8 @@ class PlantExtractor ( PipeComponent ):
         tsi.pixels = self.segAllPots(img.copy())
 
         # Put current image pot matrix in context for the next run
-        context["ipm"] = self.ipm
+        context.setVal("ipmPrev", self.ipm)
+
         return [tsi, self.ipm]
 
     def segAllPots(self, img):
@@ -577,7 +579,7 @@ class ResultingFeatureWriter_ndarray ( PipeComponent ):
         ipm = args[1]
 
         # Get timestamp of current image.
-        ts = time.mktime(context["img"].datetime.timetuple()) * 1000
+        ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
         if not os.path.isfile(self.outputfile):
             fNames = np.array(ipm.potFeatures)
@@ -623,14 +625,14 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
         super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
 
         if self.outputdir is None:
-            if "outputroot" not in context.keys():
+            if not context.hasSubSecName("outputroot"):
                 raise StandardError("Must define output directory")
 
-            if not os.path.isdir(context["outputroot"]):
+            if not os.path.isdir(context.outputroot):
                 raise StandardError("%s is not a directory" % \
-                        context["outputroot"])
+                        context.outputroot)
 
-            self.outputdir = os.path.join(context["outputroot"], "csv")
+            self.outputdir = os.path.join(context.outputroot, "csv")
 
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
@@ -648,7 +650,7 @@ class ResultingFeatureWriter_csv ( PipeComponent ):
     def __call__(self, context, *args):
         print(self.mess)
         ipm = args[1]
-        ts = time.mktime(context["img"].datetime.timetuple()) * 1000
+        ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
         for fName in ipm.potFeatures:
             outputfile = os.path.join(self.outputdir, fName+".csv")
@@ -690,13 +692,13 @@ class ResultingImageWriter ( PipeComponent ):
         print (self.mess)
         #FIXME: Can we just use args[0] here?
         img = timestream.TimeStreamImage()
-        img.datetime = context["img"].datetime
+        img.datetime = context.origImg.datetime
         img.pixels = args[0].pixels
         img.data["processed"] = "yes"
-        for key, value in context["outputwithimage"].iteritems():
+        for key, value in context.outputwithimage.iteritems():
             img.data[key] = value
 
-        ts_out = context[self.outstream]
+        ts_out = context.getVal("outts."+self.outstream)
         ts_out.write_image(img)
         ts_out.write_metadata()
 

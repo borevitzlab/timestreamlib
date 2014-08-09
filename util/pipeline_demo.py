@@ -98,18 +98,20 @@ print(plConf)
 # initialise input timestream for processing
 timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
-
 ts.load(inputRootPath)
-# FIXME: ts.data does not have the configuration instance because it cannot be
-# handled by json.
+# FIXME: ts.data cannot have plConf because it cannot be handled by json.
 ts.data["settings"] = plConf.asDict()
-#ts.data["settingPath"] = os.path.dirname(settingFile)
-context = {"rts":ts}
 #FIXME: TimeStream should have a __str__ method.
 print("Timestream instance created:")
 print("   ts.path:", ts.path)
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
+
+# Initialize the context
+ctx = pipeconf.PCFGSection("--")
+ctx.setVal("ints",ts)
+#context = {"rts":ts}
+
 
 #create new timestream for output data
 for k, outstream in plConf.outstreams.asDict().iteritems():
@@ -126,19 +128,22 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
     if not os.path.exists(os.path.dirname(tsoutpath)):
         os.mkdir(os.path.dirname(tsoutpath))
     ts_out.create(tsoutpath)
-    context[outstream["name"]] = ts_out
+    ctx.setVal("outts."+outstream["name"], ts_out)
+    #context[outstream["name"]] = ts_out
 
 # We put everything else that is not an time series into outputroot.
-context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
-if not os.path.exists(context["outputroot"]):
-    os.mkdir(context["outputroot"])
+ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
+#context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
+if not os.path.exists(ctx.outputroot):
+    os.mkdir(ctx.outputroot)
 
 # Dictionary where we put all values that should be added with an image as soon
 # as it is output with the TimeStream
-context["outputwithimage"] = {}
+ctx.setVal("outputwithimage", {})
+#context["outputwithimage"] = {}
 
 # initialise processing pipeline
-pl = pipeline.ImagePipeline(plConf.pipeline, context)
+pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
 
 if plConf.general.hasSubSecName("startDate"):
     sd = plConf.general.startDate
@@ -196,9 +201,9 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
     if img.datetime >= rStart and img.datetime <= rEnd:
         print("Process", img.path, '...'),
         print("Time stamp", img.datetime)
-        context["img"] = img
+        ctx.setVal("origImg", img)
         try:
-            result = pl.process(context, [img], visualise)
+            result = pl.process(ctx, [img], visualise)
         except PCExBrakeInPipeline as bip:
             print(bip.message)
             continue
