@@ -437,8 +437,8 @@ class ImagePotMatrix(object):
         raise RuntimeError("ImagePotMatrix.image should only be set by __init__")
 
     @property
-    def iphPrev(self):
-        return self._iphPrev
+    def ipmPrev(self):
+        return self._ipmPrev
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
