@@ -406,14 +406,14 @@ class TimeStreamImage(object):
         copied by value, not by reference, so can be changed.
         """
         new = TimeStreamImage()
-        new.datetime = deepcopy(self.datetime)
+        new._datetime = deepcopy(self._datetime)
         new.data = deepcopy(self.data)
         if copy_pixels and self.pixels is not None:
-            new.pixels = self.pixels.copy()
+            new._pixels = self._pixels.copy()
         if copy_timestream:
-            new.parent_timestream = self.parent_timestream
+            new._timestream = self._timestream
         if copy_path:
-            new.path = self.path
+            new._path = self._path
         return new
 
     def write(self, fpath=None, overwrite=False):
