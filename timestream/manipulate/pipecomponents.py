@@ -422,7 +422,7 @@ class PotDetector ( PipeComponent ):
 
         flattened = list(chain.from_iterable(self.potLocs2))
         growM = round(min(spatial.distance.pdist(flattened))/2)
-        ipm = tm_pot.ImagePotMatrix(tsi.pixels, pots=[], growM=growM, ipmPrev=ipmPrev)
+        ipm = tm_pot.ImagePotMatrix(tsi, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = 1
         for tray in self.potLocs2:
             trayID = 1

@@ -19,6 +19,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import timestream.manipulate.plantSegmenter as tm_ps
+from timestream import TimeStreamImage
 
 class ImagePotRectangle(object):
     def __init__(self, rectDesc, imgSize, growM=100):
@@ -376,7 +377,7 @@ class ImagePotMatrix(object):
         without warning.
 
         Args:
-          image (ndarray): Image in which everything is located
+          image (TimeStreamImage): Image in which everything is located
           pots (list): It can be a list of ImagePotHandler instances, of 4
             elment lists or of 2 elment list
           growM (int): The amount of pixels that containing plots should grow if
@@ -386,15 +387,21 @@ class ImagePotMatrix(object):
           ipmPrev (ImagePotMatrix): The previous ImagePotMatrix object.
 
         Attributes:
-          its: Dictionary of image tray instances.
-          _pots: Dictionary of pots indexed by pot IDs.
+          _pots(dict): Pots indexed by pot IDs.
+          _image(TimeStreamImage): Image where all the pots fit. Set only once.
+          _ipmPrev(ImagePotMatrix): Previous ImagePotMatrix. Set only once.
         """
+        if not isinstance(image, TimeStreamImage):
+            raise TypeError("ImagePotMatrix.image must be a TimeStreamImage")
+        else:
+            self._image = image
+
         if ipmPrev == None:
-            self.ipmPrev = None
+            self._ipmPrev = None
         elif isinstance(ipmPrev, ImagePotMatrix):
-            self.ipmPrev = ipmPrev
+            self._ipmPrev = ipmPrev
             # avoid a run on memory
-            self.ipmPrev.ipmPrev = None
+            self._ipmPrev.ipmPrev = None
         else:
             raise TypeError("ipmPrev must be an instance of ImagePotMatrix")
 
@@ -409,16 +416,29 @@ class ImagePotMatrix(object):
 
             elif isinstance(p, list) and (len(p)==2 or len(p)==4):
                 iphPrev = None
-                if self.ipmPrev is not None:
-                    iphPrev = self.ipmPrev.getPot(potIndex)
-                r = ImagePotRectangle(pot, image.shape, growM=growM)
-                self._pots[potIndex] = ImagePotHandler(potIndex, r, image,
-                        iphPrev=iphPrev)
+                if self._ipmPrev is not None:
+                    iphPrev = self._ipmPrev.getPot(potIndex)
+                r = ImagePotRectangle(pot, self._image.pixels.shape, \
+                        growM=growM)
+                self._pots[potIndex] = ImagePotHandler(potIndex, r,
+                        self._image.pixels, iphPrev=iphPrev)
                 potIndex -= 1
 
             else:
                 TypeError("Elements in pots must be ImagePotHandler, list" \
                         + " of 2 or 4 elments")
+
+    @property
+    def image(self):
+        return self._image
+
+    @image.setter
+    def image(self, val):
+        raise RuntimeError("ImagePotMatrix.image should only be set by __init__")
+
+    @property
+    def iphPrev(self):
+        return self._iphPrev
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
@@ -430,8 +450,8 @@ class ImagePotMatrix(object):
         if not isinstance(pot, ImagePotHandler):
             raise TypeError("Pot must be of type ImagePotHandler")
         iphPrev = None
-        if self.ipmPrev is not None:
-            iphPrev = self.ipmPrev.getPot(pot.id)
+        if self._ipmPrev is not None:
+            iphPrev = self._ipmPrev.getPot(pot.id)
         pot.iphPrev = iphPrev
         self._pots[pot.id] = pot
 
@@ -457,7 +477,7 @@ class ImagePotMatrix(object):
 
     def show(self):
         """ Show segmented image with the plot squares on top. """
-        sImage = self.image
+        sImage = self.image.pixels
         for key, pot in self._pots.iteritems():
             sImage = sImage & pot.maskedImage(inSuper=True)
 
