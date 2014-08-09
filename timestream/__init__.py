@@ -390,7 +390,9 @@ class TimeStream(object):
 
 
 class TimeStreamImage(object):
+    # Driven by _path. _path should be valid at end of all methods.!!
     def __init__(self, datetime=None):
+        """Class to represent an image in a TimeSeries."""
         self._datetime = None
         if datetime:
             self._datetime = datetime
@@ -417,31 +419,39 @@ class TimeStreamImage(object):
         return new
 
     def write(self, fpath=None, overwrite=False):
-        # Use pixels property so _pixels gets popuplated
+        if fpath is not None and not isinstance(fpath, str):
+            msg = "fpath must be string"
+            LOG.error(msg)
+            raise TypeError(msg)
+
+        #FIXME: check to see if path complies with self._timestream
+        if fpath is not None:
+            self.path = fpath # set _path and _pixels=None.
+        elif self._path is None:
+            msg = "There is no default path to write to"
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # Use pixels property so _pixels gets populated
         if self.pixels is None:
             msg = "Image pixels must be set to write"
             LOG.error(msg)
             raise RuntimeError(msg)
 
-        #FIXME: check to see if path complies with self._timestream
-        if fpath is None:
-            fpath = self._path
-
-        if path.exists(fpath) and not overwrite:
-            msg = "Image fpath {} exists and overwrite is {}".format(fpath,
+        if path.exists(self._path) and not overwrite:
+            msg = "Image path {} exists and overwrite is {}".format(self._path,
                     overwrite)
             LOG.error(msg)
             raise RuntimeError(msg)
 
         # from this point we are overwriting
-        if path.isfile(fpath):
-            os.remove(fpath)
+        if path.isfile(self._path):
+            os.remove(self._path)
 
-        if not path.exists(path.dirname(fpath)):
-            os.makedirs(path.dirname(fpath))
+        if not path.exists(path.dirname(self._path)):
+            os.makedirs(path.dirname(self._path))
 
-        self._path = fpath
-        cv2.imwrite(self._path, self.pixels[:, :, ::-1])
+        cv2.imwrite(self._path, self._pixels[:, :, ::-1])
 
     def read(self, fpath=None): # Added just to be consistent with write
         if fpath is None:
@@ -490,6 +500,14 @@ class TimeStreamImage(object):
             msg = "Parent timestream must be an instance of TimeStream."
             LOG.error(msg)
             raise TypeError(msg)
+
+        # Special case where we want to leave TimeStreamImage without a
+        # _timestream. When ts==None, we leave evertying (_*) untouched
+        if ts is not None:
+            # If _timestream changes, _path and _pixels change.
+            self._path = None
+            self._pixels = None
+
         self._timestream = ts
 
     @property
@@ -497,17 +515,21 @@ class TimeStreamImage(object):
         if self._datetime:
             return self._datetime
 
-        # Get _datetime from path (property).
+        if not self._path:
+            return None
         try:
-            self.datetime = ts_parse_date_path(self.path)
+            self._datetime = ts_parse_date_path(self._path)
         except ValueError:
-            self.datetime = get_exif_date(self.path)
+            self._datetime = get_exif_date(self._path)
 
         return self._datetime
 
     @datetime.setter
     def datetime(self, dte):
         self._datetime = ts_parse_date(dte)
+        self._pixels = None
+        self._path = None
+        self._path = self.path
 
     @datetime.deleter
     def datetime(self):
@@ -534,8 +556,8 @@ class TimeStreamImage(object):
                 LOG.error(msg)
                 raise RuntimeError(msg)
 
-            if not path.isfile(self.path):
-                msg = "No file exists at {}. ".format(self.path) + \
+            if not path.isfile(self._path):
+                msg = "No file exists at {}. ".format(self._path) + \
                       "``path`` of TimeStreamImage must point to existing file"
                 LOG.error(msg)
                 raise ValueError(msg)
@@ -543,7 +565,7 @@ class TimeStreamImage(object):
             try:
                 import skimage.io
                 try:
-                    self._pixels = skimage.io.imread(self.path,
+                    self._pixels = skimage.io.imread(self._path,
                                                      plugin="freeimage")
                 except (RuntimeError, ValueError) as exc:
                     LOG.error(str(exc))
@@ -551,7 +573,7 @@ class TimeStreamImage(object):
             except ImportError:
                 LOG.warn("Couln't load scikit image io module. " +
                          "Raw images will not be loaded correctly")
-                self._pixels = cv2.imread(self.path)[:, :, ::-1]
+                self._pixels = cv2.imread(self._path)[:, :, ::-1]
         return self._pixels
 
     @pixels.setter
@@ -565,8 +587,8 @@ class TimeStreamImage(object):
         # actually set it to a timestream default. To avoid inconsistency, make
         # sure that this default does not exist.
         self._path = None
-        if self.path is not None and path.exists(self.path):
-            msg = "Cannot set pixels on object bound to {}".format(self.path)
+        if self.path is not None and path.exists(self._path):
+            msg = "Cannot set pixels on object bound to {}".format(self._path)
             LOG.error(msg)
             raise RuntimeError(msg)
 
