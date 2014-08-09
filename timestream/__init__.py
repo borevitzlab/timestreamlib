@@ -390,15 +390,14 @@ class TimeStream(object):
 
 
 class TimeStreamImage(object):
-    _timestream = None
-    _path = None
-    _datetime = None
-    _pixels = None
-    data = {}
-
     def __init__(self, datetime=None):
         if datetime:
             self.datetime = datetime
+        self._timestream = None
+        self._path = None
+        self._datetime = None
+        self._pixels = None
+        self.data = {}
 
     def from_file(self, img_path):
         self.path = img_path
