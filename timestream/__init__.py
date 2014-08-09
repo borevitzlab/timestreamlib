@@ -390,9 +390,26 @@ class TimeStream(object):
 
 
 class TimeStreamImage(object):
-    # Driven by _path. _path should be valid at end of all methods.!!
     def __init__(self, datetime=None):
-        """Class to represent an image in a TimeSeries."""
+        """Class to represent an image in a TimeSeries.
+
+        Args:
+          datetime (datetime): The timestamp for this image
+
+        Attributes:
+          _datetime(datetime): The timestamp for this image
+          _timestream(TimeStream): The stream that this image is related to.
+          _path(str): This class is driven by _path. _path should be valid at
+            end of all methods.!!
+          _Pixels(ndarray): The actual image.
+          data(dict): related data.
+        """
+        #FIXME: datetime should always represent the module!!
+        if not datetime and not isinstance(datetime, dt):
+            msg = "datetime must be an instance of datetime"
+            LOG.error(msg)
+            raise TypeError(msg)
+
         self._datetime = None
         if datetime:
             self._datetime = datetime
