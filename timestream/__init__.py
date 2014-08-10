@@ -440,39 +440,42 @@ class TimeStreamImage(object):
         return new
 
     def write(self, fpath=None, overwrite=False):
+        # Don't let _pixels auto-reset in this method.
         if fpath is not None and not isinstance(fpath, str):
             msg = "fpath must be string"
             LOG.error(msg)
             raise TypeError(msg)
 
-        #FIXME: check to see if path complies with self._timestream
-        if fpath is not None:
-            self.path = fpath # set _path and _pixels=None.
-        elif self._path is None:
+        # We default to whatever we have in _path
+        if fpath is None and self._path is None:
             msg = "There is no default path to write to"
             LOG.error(msg)
             raise RuntimeError(msg)
+        if not fpath:
+            fpath = self._path
 
-        # Use pixels property so _pixels gets populated
-        if self.pixels is None:
+        # We assume that there is something in _pixels to write
+        if self._pixels is None:
             msg = "Image pixels must be set to write"
             LOG.error(msg)
             raise RuntimeError(msg)
 
-        if path.exists(self._path) and not overwrite:
-            msg = "Image path {} exists and overwrite is {}".format(self._path,
-                    overwrite)
+        if path.exists(fpath) and not overwrite:
+            msg = "Path {} exists and overwrite is {}".format(fpath,overwrite)
             LOG.error(msg)
             raise RuntimeError(msg)
 
         # from this point we are overwriting
-        if path.isfile(self._path):
-            os.remove(self._path)
+        if path.isfile(fpath):
+            os.remove(fpath)
 
-        if not path.exists(path.dirname(self._path)):
-            os.makedirs(path.dirname(self._path))
+        if not path.exists(path.dirname(fpath)):
+            os.makedirs(path.dirname(fpath))
 
-        cv2.imwrite(self._path, self._pixels[:, :, ::-1])
+        cv2.imwrite(fpath, self._pixels[:, :, ::-1])
+
+        # Once we have written its ok to set property
+        self.path = fpath
 
     def read(self, fpath=None): # Added just to be consistent with write
         if fpath is None:
