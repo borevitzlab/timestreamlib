@@ -375,6 +375,12 @@ class ImagePotHandler(object):
     def getCalcedFeatures(self):
         return self._features
 
+    def getFeature(self, fKey):
+        if not fKey in self._features.keys():
+            raise KeyError("%s is not a valid feature key"%fKey)
+
+        return self._features[fKey]
+
     def getMetaIdKeys(self):
         return self._mids.keys()
 
