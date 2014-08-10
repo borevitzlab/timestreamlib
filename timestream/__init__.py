@@ -640,3 +640,8 @@ class TimeStreamImage(object):
     @pixels.deleter
     def pixels(self):
         del self._pixels
+
+    def strip(self):
+        """Used to strip before pickling"""
+        self._pixels = None
+        self._ipm.strip()

@@ -379,7 +379,7 @@ class ImagePotHandler(object):
         return self._mids.keys()
 
     def getMetaId(self, mKey):
-        if mkey not in self._mids.keys():
+        if mKey not in self._mids.keys():
             raise IndexError("%s is not a meta key."%mKey)
         else:
             return self._mids[mKey]
@@ -389,6 +389,9 @@ class ImagePotHandler(object):
                     + "int, long, float, complex or string")
         else:
             self._mids[mKey] = mValue
+
+    def strip(self):
+        self._mask = None
 
 class ImagePotMatrix(object):
     def __init__(self, image, pots=[], growM=100, ipmPrev = None):
@@ -413,11 +416,12 @@ class ImagePotMatrix(object):
           _image(TimeStreamImage): Image where all the pots fit. Set only once.
           _ipmPrev(ImagePotMatrix): Previous ImagePotMatrix. Set only once.
         """
-        #FIXME: check for TimeStreamImage
-        #if not isinstance(image, TimeStreamImage):
-        #    raise TypeError("ImagePotMatrix.image must be a TimeStreamImage")
-        #else:
-        self._image = image
+        # import here to avoid circular imports
+        from timestream import TimeStreamImage
+        if not isinstance(image, TimeStreamImage):
+            raise TypeError("ImagePotMatrix.image must be a TimeStreamImage")
+        else:
+            self._image = image
 
         if ipmPrev == None:
             self._ipmPrev = None
@@ -519,3 +523,9 @@ class ImagePotMatrix(object):
 
         plt.title('Pot Rectangles')
         plt.show()
+
+    def strip(self):
+        self._ipmPrev = None
+        for key, pot in self._pots.iteritems():
+            pot.strip()
+
