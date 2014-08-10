@@ -428,7 +428,7 @@ class PotDetector ( PipeComponent ):
             trayID = 1
             for center in tray:
                 r = tm_pot.ImagePotRectangle(center, tsi.pixels.shape, growM=growM)
-                p = tm_pot.ImagePotHandler(potID, r, tsi.pixels)
+                p = tm_pot.ImagePotHandler(potID, r, tsi.ipm)
                 p.setMetaId("trayID", trayID)
                 tsi.ipm.addPot(p)
                 potID += 1

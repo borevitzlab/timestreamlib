@@ -73,6 +73,11 @@ class ImagePotRectangle(object):
         return self._rect
 
     @property
+    def imgSize(self):
+        """Be consistent with shape"""
+        return (self._imgheight, self._imgwidth)
+
+    @property
     def width(self):
         return abs(self._rect[2]-self._rect[0])
 
@@ -81,26 +86,29 @@ class ImagePotRectangle(object):
         return abs(self._rect[3]-self._rect[1])
 
 class ImagePotHandler(object):
-    def __init__(self, potID, rect, superImage, \
-            metaids=None, ps=None, iphPrev=None):
+    def __init__(self, potID, rect, ipm, \
+            metaids=None, ps=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
           potID (object): Should be unique between pots. Is given by the
             potMatrix. Is not changeable.
-          rect (ImagePotRectangle): [x,y,x`,y`]: (x,y) and (x`,y`)* are reciprocal corners
-          superImage (ndarray): Image in which the image pot is located
-          ps (PotSegmenter): It can be any child class from PotSegmenter. Its
-            instance that has a segment method.
-          iphPrev (ImagePotHandler): The previous ImagePotHandler for this pot
-            position.
+          rect (ImagePotRectangle): [x,y,x`,y`]: (x,y) and (x`,y`)* are
+            reciprocal corners
+          ipm (ImagePotMatrix): Its the ImagePotMatrix instance that this pot
+            belongs to
           metaids (dict): info that might be used by the pot image in
             other contexts (e.g {chamberID:#, universalID:#...}). We can only
             bind to a numeric or character value.
+          ps (PotSegmenter): It can be any child class from PotSegmenter. Its
+            instance that has a segment method.
           * y is vertical | x is horizontal.
 
         Attributes:
-          image: Return the cropped image (with rect) of superImage
+          iphPrev(ImagePotHandler): Is the ImagePotHandler of the previous
+            ImagePotMatrix with the same id as self.
+          image(ndarray): Return the cropped image (defined by rect) of
+            self._ipm.image.
           maskedImage: Return the segmented cropped image.
           features: Return the calculated features
 
@@ -109,15 +117,15 @@ class ImagePotHandler(object):
         """
         self._id = potID
 
-        # FIXME: This check for ndarray should be for TimestreamImage
-        if isinstance(superImage, np.ndarray):
-            self.si = superImage
-        else:
-            raise TypeError("superImate must be an ndarray")
+        if not isinstance(ipm, ImagePotMatrix):
+            raise TypeError("ipm must be instance of ImagePotMatrix")
+        self._ipm = ipm
 
         if not isinstance(rect, ImagePotRectangle):
             raise TypeError("rect must be an instance of ImagePotRectangle")
-
+        if rect.imgSize[0] != self._ipm.image.pixels.shape[0] \
+                or rect.imgSize[1] != self._ipm.image.pixels.shape[1]:
+            raise RuntimeError("rect size must be equal to superImage shape")
         self._rect = rect
 
         if ps == None:
@@ -127,22 +135,9 @@ class ImagePotHandler(object):
         else:
             raise TypeError("ps must be an instance of PotSegmenter")
 
-        if iphPrev == None:
-            self._iphPrev = None
-        elif isinstance(iphPrev, ImagePotHandler):
-            self._iphPrev = iphPrev
-            # avoid a run on memory
-            self._iphPrev.iphPrev = None
-
-            # Don't let previous pot run segmentation code
-            self._iphPrev.ps = None
-        else:
-            raise TypeError("iphPrev must be an instance of ImagePotHandler")
-
         self._fc = tm_ps.StatParamCalculator()
         self._features = {}
-        self._mask = np.zeros( [self._rect.height, self._rect.width], \
-                                dtype=np.dtype("float64")) - 1
+        self._mask = None
 
         if metaids is None:
             self._mids = {}
@@ -159,22 +154,25 @@ class ImagePotHandler(object):
                         + "int, long, float, complex or string")
 
     @property
-    def iphPrev(self):
-        return self._iphPrev
+    def mask(self):
+        if self._mask is not None:
+            return self._mask
 
-    @iphPrev.setter
-    def iphPrev(self, v):
-        if v == None:
-            self._iphPrev = None
-        elif isinstance(v, ImagePotHandler):
-            self._iphPrev = v
-            # avoid a run on memory
-            self._iphPrev.iphPrev = None
+        if self._ps == None:
+            return np.zeros([self._rect.height, self._rect.width], \
+                    np.dtype("float64"))
 
-            # Don't let previous pot run segmentation code
-            self._iphPrev.ps = None
-        else:
-            raise TypeError("iphPrev must be an instance of ImagePotHandler")
+        self._mask = self.getSegmented()
+        return (self._mask)
+
+    @mask.setter
+    def mask(self, m):
+        if m is not None:
+            raise ValueError("Can only reset mask to None")
+
+        # Resetting mask invalidates calculated features.
+        self._features = {}
+        self._mask = m
 
     @property
     def ps(self):
@@ -182,20 +180,37 @@ class ImagePotHandler(object):
 
     @ps.setter
     def ps(self, ps):
-        self._ps = ps
+        if not isinstance(ps, tm_ps.PotSegmenter):
+            raise TypeError("ps must be instance of PotSegmenter")
 
-    @ps.deleter
-    def ps(self):
-        self._ps = None
+        # When we modify ps we modify mask
+        self.mask = None
+        self._ps = ps
 
     @property
     def id(self):
         return self._id
 
-    @property # not settable nor delettable
-    def image(self):
-        return ( self.si[self._rect[1]:self._rect[3],
-                            self._rect[0]:self._rect[2], :] )
+    @property
+    def ipm(self):
+        return self._ipm
+
+    @ipm.setter
+    def ipm(self, val):
+        if not isinstance(val, ImagePotMatrix):
+            raise TypeError("ipm should be instance of ImagePotMatrix")
+
+        # Setting ipm effectively changes the image, mask features....
+        self.mask = None
+        self._ipm = val
+
+    @property
+    def iphPrev(self):
+        """We search for the previous hander in the previous matrix"""
+        if self._ipm.ipmPrev is None:
+            return None
+
+        return self._ipm.ipmPrev.getPot(self._id)
 
     def getSegmented(self):
         """Does not change internals of instance
@@ -205,13 +220,13 @@ class ImagePotHandler(object):
             of the instance.
         """
         # FIXME: here we loose track of the hints
-        msk, hint = self._ps.segment(self.image, {})
+        msk, hint = self._ps.segment(self._image, {})
 
         # if bad segmentation
-        if 1 not in msk and self._iphPrev is not None:
+        if 1 not in msk and self.iphPrev is not None:
             # We try previous mask. This is tricky because we need to fit the
             # previous mask size into msk
-            pm = self._iphPrev.mask
+            pm = self.iphPrev.mask
 
             vDiff = msk.shape[0] - pm.shape[0]
             if vDiff < 0: # reduce pm vertically
@@ -251,25 +266,6 @@ class ImagePotHandler(object):
 
         return msk
 
-    @property
-    def mask(self):
-        if -1 not in self._mask:
-            return self._mask
-
-        if self._ps == None:
-            return np.zeros(self._mask.shape, np.dtype("float64"))
-
-        self._mask = self.getSegmented()
-        return (self._mask)
-
-    @mask.setter
-    def mask(self, m):
-        if ( not isinstance(m, np.ndarray) \
-                or m.dtype != np.dtype("float64") \
-                or m.shape != self._mask.shape ):
-            raise ValueError("Invalid mask assigment")
-        self._mask = m
-
     @property # not deletable
     def rect(self):
         return (self._rect)
@@ -280,31 +276,42 @@ class ImagePotHandler(object):
             if len(r) != 4:
                 raise TypeError("Pass a list of len 4 to set a rectangle")
             else:
-                self._rect = ImagePotRectangle(r, self.si.shape)
+                self._rect = ImagePotRectangle(r, self._ipm.image.pixels.shape)
 
         elif isinstance(ImagePotRectangle):
-            # The write thing to do here is to create a new Imagepotrectangle so
+            # The right thing to do here is to create a new Imagepotrectangle so
             # we are sure we relate it to the correct image shape.
-            self._rect = ImagePotRectangle(r.asList(), self.si.shape)
+            self._rect = ImagePotRectangle(r.asList(),\
+                    self._ipm.image.pixels.shape)
 
         else:
             raise TypeError("To set rectangle must pass list or"
                     + "ImagePotRectangle")
 
+        # Changing rect modifies mask, features, image....
+        self.mask = None
 
-        self._mask = np.zeros( [self._rect.height, self._rect.width],
-                                dtype=np.dtype("float64")) - 1
-        #FIXME: Reset everything that depends on self._mask
+    @property
+    def superImage(self):
+        """We return the ndarray"""
+        #FIXME: check for _ipm
+        return self._ipm.image.pixels
+
+    @property # not settable nor delettable
+    def _image(self):
+        # No need to return copy. For internal use only
+        return ( self._ipm.image.pixels[self._rect[1]:self._rect[3],
+                                        self._rect[0]:self._rect[2], :] )
 
     def maskedImage(self, inSuper=False):
         """Returns segmented pixels on a black background
 
         inSuper: When True we return the segmentation in the totality of
-                 self.si. When False we return it in the rect.
+                 self._ipm.image. When False we return it in the rect.
         """
         # We use the property to trigger creation if needed.
         msk = self.mask
-        img = self.image
+        img = self._image
 
         height, width, dims = img.shape
         msk = np.reshape(msk, (height*width, 1), order="F")
@@ -318,7 +325,7 @@ class ImagePotHandler(object):
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
         if inSuper:
-            superI = self.si.copy()
+            superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3], \
                        self._rect[0]:self._rect[2], :] = retVal
             retVal = superI
@@ -343,11 +350,15 @@ class ImagePotHandler(object):
         if "all" in feats:
             feats = tm_ps.StatParamCalculator.statParamMethods()
 
+        # Use property to trigger creation
+        msk = self.mask
+        if msk is None:
+            raise RuntimeError("Cannot calculate feature of None")
         for featName in feats:
             # calc not-indexed feats
             if not featName in self._features.keys():
                 featFunc = getattr(self._fc, featName)
-                self._features[featName] = featFunc(self._mask)
+                self._features[featName] = featFunc(msk)
 
     def getCalcedFeatures(self):
         return self._features
@@ -415,17 +426,13 @@ class ImagePotMatrix(object):
                 self._pots[p.id] = p
 
             elif isinstance(p, list) and (len(p)==2 or len(p)==4):
-                iphPrev = None
-                if self._ipmPrev is not None:
-                    iphPrev = self._ipmPrev.getPot(potIndex)
                 r = ImagePotRectangle(pot, self._image.pixels.shape, \
                         growM=growM)
-                self._pots[potIndex] = ImagePotHandler(potIndex, r,
-                        self._image.pixels, iphPrev=iphPrev)
+                self._pots[potIndex] = ImagePotHandler(potIndex, r, self)
                 potIndex -= 1
 
             else:
-                TypeError("Elements in pots must be ImagePotHandler, list" \
+                TypeError("Elements in pots must be ImagePotHandler or list" \
                         + " of 2 or 4 elments")
 
     @property
@@ -440,6 +447,12 @@ class ImagePotMatrix(object):
     def ipmPrev(self):
         return self._ipmPrev
 
+    @ipmPrev.setter
+    def ipmPrev(self, val):
+        if not isinstance(val, ImagePotMatrix) and val is not None:
+            raise TypeError("ipmPrev must be ImagePotMatrix or None")
+        self._ipmPrev = val
+
     def getPot(self, potId):
         if potId not in self._pots.keys():
             raise IndexError("No pot id %d found"%potNum)
@@ -449,10 +462,11 @@ class ImagePotMatrix(object):
     def addPot(self, pot):
         if not isinstance(pot, ImagePotHandler):
             raise TypeError("Pot must be of type ImagePotHandler")
-        iphPrev = None
-        if self._ipmPrev is not None:
-            iphPrev = self._ipmPrev.getPot(pot.id)
-        pot.iphPrev = iphPrev
+
+        # We need to make sure that pot._ipm == self
+        if pot.ipm != self:
+            # no need to triger the ipm property unnecessarily
+            pot.ipm = self
         self._pots[pot.id] = pot
 
     @property
