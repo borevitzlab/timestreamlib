@@ -105,11 +105,18 @@ class ImagePotHandler(object):
           * y is vertical | x is horizontal.
 
         Attributes:
+          _id: Set on instantiation. Unique in ImagePotMatrix.
+          _ipm(ImagePotMatrix): The containing ImagePotMatrix.
+          _rect,rect(ImagePotRectangle): Rectangle describing this pot.
+          _ps(PotSegmenter): The component that does the image segmentation.
+          _fc(StatParamCalculator): The component that calculates features from
+            segmented images.
           iphPrev(ImagePotHandler): Is the ImagePotHandler of the previous
             ImagePotMatrix with the same id as self.
           image(ndarray): Return the cropped image (defined by rect) of
             self._ipm.image.
           maskedImage: Return the segmented cropped image.
+          mask,_mask(ndarray): binary image represenging the mask.
           features: Return the calculated features
 
         Raises:
@@ -200,6 +207,11 @@ class ImagePotHandler(object):
         if not isinstance(val, ImagePotMatrix):
             raise TypeError("ipm should be instance of ImagePotMatrix")
 
+        # Raise error if there is an id conflict in the new ImagePotMatrix
+        if self.id in val.potIds() and self.id is not val.getPot(self.id):
+            raise RuntimeError("Pot with Id %s different from %s exists"\
+                    %(self.id, self))
+
         # Setting ipm effectively changes the image, mask features....
         self.mask = None
         self._ipm = val
@@ -268,7 +280,7 @@ class ImagePotHandler(object):
 
     @property # not deletable
     def rect(self):
-        return (self._rect)
+        return self._rect
 
     @rect.setter
     def rect(self, r):
