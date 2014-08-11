@@ -340,7 +340,7 @@ class Window(QtGui.QDialog):
 
     def loadCamCalib(self):
         ''' load camera calibration image and show an image'''
-        calibPath = os.path.join(self.scriptPath, '../tests/data/timestreams/settings/')
+        calibPath = os.path.join(self.scriptPath, './data')
         CalibFile = QtGui.QFileDialog.getOpenFileName(self, 'Open image', calibPath)
         self.ImageSize, SquareSize, self.CameraMatrix, self.DistCoefs, RVecs, TVecs = cd.readCalibration(CalibFile)
         self.status.append('Loaded camera parameters from ' + CalibFile)
@@ -407,19 +407,21 @@ class Window(QtGui.QDialog):
             cv2.imwrite(os.path.join(self.timestreamRootPath, self.settingPath, colorCardFile), capturedColorcards[0][:,:,::-1].astype(np.uint8))
             colorcardColors, colorStd  = cd.getColorcardColors(capturedColorcards[0], GridSize = [6,4])
             colorcardPosition, Width, Height, Angle = cd.getRectangleParamters(self.colorcardList[0])
-            colorcardDic = {'minIntensity': 15,\
-                            'colorcardFile': colorCardFile,\
+            colorcardDic = {'colorcardFile': colorCardFile,\
                             'colorcardPosition': colorcardPosition.tolist(),\
                             'colorcardTrueColors': cd.CameraTrax_24ColorCard
                             }
         else:
             colorcardDic = {}
         self.settings['colorcarddetect'] = colorcardDic
+        
+        self.settings['colorcorrect'] = {'minIntensity': 15}
 
         if len(self.trayList) > 0:
             trayMedianSize = cd.getMedianRectSize(self.trayList)
             trayImages = cd.rectifyRectImages(self.image, self.trayList, trayMedianSize)
             trayDict = {}
+            trayDict['settingPath'] = '_data'
             trayDict['trayNumber'] = len(self.trayList)
             trayDict['trayFiles'] = 'Tray_%02d.png'
             trayPositions = []
@@ -446,7 +448,7 @@ class Window(QtGui.QDialog):
             potDict['traySize'] = [int(trayMedianSize[0]), int(trayMedianSize[1])]
             potDict['potFile'] = potFile
             potDict['potTemplateFile'] = 'PotTemplate.png'
-            potTemplatePathIn = os.path.join(self.scriptPath, '../tests/data/timestreams/settings/PotTemplate.png')
+            potTemplatePathIn = os.path.join(self.scriptPath, './data/PotTemplate.png')
             potTemplatePathOut = os.path.join(self.timestreamRootPath, self.settingPath, potDict['potTemplateFile'])
             shutil.copyfile(potTemplatePathIn, potTemplatePathOut)
             if self.potTemplate != None:
@@ -457,6 +459,10 @@ class Window(QtGui.QDialog):
             potDict = {}
         self.settings['potdetect'] = potDict
 
+        self.settings['plantextract'] = {'method': 'method1',
+                                         'methargs': {'threshold' : 0.6, 
+                                         'kSize' : 5, 'blobMinSize' : 50} }
+    
         with open(self.settingFileName, 'w') as outfile:
             outfile.write( yaml.dump(self.settings, default_flow_style=None) )
             self.status.append('Saved initial data to ' + self.settingFileName)
@@ -552,10 +558,12 @@ class Window(QtGui.QDialog):
                 AspectRatio = self.potAspectRatio
 
             if len(self.leftClicks) == 2 and AspectRatio != None:
-                if self.potRadioButton.isChecked() or self.trayRoundCheckBox.isChecked():
-                    Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio, Rounded = True)
-                else:
+                if self.colorcardRadioButton.isChecked():
                     Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio)
+                if self.trayRadioButton.isChecked():
+                    Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio, Rounded = self.trayRoundCheckBox.isChecked())
+                elif self.potRadioButton.isChecked():
+                    Rect = cd.getRectCornersFrom2Points(self.image, self.leftClicks, AspectRatio, Rounded = True)
                 self.leftClicks = []
             elif len(self.leftClicks) == 4:
                 Rect = [[x,y] for x,y in self.leftClicks]
