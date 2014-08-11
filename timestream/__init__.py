@@ -492,10 +492,33 @@ class TimeStreamImage(object):
         # Once we have written its ok to set property
         self.path = fpath
 
-    def read(self, fpath=None): # Added just to be consistent with write
+    def read(self, fpath=None):
+        """This will refresh pixels
+
+        It differers from pixels in that it always replaces _pixels.
+        """
         if fpath is None:
-            # Do the actual read in pixels.
-            self.path = fpath
+            fpath = self._path
+
+        if not path.isfile(fpath):
+            msg = "No file exists at {}. ".format(fpath) + \
+                  "``path`` of TimeStreamImage must point to existing file"
+            LOG.error(msg)
+            raise ValueError(msg)
+
+        try:
+            import skimage.io
+            try:
+                self._pixels = skimage.io.imread(fpath, plugin="freeimage")
+            except (RuntimeError, ValueError) as exc:
+                LOG.error(str(exc))
+                self._pixels = None
+        except ImportError:
+            LOG.warn("Couln't load scikit image io module. " +
+                     "Raw images will not be loaded correctly")
+            self._pixels = cv2.imread(fpath)[:, :, ::-1]
+
+        self.path = fpath
 
     @property
     def path(self):
@@ -525,8 +548,7 @@ class TimeStreamImage(object):
             LOG.error(msg)
             raise TypeError(msg)
 
-        # _pixels is invalid when changeing _path
-        self._pixels = None
+        #FIXME: breaks relation with _datetime and _timestream
         self._path = img_path
 
     @property
@@ -562,9 +584,8 @@ class TimeStreamImage(object):
         # Special case where we want to leave TimeStreamImage without a
         # _timestream. When ts==None, we leave evertying (_*) untouched
         if ts is not None:
-            # If _timestream changes, _path and _pixels change.
+            # If _timestream changes, _path changes.
             self._path = None
-            self._pixels = None
 
         self._timestream = ts
 
@@ -585,9 +606,7 @@ class TimeStreamImage(object):
     @datetime.setter
     def datetime(self, dte):
         self._datetime = ts_parse_date(dte)
-        self._pixels = None
         self._path = None
-        self._path = self.path
 
     @datetime.deleter
     def datetime(self):
@@ -614,24 +633,7 @@ class TimeStreamImage(object):
                 LOG.error(msg)
                 raise RuntimeError(msg)
 
-            if not path.isfile(self._path):
-                msg = "No file exists at {}. ".format(self._path) + \
-                      "``path`` of TimeStreamImage must point to existing file"
-                LOG.error(msg)
-                raise ValueError(msg)
-
-            try:
-                import skimage.io
-                try:
-                    self._pixels = skimage.io.imread(self._path,
-                                                     plugin="freeimage")
-                except (RuntimeError, ValueError) as exc:
-                    LOG.error(str(exc))
-                    self._pixels = None
-            except ImportError:
-                LOG.warn("Couln't load scikit image io module. " +
-                         "Raw images will not be loaded correctly")
-                self._pixels = cv2.imread(self._path)[:, :, ::-1]
+            self.read(self._path)
         return self._pixels
 
     @pixels.setter
@@ -640,15 +642,6 @@ class TimeStreamImage(object):
             msg = "Cant set TimeStreamImage.pixels to something not an ndarray"
             LOG.error(msg)
             raise TypeError(msg)
-
-        # Setting _pixels will make _path invalid. Setting it to None might
-        # actually set it to a timestream default. To avoid inconsistency, make
-        # sure that this default does not exist.
-        self._path = None
-        if self.path is not None and path.exists(self._path):
-            msg = "Cannot set pixels on object bound to {}".format(self._path)
-            LOG.error(msg)
-            raise RuntimeError(msg)
 
         self._pixels = value
 
