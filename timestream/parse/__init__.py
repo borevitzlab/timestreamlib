@@ -152,7 +152,7 @@ def ts_guess_manifest_v1(ts_path):
     intervals = list()
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
-        intervals.append(interval.seconds / 60)
+        intervals.append(interval.seconds)
     retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
@@ -288,7 +288,7 @@ def ts_iter_times(ts_path):
     manifest = ts_get_manifest(ts_path)
     start = manifest["start_datetime"]
     end = manifest["end_datetime"]
-    interval = manifest['interval'] * 60
+    interval = manifest['interval']
     for time in iter_date_range(start, end, interval):
         yield time
 

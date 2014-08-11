@@ -359,7 +359,7 @@ class TimeStream(object):
         if not end or end < self.end_datetime:
             end = self.end_datetime
         if not interval:
-            interval = self.interval * 60
+            interval = self.interval
         # iterate thru times
         for time in iter_date_range(start, end, interval):
             # Format the path below the ts root

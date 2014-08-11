@@ -72,7 +72,7 @@ TS_DICT_PARSED = {
     "version": 1,
     "image_type": "jpg",
     "extension": "JPG",
-    "interval": 30,
+    "interval": 30 * 60,  # In seconds now
     "missing": [],
 }
 
@@ -83,7 +83,7 @@ TS_DICT = {
     "version": 1,
     "image_type": "jpg",
     "extension": "JPG",
-    "interval": 30,
+    "interval": 30 * 60,  # In seconds now
     "missing": [],
 }
 
