@@ -693,18 +693,18 @@ class ResultingImageWriter ( PipeComponent ):
     def __call__(self, context, *args):
         print (self.mess)
         #FIXME: Can we just use args[0] here?
-        img = timestream.TimeStreamImage()
-        img.datetime = context.origImg.datetime
-        img.pixels = args[0].pixels
+        img = args[0]
+        ts_out = context.getVal("outts."+self.outstream)
+        img.parent_timestream = ts_out
         img.data["processed"] = "yes"
         for key, value in context.outputwithimage.iteritems():
             img.data[key] = value
 
-        ts_out = context.getVal("outts."+self.outstream)
         ts_out.write_image(img)
         ts_out.write_metadata()
+        img.parent_timestream = None # reset to move forward
 
-        return (args)
+        return [img]
 
 class PopulatePotMetaIds ( PipeComponent ):
     actName = "populatepotmetaids"
