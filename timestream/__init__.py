@@ -348,7 +348,8 @@ class TimeStream(object):
             yield img
 
     def iter_by_timepoints(self, remove_gaps=True, start=None, end=None,
-                           interval=None):
+                           interval=None,
+                           ignored_timestamps=[]):
         """
         Iterate over a TimeStream in chronological order, yielding a
         TimeStreamImage instance for each timepoint. If ``remove_gaps`` is
@@ -362,6 +363,10 @@ class TimeStream(object):
             interval = self.interval
         # iterate thru times
         for time in iter_date_range(start, end, interval):
+            # skip images in ignored_timestamps
+            if ts_format_date(time) in ignored_timestamps:
+                continue
+            
             # Format the path below the ts root
             relpath = _ts_date_to_path(self.name, self.extension, time, 0)
             # Join to make "absolute" path, i.e. path including ts_path

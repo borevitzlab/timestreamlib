@@ -114,6 +114,7 @@ ctx.setVal("ints",ts)
 
 
 #create new timestream for output data
+existing_timestamps = []
 for k, outstream in plConf.outstreams.asDict().iteritems():
     ts_out = timestream.TimeStream()
     ts_out.data["settings"] = plConf.asDict()
@@ -123,14 +124,27 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
 
     # timeseries output input path plus a suffix
     tsoutpath = os.path.abspath(outputRootPath) + '-' + outstream["name"]
+    print(tsoutpath)
     if "outpath" in outstream.keys():
         tsoutpath = outstream["outpath"]
-    if not os.path.exists(os.path.dirname(tsoutpath)):
-        os.mkdir(os.path.dirname(tsoutpath))
-    ts_out.create(tsoutpath)
+    if not os.path.exists(tsoutpath) or len(os.listdir(os.path.join(tsoutpath, '_data'))) == 0:
+        ts_out.create(tsoutpath)
+        existing_timestamps.append([])
+    else:
+        ts_out.load(tsoutpath)
+        existing_timestamps.append(ts_out.image_data.keys())
     ctx.setVal("outts."+outstream["name"], ts_out)
     #context[outstream["name"]] = ts_out
 
+# get ignored list as intersection of all time stamp lists
+for i,timestamps in enumerate(existing_timestamps):
+    if i == 0:
+        ts_set = set(timestamps)
+    else:
+        ts_set = ts_set & set(timestamps)
+ignored_timestamps = list(ts_set)
+print('ignored_timestamps = ', ignored_timestamps)
+    
 # We put everything else that is not an time series into outputroot.
 ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
 #context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
@@ -188,7 +202,8 @@ else:
     endHourRange = datetime.time(23,59,59)
 
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
-                                    end=endDate, interval=timeInterval ):
+                                    end=endDate, interval=timeInterval, \
+                                    ignored_timestamps = ignored_timestamps):
 
     if img is None or img.pixels is None:
         print('Missing Image')
