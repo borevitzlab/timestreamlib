@@ -59,7 +59,7 @@ class PipeComponent ( object ):
                     # if optional set the default
                     setattr(self,attrKey, attrVal[2])
                 else:
-                    raise PCExBadRunExpects(self.__class__)
+                    raise PCExBadRunExpects(self.__class__, attrKey)
 
     def __call__(self, context, *args):
         """ Is executed every time a component needs to do something.
@@ -106,12 +106,14 @@ class PCException(Exception):
     def __str__(self):
         return ("PipeComp_Error: %s" % self.message)
 class PCExBadRunExpects(PCException):
-    def __init__(self, cls):
+    def __init__(self, cls, attrKey = None):
         self.message = "The call to %s should consider \n%s" % \
                 (cls.actName, cls.info())
+        if attrKey != None:
+            self.message = self.message + " Error: missing entry for '%s'" %attrKey
 class PCExBrakeInPipeline(PCException):
     def __init__(self, name, msg):
-        self.message = "Urecoverable error at %s: %s" % (name, msg)
+        self.message = "Unrecoverable error at %s: %s" % (name, msg)
 
 class ImageUndistorter ( PipeComponent ):
     actName = "undistort"
