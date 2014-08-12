@@ -81,28 +81,24 @@ def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
 
 
 class TimeStream(object):
-    """A TimeStream, including metadata and parsers"""
-    _path = None
-    _version = None
-    _name = None
-    version = None
-    start_datetime = None
-    end_datetime = None
-    image_type = None
-    extension = None
-    interval = None
-    image_data = {}
-    data = {}
-    image_db_path = None
-    db_path = None
-    data_dir = None
-
     def __init__(self, version=None):
+        """A TimeStream, including metadata and parsers"""
         # Store version
-        if version is None:
-            return
-        else:
-            self.version = version
+        self._version = None
+        if version:
+            self._version = version
+        self._path = None
+        self._name = None
+        self.start_datetime = None
+        self.end_datetime = None
+        self.image_type = None
+        self.extension = None
+        self.interval = None
+        self.image_data = {}
+        self.data = {}
+        self.image_db_path = None
+        self.db_path = None
+        self.data_dir = None
 
     def __str__(self):
         ret = "TimeStream "
