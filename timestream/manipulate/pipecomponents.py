@@ -704,9 +704,6 @@ class ResultingImageWriter ( PipeComponent ):
         ts_out.write_metadata()
         img.parent_timestream = None # reset to move forward
 
-        timestream.TimeStream.pickledump(ts_out, \
-            os.path.join(ts_out.data_dir, "tsobject"), overwrite=True)
-
         return [img]
 
 class PopulatePotMetaIds ( PipeComponent ):

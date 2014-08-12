@@ -97,7 +97,6 @@ class TimeStream(object):
         self.interval = None
         self.image_data = {}
         self.data = {}
-        self.images = {}
         self.image_db_path = None
         self.db_path = None
         self.data_dir = None
@@ -289,14 +288,50 @@ class TimeStream(object):
                 self.start_datetime = image.datetime
             self.image_data[ts_format_date(image.datetime)] = image.data
             self.write_metadata()
-            # Actually write image
+            #FIXME: pass the overwrite_mode
             image.write(fpath=fpath, overwrite=True)
+            self.write_pickled_image(image, overwrite=True)
 
-            # To track image we "strip" all unnecessary data structures
-            image.strip()
-            self.images[ts_format_date(image.datetime)] = image
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
+
+    def write_pickled_image(self, image, overwrite=False):
+        if not isinstance(image, TimeStreamImage):
+            msg = "image must be instance of TimeStreamImage"
+            LOG.error(msg)
+            raise TypeError(msg)
+
+        pPath = path.join(self.data_dir, \
+                _ts_date_to_path(self.name, "p",image.datetime,0))
+
+        if path.isfile(pPath) and not overwrite:
+            msg = "File {} exists and overwrite is {}".format(pPath, overwrite)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # lose all the unnecessaries
+        image.strip()
+
+        if not path.exists(path.dirname(pPath)):
+            os.makedirs(path.dirname(pPath))
+
+        f = file(pPath, "w")
+        cPickle.dump(image, f)
+        f.close()
+
+    def load_pickled_image(self, datetime):
+        retImg = None
+        pPath = path.join(self.data_dir, \
+                _ts_date_to_path(self.name, "p", datetime, 0))
+        if path.isfile(pPath):
+            f = file(pPath, "r")
+            retImg = cPickle.load(f)
+            f.close()
+
+            if not isinstance(retImg, TimeStreamImage):
+                retImg = None
+
+        return retImg
 
     def write_metadata(self):
         if not self.path:
@@ -409,63 +444,19 @@ class TimeStream(object):
                 img.pixels = np.array([])
                 yield img
             else:
-                dInd = ts_format_date(time)
-                if dInd in self.images.keys():
-                    img = self.images[dInd]
-                    img.path = img_path
-                else:
+                img = self.load_pickled_image(time)
+                if img is None:
                     img = TimeStreamImage(datetime=time)
-                    img.parent_timestream = self
-
+                img.parent_timestream = self
                 img.path = img_path
+
                 try:
-                    img.data = self.image_data[dInd]
+                    img_date = ts_format_date(img.datetime)
+                    img.data = self.image_data[img_date]
                 except KeyError:
                     img.data = {}
                 yield img
 
-    def strip(self):
-        for key, img in self.images.iteritems():
-            img.strip()
-
-    @classmethod
-    def pickledump(cls, ts, filepath, overwrite=False):
-        if not isinstance(ts, TimeStream):
-            msg = "Object must be instance of TimeStream"
-            LOG.error(msg)
-            raise TypeError(msg)
-        if not isinstance(filepath, str):
-            msg = "Filepath should be a string"
-            LOG.error(msg)
-            raise TypeError(msg)
-        if path.exists(filepath) and not overwrite:
-            msg = "File {} exists and we should not overwrite".format(filepath)
-            LOG.error(msg)
-            raise RuntimeError(msg)
-
-        # make sure we strip away everythin that is unneeded.
-        ts.strip()
-
-        f = file(filepath, "w")
-        cPickle.dump(ts, f)
-        f.close()
-
-    @classmethod
-    def pickleload(cls, filepath):
-        if not isinstance(filepath, str):
-            msg = "Filepath should be a string"
-            LOG.error(msg)
-            raise TypeError(msg)
-        if not path.exists(filepath):
-            msg = "File {} not found".format(filepath)
-            LOG.error(msg)
-            raise RuntimeError(msg)
-
-        f = file(filepath, "w")
-        ts = cPickle.load(f)
-        f.close()
-
-        return ts
 
 class TimeStreamImage(object):
     def __init__(self, datetime=None):
@@ -716,3 +707,45 @@ class TimeStreamImage(object):
         self._pixels = None
         if self._ipm:
             self._ipm.strip()
+
+    @classmethod
+    def pickledump(cls, tsi, filepath, overwrite=False):
+        if not isinstance(tsi, TimeStreamImage):
+            msg = "Object must be instance of TimeStreamImage"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not isinstance(filepath, str):
+            msg = "Filepath should be a string"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if path.exists(filepath) and not overwrite:
+            msg = "File {} exists and we should not overwrite".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # make sure we strip away everythin that is unneeded.
+        tsi.strip()
+
+        f = file(filepath, "w")
+        cPickle.dump(tsi, f)
+        f.close()
+
+    @classmethod
+    def pickleload(cls, filepath):
+        if not isinstance(filepath, str):
+            msg = "Filepath should be a string"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not path.exists(filepath):
+            msg = "File {} not found".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        f = file(filepath, "w")
+        tsi = cPickle.load(f)
+        f.close()
+
+        if not isinstance(tsi, TimeStreamImage):
+            msg = "Object must be instance of TimeStreamImage"
+            LOG.error(msg)
+        return tsi
