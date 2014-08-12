@@ -96,6 +96,7 @@ class TimeStream(object):
         self.interval = None
         self.image_data = {}
         self.data = {}
+        self.images = {}
         self.image_db_path = None
         self.db_path = None
         self.data_dir = None
@@ -289,6 +290,10 @@ class TimeStream(object):
             self.write_metadata()
             # Actually write image
             image.write(fpath=fpath, overwrite=True)
+
+            # To track image we "strip" all unnecessary data structures
+            image.strip()
+            self.images[ts_format_date(image.datetime)] = image
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
 
@@ -403,12 +408,17 @@ class TimeStream(object):
                 img.pixels = np.array([])
                 yield img
             else:
-                img = TimeStreamImage(datetime=time)
-                img.parent_timestream = self
+                dInd = ts_format_date(time)
+                if dInd in self.images.keys():
+                    img = self.images[dInd]
+                    img.path = img_path
+                else:
+                    img = TimeStreamImage(datetime=time)
+                    img.parent_timestream = self
+
                 img.path = img_path
-                img_date = ts_format_date(img.datetime)
                 try:
-                    img.data = self.image_data[img_date]
+                    img.data = self.image_data[dInd]
                 except KeyError:
                     img.data = {}
                 yield img
@@ -661,4 +671,5 @@ class TimeStreamImage(object):
     def strip(self):
         """Used to strip before pickling"""
         self._pixels = None
-        self._ipm.strip()
+        if self._ipm:
+            self._ipm.strip()
