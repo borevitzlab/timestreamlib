@@ -483,7 +483,7 @@ class TimeStreamImage(object):
 
         self._datetime = None
         if datetime:
-            self._datetime = datetime
+            self._datetime = ts_parse_date(datetime)
         self._timestream = None
         self._path = None
         self._pixels = None

@@ -164,58 +164,45 @@ class TestTimeStreamImageInit(TestCase):
             TimeStreamImage("2013_20")
 
 
-class TestTimeStreamImageFromFile(TestCase):
-    """Test TimeStreamImage().from_file()"""
+class TestTimeStreamImagePathAssing(TestCase):
+    """Test TimeStreamImage() path assignment"""
 
-    def test_ts_image_from_file(self):
-        """Test TimeStreamImage.from_file() with valid parameters"""
+    def test_ts_image_path_assign(self):
+        """Test TimeStreamImage. path assignment with valid parameters"""
         img = TimeStreamImage()
-        img.from_file(helpers.TS_FILES_JPG[0])
+        img.path = helpers.TS_FILES_JPG[0]
         self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
 
-    def test_ts_image_from_file_truncated(self):
-        """Test TimeStreamImage.from_file() with valid parameters"""
+    def test_ts_image_path_assign_truncated(self):
+        """Test TimeStreamImage path assignment with valid parameters"""
         img = TimeStreamImage()
-        img.from_file(helpers.FILES["zeros_jpg"])
+        img.path = helpers.FILES["zeros_jpg"]
         self.assertEqual(img.path, helpers.FILES["zeros_jpg"])
         self.assertEqual(img.datetime, helpers.ZEROS_DATETIME)
         np.testing.assert_array_equal(img.pixels, helpers.ZEROS_PIXELS)
 
-    def test_ts_image_from_file_parent(self):
-        """Test TimeStreamImage.from_file() with valid parameters & parent"""
+    def test_ts_image_path_assign_parent(self):
+        """Test TimeStreamImage path assignment with valid parameters & parent"""
         ts = TimeStream()
         ts.load(helpers.FILES["timestream"])
         img = TimeStreamImage()
         img.parent_timestream = ts
-        img.from_file(helpers.TS_FILES_JPG[0])
+        img.path = helpers.TS_FILES_JPG[0]
         self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
         self.assertEqual(img.datetime, helpers.TS_DATES_PARSED[0])
 
-    def test_image_from_file_bad_params(self):
-        """Test TimeStreamImage.from_file() with invalid parameters"""
-        ts = TimeStream()
-        ts.load(helpers.FILES["timestream"])
-        img = TimeStreamImage()
-        with self.assertRaises(TypeError):
-            img.from_file(123)
-        with self.assertRaises(ValueError):
-            img.from_file("")
-
 class TestTimeStreamImageClone(TestCase):
-    """Test TimeStreamImage().from_file()"""
+    """Test TimeStreamImage().clone()"""
 
     def test_ts_image_clone(self):
         """Test TimeStreamImage.clone()"""
         img = TimeStreamImage()
-        img.from_file(helpers.FILES["zeros_jpg"])
+        img.path = helpers.FILES["zeros_jpg"]
         cpy = img.clone()
         self.assertIsNot(cpy, img)
         self.assertIsNot(cpy.datetime, img.datetime)
-        self.assertEqual(cpy.datetime, img.datetime)
         self.assertIsNot(cpy.data, img.data)
         self.assertEqual(cpy.data, img.data)
-        # int constants ARE each other, so not assertIsNot for subsec
-        self.assertEqual(cpy.subsec, img.subsec)
         self.assertIs(cpy._pixels, None)
         self.assertIs(cpy._timestream, None)
         self.assertIs(cpy._path, None)
@@ -225,15 +212,13 @@ class TestTimeStreamImageClone(TestCase):
         ts = TimeStream()
         img = TimeStreamImage()
         img.parent_timestream = ts
-        img.from_file(helpers.FILES["zeros_jpg"])
+        img.path = helpers.FILES["zeros_jpg"]
         cpy = img.clone(True, True, True)
         self.assertIsNot(cpy, img)
         self.assertIsNot(cpy.datetime, img.datetime)
         self.assertEqual(cpy.datetime, img.datetime)
         self.assertIsNot(cpy.data, img.data)
         self.assertEqual(cpy.data, img.data)
-        # int constants ARE each other, so not assertIsNot for subsec
-        self.assertEqual(cpy.subsec, img.subsec)
         self.assertIsNot(cpy.pixels, img.pixels)
         np.testing.assert_array_equal(cpy.pixels, img.pixels)
         # TS should be copied as a refernce, hence *Is*, not Is Not
