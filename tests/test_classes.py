@@ -44,6 +44,19 @@ from timestream.parse.validate import (
     TS_MANIFEST_KEYS,
 )
 
+class TestTimeStreamStr(TestCase):
+    """Test str(instance) of TimeStream classes."""
+
+    def _check_ts_instance_ts_v1(self, ts_path):
+        """Check members of a TimeStream class instance"""
+
+    def test_timestream_str(self):
+        """Test TimeStream str(instance) with good timestream"""
+        inst = TimeStream()
+        inst.load(helpers.FILES["timestream"])
+        self.assertEqual(str(inst), helpers.TS_STR)
+
+
 class TestTimeStreamLoad(TestCase):
     """Test loading of TimeStream classes. Tests read_metadata as well."""
 

@@ -104,6 +104,16 @@ class TimeStream(object):
         else:
             self.version = version
 
+    def __str__(self):
+        ret = "TimeStream "
+        if self._name:
+            ret += "called {}\n".format(self._name)
+        if self._path:
+            ret += "\tpath: {}\n".format(self._path)
+        for key in TS_MANIFEST_KEYS:
+            ret += "\t{}: {}\n".format(key, getattr(self, key))
+        return ret
+
     @property
     def version(self):
         return self._version

@@ -87,6 +87,17 @@ TS_DICT = {
     "missing": [],
 }
 
+TS_STR = """TimeStream called good-timestream
+	path: {}
+	name: good-timestream
+	version: 1
+	start_datetime: 2013-10-30 03:00:00
+	end_datetime: 2013-10-30 06:00:00
+	image_type: jpg
+	extension: JPG
+	interval: 1800
+""".format(FILES["timestream"])
+
 TS_FILES_JPG = [
     path.join(TESTS_DIR, "data", x) for x in TS_FILES_JPG
 ]
