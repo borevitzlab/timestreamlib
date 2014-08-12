@@ -109,8 +109,8 @@ class ImagePotHandler(object):
           _ipm(ImagePotMatrix): The containing ImagePotMatrix.
           _rect,rect(ImagePotRectangle): Rectangle describing this pot.
           _ps(PotSegmenter): The component that does the image segmentation.
-          _fc(StatParamCalculator): The component that calculates features from
-            segmented images.
+          fc(StatParamCalculator): The component that calculates features from
+            segmented images. We create a new instance for every fc call.
           iphPrev(ImagePotHandler): Is the ImagePotHandler of the previous
             ImagePotMatrix with the same id as self.
           image(ndarray): Return the cropped image (defined by rect) of
@@ -142,7 +142,6 @@ class ImagePotHandler(object):
         else:
             raise TypeError("ps must be an instance of PotSegmenter")
 
-        self._fc = tm_ps.StatParamCalculator()
         self._features = {}
         self._mask = None
 
@@ -315,6 +314,10 @@ class ImagePotHandler(object):
         return ( self._ipm.image.pixels[self._rect[1]:self._rect[3],
                                         self._rect[0]:self._rect[2], :] )
 
+    @property
+    def fc(self):
+        return tm_ps.StatParamCalculator()
+
     def maskedImage(self, inSuper=False):
         """Returns segmented pixels on a black background
 
@@ -366,10 +369,11 @@ class ImagePotHandler(object):
         msk = self.mask
         if msk is None:
             raise RuntimeError("Cannot calculate feature of None")
+        fc = self.fc
         for featName in feats:
             # calc not-indexed feats
             if not featName in self._features.keys():
-                featFunc = getattr(self._fc, featName)
+                featFunc = getattr(fc, featName)
                 self._features[featName] = featFunc(msk)
 
     def getCalcedFeatures(self):
