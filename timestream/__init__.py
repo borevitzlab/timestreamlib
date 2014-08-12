@@ -31,6 +31,7 @@ import os
 from os import path
 from sys import stderr
 from timestream.manipulate.pot import ImagePotMatrix
+import cPickle
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -423,6 +424,48 @@ class TimeStream(object):
                     img.data = {}
                 yield img
 
+    def strip(self):
+        for key, img in self.images.iteritems():
+            img.strip()
+
+    @classmethod
+    def pickledump(cls, ts, filepath, overwrite=False):
+        if not isinstance(ts, TimeStream):
+            msg = "Object must be instance of TimeStream"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not isinstance(filepath, str):
+            msg = "Filepath should be a string"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if path.exists(filepath) and not overwrite:
+            msg = "File {} exists and we should not overwrite".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        # make sure we strip away everythin that is unneeded.
+        ts.strip()
+
+        f = file(filepath, "w")
+        cPickle.dump(ts, f)
+        f.close()
+
+    @classmethod
+    def pickleload(cls, filepath):
+        if not isinstance(filepath, str):
+            msg = "Filepath should be a string"
+            LOG.error(msg)
+            raise TypeError(msg)
+        if not path.exists(filepath):
+            msg = "File {} not found".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+
+        f = file(filepath, "w")
+        ts = cPickle.load(f)
+        f.close()
+
+        return ts
 
 class TimeStreamImage(object):
     def __init__(self, datetime=None):

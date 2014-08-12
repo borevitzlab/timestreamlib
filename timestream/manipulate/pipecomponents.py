@@ -21,7 +21,7 @@ from __future__ import absolute_import, division, print_function
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-from timestream import TimeStreamImage, parse
+from timestream import TimeStreamImage, parse, TimeStream
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
@@ -703,6 +703,9 @@ class ResultingImageWriter ( PipeComponent ):
         ts_out.write_image(img)
         ts_out.write_metadata()
         img.parent_timestream = None # reset to move forward
+
+        timestream.TimeStream.pickledump(ts_out, \
+            os.path.join(ts_out.data_dir, "tsobject"), overwrite=True)
 
         return [img]
 
