@@ -288,7 +288,6 @@ class TestTimeStreamIterByTimepoints(TestCase):
                 # Missing images
                 self.assertIsNone(image)
                 continue
-            print(iii)
             self.assertIsNot(image, None)
             # Check lazy-loading
             self.assertIsNone(image._pixels)
