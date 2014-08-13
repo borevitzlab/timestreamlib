@@ -41,7 +41,7 @@ if len(sys.argv) < 5:
     inputRootPathLeft  = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05L-C01~fullres-30min/BVZ0018-GC05L-C01~fullres-orig-corr'
     inputRootPathRight = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min/BVZ0018-GC05R-C01~fullres-orig-corr'
     inputPotConfig     = '/home/chuong/Data/CVS/BVZ0018_plant_position_new_updated_chamber5.csv'
-    outputRootPath     = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05R-C01~fullres-30min-unr'
+    outputRootPath     = '/home/chuong/north1ws/Data/Borevitz/BVZ0018/BVZ0018-GC05B-C01~fullres-30min-unr2'
 else:
     try:
         inputRootPathLeft  = sys.argv[1]
@@ -103,8 +103,8 @@ noPlants = len(plantList)
 
 AR = [9, 16]
 AR2 = [AR[0]/potsPerPlant, AR[1]]
-cols = int(round(math.sqrt(noPlants*AR2[1]/AR2[0])))
-rows = int(round(noPlants/cols))
+cols = int(math.ceil(math.sqrt(noPlants*AR2[1]/AR2[0])))
+rows = int(math.ceil(noPlants/cols))
 imgWidth  = cols*potWidth
 imgHeight = rows*potWidth*potsPerPlant
 print(noPlants, rows*cols)
@@ -114,18 +114,15 @@ startL=getattr(tsL, "start_datetime")
 startR=getattr(tsR, "start_datetime")
 endL = getattr(tsL, "end_datetime")
 endR = getattr(tsR, "end_datetime")
-if startL > startR:
-    start = startL
-else:
-    start = startR
-if endL < endR:
-    end = endL
-else:
-    end = endR
-print(start, end)
+intervalL = getattr(tsL, "interval")
+intervalR = getattr(tsR, "interval")
+start    = max(startL, startR)
+end      = min(endL, endR)
+interval = max(intervalL, intervalR)
+print('Combinded timestream of left and right chambers starts at {}, ends at {} with interval of {} min.'.format(start, end, interval))
 
-for imgL,imgR in itertools.izip(tsL.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None), 
-                                tsR.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = None)):
+for imgL,imgR in itertools.izip(tsL.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval),
+                                tsR.iter_by_timepoints(remove_gaps=False, start=start, end=end, interval = interval)):
     if imgL is None or imgL.pixels is None or \
        imgR is None or imgR.pixels is None:
         print('Missing Image')
@@ -147,7 +144,7 @@ for imgL,imgR in itertools.izip(tsL.iter_by_timepoints(remove_gaps=False, start=
             for potLocL,potLocR in zip(potLocsTrayL,potLocsTrayR):
                 potLocListL.append(potLocL)
                 potLocListR.append(potLocR)
-        potLocList = potLocListL + potLocListL      
+        potLocList = potLocListL + potLocListR
         
         potImgDic = {}
         for name in plantList:
