@@ -16,6 +16,7 @@ before_install:
  - pip install coveralls
  - pip install flake8
  - pip install six
+ - pip install numpy matplotlib
  - pip install cython
  - pip install git+https://github.com/scikit-image/scikit-image.git
 
