@@ -87,7 +87,7 @@ class TimeStream(object):
         # Store version
         self._version = None
         if version:
-            self._version = version
+            self.version = version
         self._path = None
         self._name = None
         self.start_datetime = None

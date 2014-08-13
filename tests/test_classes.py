@@ -108,7 +108,7 @@ class TestTimeStreamLoad(TestCase):
             inst.read_metadata()
         inst.load(helpers.FILES["timestream"])
         del inst.path
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             inst.read_metadata()
 
     def test_load_jsons(self):
@@ -128,7 +128,7 @@ class TestTimeStreamInit(TestCase):
     def test_timestream_init_bad_params(self):
         """Test TimeStream initialisation with invalid parameters"""
         with self.assertRaises(ValueError):
-            inst = TimeStream("")
+            inst = TimeStream("asdf")
         with self.assertRaises(ValueError):
             inst = TimeStream(version=3)
 
@@ -286,7 +286,7 @@ class TestTimeStreamIterByTimepoints(TestCase):
         for iii, image in enumerate(res):
             if iii in {3, 5}:
                 # Missing images
-                self.assertIsNone(image)
+                self.assertEqual(0, len(image.pixels))
                 continue
             self.assertIsNot(image, None)
             # Check lazy-loading
