@@ -409,12 +409,13 @@ class Window(QtGui.QDialog):
             colorcardPosition, Width, Height, Angle = cd.getRectangleParamters(self.colorcardList[0])
             colorcardDic = {'colorcardFile': colorCardFile,\
                             'colorcardPosition': colorcardPosition.tolist(),\
-                            'colorcardTrueColors': cd.CameraTrax_24ColorCard
+                            'colorcardTrueColors': cd.CameraTrax_24ColorCard,\
+                            'settingPath': '_data'
                             }
         else:
             colorcardDic = {}
         self.settings['colorcarddetect'] = colorcardDic
-        
+
         self.settings['colorcorrect'] = {'minIntensity': 15}
 
         if len(self.trayList) > 0:
@@ -448,6 +449,7 @@ class Window(QtGui.QDialog):
             potDict['traySize'] = [int(trayMedianSize[0]), int(trayMedianSize[1])]
             potDict['potFile'] = potFile
             potDict['potTemplateFile'] = 'PotTemplate.png'
+            potDict['settingPath'] = '_data'
             potTemplatePathIn = os.path.join(self.scriptPath, './data/PotTemplate.png')
             potTemplatePathOut = os.path.join(self.timestreamRootPath, self.settingPath, potDict['potTemplateFile'])
             shutil.copyfile(potTemplatePathIn, potTemplatePathOut)
@@ -459,10 +461,10 @@ class Window(QtGui.QDialog):
             potDict = {}
         self.settings['potdetect'] = potDict
 
-        self.settings['plantextract'] = {'method': 'method1',
-                                         'methargs': {'threshold' : 0.6, 
+        self.settings['plantextract'] = {'meth': 'method1',
+                                         'methargs': {'threshold' : 0.6,
                                          'kSize' : 5, 'blobMinSize' : 50} }
-    
+
         with open(self.settingFileName, 'w') as outfile:
             outfile.write( yaml.dump(self.settings, default_flow_style=None) )
             self.status.append('Saved initial data to ' + self.settingFileName)
