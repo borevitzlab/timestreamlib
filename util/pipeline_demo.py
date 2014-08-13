@@ -146,6 +146,7 @@ for i,timestamps in enumerate(existing_timestamps):
         ts_set = set(timestamps)
     else:
         ts_set = ts_set & set(timestamps)
+# set this to [] if want to process everything again
 ignored_timestamps = list(ts_set)
 print('ignored_timestamps = ', ignored_timestamps)
 
@@ -186,7 +187,7 @@ else:
 if plConf.general.hasSubSecName("timeInterval"):
     timeInterval = plConf.general.timeInterval
 else:
-    timeInterval = 24*60*60
+    timeInterval = None #24*60*60
 
 if plConf.general.hasSubSecName("visualise"):
     visualise = plConf.general.visualise
@@ -197,13 +198,13 @@ if plConf.general.hasSubSecName("startHourRange"):
     sr = plConf.general.startHourRange
     startHourRange = datetime.time(sr.hour, sr.minute, sr.second)
 else:
-    startHourRange = None
+    startHourRange = None #datetime.time(0,0,0)
 
 if plConf.general.hasSubSecName("endHourRange"):
     er = plConf.general.endHourRange
     endHourRange = datetime.time(er.hour, er.minute, er.second)
 else:
-    endHourRange = None
+    endHourRange = None #datetime.time(23,59,59)
 
 for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
                                  end=endDate, interval=timeInterval,
