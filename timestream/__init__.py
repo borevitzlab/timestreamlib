@@ -358,7 +358,7 @@ class TimeStream(object):
             yield img
 
     def iter_by_timepoints(self, remove_gaps=True, start=None, end=None,
-                           interval=None,
+                           interval=None, start_hour=None, end_hour=None,
                            ignored_timestamps=[]):
         """
         Iterate over a TimeStream in chronological order, yielding a
@@ -375,8 +375,19 @@ class TimeStream(object):
         for time in iter_date_range(start, end, interval):
             # skip images in ignored_timestamps
             if ts_format_date(time) in ignored_timestamps:
+                LOG.info("Skip processing data at {}".format(time))
                 continue
-            
+
+            # apply the range of daytime if given
+            if start_hour != None:
+                hrstart = dt.datetime.combine(time.date(), start_hour)
+                if time < hrstart:
+                    continue
+            if end_hour != None:
+                hrend = dt.datetime.combine(time.date(), end_hour)
+                if time > hrend:
+                    continue
+
             # Format the path below the ts root
             relpath = _ts_date_to_path(self.name, self.extension, time, 0)
             # Join to make "absolute" path, i.e. path including ts_path
@@ -392,7 +403,9 @@ class TimeStream(object):
             if remove_gaps and img_path is None:
                 continue
             elif img_path is None:
-                yield None
+                img = TimeStreamImage(datetime=time)
+                img.pixels = np.array([])
+                yield img
             else:
                 img = TimeStreamImage(datetime=time)
                 img.parent_timestream = self

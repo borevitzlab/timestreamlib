@@ -102,7 +102,7 @@ ts.load(inputRootPath)
 # FIXME: ts.data cannot have plConf because it cannot be handled by json.
 ts.data["settings"] = plConf.asDict()
 #FIXME: TimeStream should have a __str__ method.
-print("Timestream instance created:")
+print("Timestream instance loaded:")
 print("   ts.path:", ts.path)
 for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
     print("   ts.%s:" % attr, getattr(ts, attr))
@@ -129,9 +129,13 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
         tsoutpath = outstream["outpath"]
     if not os.path.exists(tsoutpath) or len(os.listdir(os.path.join(tsoutpath, '_data'))) == 0:
         ts_out.create(tsoutpath)
+        print("Timestream instance created:")
+        print("   ts_out.path:", ts_out.path)
         existing_timestamps.append([])
     else:
         ts_out.load(tsoutpath)
+        print("Timestream instance loaded:")
+        print("   ts_out.path:", ts_out.path)
         existing_timestamps.append(ts_out.image_data.keys())
     ctx.setVal("outts."+outstream["name"], ts_out)
     #context[outstream["name"]] = ts_out
@@ -144,7 +148,7 @@ for i,timestamps in enumerate(existing_timestamps):
         ts_set = ts_set & set(timestamps)
 ignored_timestamps = list(ts_set)
 print('ignored_timestamps = ', ignored_timestamps)
-    
+
 # We put everything else that is not an time series into outputroot.
 ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
 #context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
@@ -193,36 +197,34 @@ if plConf.general.hasSubSecName("startHourRange"):
     sr = plConf.general.startHourRange
     startHourRange = datetime.time(sr.hour, sr.minute, sr.second)
 else:
-    startHourRange = datetime.time(0,0,0)
+    startHourRange = None
 
 if plConf.general.hasSubSecName("endHourRange"):
     er = plConf.general.endHourRange
     endHourRange = datetime.time(er.hour, er.minute, er.second)
 else:
-    endHourRange = datetime.time(23,59,59)
+    endHourRange = None
 
-for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate, \
-                                    end=endDate, interval=timeInterval, \
-                                    ignored_timestamps = ignored_timestamps):
+for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
+                                 end=endDate, interval=timeInterval,
+                                 start_hour = startHourRange, end_hour = endHourRange,
+                                 ignored_timestamps = ignored_timestamps):
 
-    if img is None or img.pixels is None:
-        print('Missing Image')
+    if len(img.pixels) == 0:
+        print('Missing image at {}'.format(img.datetime))
         continue
 
     # Detach img from timestream. We don't need it!
     img.parent_timestream = None
-    rStart = datetime.datetime.combine(img.datetime.date(), startHourRange)
-    rEnd = datetime.datetime.combine(img.datetime.date(), endHourRange)
-    if img.datetime >= rStart and img.datetime <= rEnd:
-        print("Process", img.path, '...'),
-        print("Time stamp", img.datetime)
-        ctx.setVal("origImg", img)
-        try:
-            result = pl.process(ctx, [img], visualise)
-        except PCExBrakeInPipeline as bip:
-            print(bip.message)
-            continue
-        print("Done")
+    print("Process", img.path, '...'),
+    print("Time stamp", img.datetime)
+    ctx.setVal("origImg", img)
+    try:
+        result = pl.process(ctx, [img], visualise)
+    except PCExBrakeInPipeline as bip:
+        print(bip.message)
+        continue
+    print("Done")
 
 # Example of the 2 yaml configuration files:
 #
