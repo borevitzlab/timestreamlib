@@ -404,10 +404,17 @@ class TimeStream(object):
         """
         if not start or start < self.start_datetime:
             start = self.start_datetime
-        if not end or end < self.end_datetime:
+        if not end or end > self.end_datetime:
             end = self.end_datetime
         if not interval:
             interval = self.interval
+
+        # fix hour range if given
+        if start_hour != None:
+            start = dt.datetime.combine(start.date(), start_hour)
+        if end_hour != None:
+            end = dt.datetime.combine(end.date(), end_hour)
+
         # iterate thru times
         for time in iter_date_range(start, end, interval):
             # skip images in ignored_timestamps
@@ -415,7 +422,7 @@ class TimeStream(object):
                 LOG.info("Skip processing data at {}".format(time))
                 continue
 
-            # apply the range of daytime if given
+            # apply hour range if given
             if start_hour != None:
                 hrstart = dt.datetime.combine(time.date(), start_hour)
                 if time < hrstart:
