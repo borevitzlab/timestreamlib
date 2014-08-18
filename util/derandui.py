@@ -1,6 +1,26 @@
+#!/usr/bin/python
+#coding=utf-8
+# Copyright (C) 2014
+# Author(s): Joel Granados <joel.granados@gmail.com>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import csv
 import sys
+import os.path
 from PyQt4 import QtGui, QtCore, uic
+from timestream import TimeStream
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -8,26 +28,81 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         self.ui = uic.loadUi("derandui.ui")
 
-        # Set the Graphics View for the img.
-        self._scene = QtGui.QGraphicsScene()
-        self.expImg = PanZoomGraphicsView()
-        self.expImg.setScene(self._scene)
-
+        # Setup Image viewer
+        # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
         pixmap = QtGui.QPixmap(500,500)
+        self._scene = QtGui.QGraphicsScene()
         pixItem = self._scene.addPixmap(pixmap)
         pixItem.setZValue(-100)
+        self.gvImg = PanZoomGraphicsView()
+        self.gvImg.setScene(self._scene)
 
-        sp = self.expImg.sizePolicy()
+        # self.ui.csv and self.gvImg take up 50-50 of the vertical space
+        sp = self.gvImg.sizePolicy()
         sp.setVerticalPolicy(QtGui.QSizePolicy.Preferred)
         sp.setVerticalStretch(1)
-        self.expImg.setSizePolicy(sp)
+        self.gvImg.setSizePolicy(sp)
+        self.ui.vRight.addWidget(self.gvImg)
 
-        self.ui.vRight.addWidget(self.expImg)
+        # Setup the timestream list
+        self.timeStreams = {}
+        self.ui.tslist.horizontalHeader().resizeSection(0,20)
+        self.ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
+        self.addTsItem = self.ui.tslist.item(0,0)
+        self.ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
+        # Button connection
         self.ui.bOpenFile.clicked.connect(self.selectFile)
         self.ui.bOpenCsv.clicked.connect(self.selectCsv)
 
         self.ui.show()
+
+    def onClickTimeStreamList(self, row, column):
+        if self.ui.tslist.item(row,column) is self.addTsItem:
+            tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                    "Select Time Stream", "", \
+                    QtGui.QFileDialog.ShowDirsOnly \
+                    | QtGui.QFileDialog.DontResolveSymlinks)
+
+            if tsdir == "": # Handle the cancel
+                return
+
+            tsbasedir = os.path.basename(str(tsdir))
+            try:
+                ts = TimeStream()
+                ts.load(str(tsdir))
+                tsid = str(id(ts))
+
+                self.ui.tslist.insertRow(0)
+
+                i = QtGui.QTableWidgetItem("-")
+                i.setTextAlignment(QtCore.Qt.AlignCenter)
+                self.ui.tslist.setItem(0,0,i)
+
+                i = QtGui.QTableWidgetItem(tsbasedir)
+                i.setTextAlignment(QtCore.Qt.AlignLeft)
+                self.ui.tslist.setItem(0,1,i)
+
+                i = QtGui.QTableWidgetItem(tsid)
+                self.ui.tslist.setItem(0,2,i)
+                self.timeStreams[tsid] = ts
+
+            except Exception as e:
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.setWindowTitle("Error Opening Time Stream {}". \
+                        format(tsbasedir))
+                errmsg.showMessage(str(e))
+
+        elif column == 0 \
+                and self.ui.tslist.item(row,column) is not self.addTsItem:
+            tsid = str(self.ui.tslist.item(row,2).text())
+            del self.timeStreams[tsid]
+            self.ui.tslist.removeRow(row)
+
+        else:
+            pass
+            # Here we load First ts image
+
 
     def selectFile(self):
         self._imgfilename = QtGui.QFileDialog.getOpenFileName(self, "Select Image",
