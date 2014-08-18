@@ -13,10 +13,11 @@ import numpy as np
 from timestream.parse import ts_parse_date
 import docopt
 import datetime
+import os
 
 CLI_OPTS = """
 USAGE:
-    playtTimestream.py -i IN [-d DELAY] [--int INTERVAL] [-s START] [-e END] [--sh STARTHOUR] [--eh ENDHOUR]
+    playtTimestream.py -i IN [-d DELAY] [--int INTERVAL] [-s START] [-e END] [--sh STARTHOUR] [--eh ENDHOUR] [-o OUT]
 
 OPTIONS:
     -i IN          Input timestream directory
@@ -26,6 +27,7 @@ OPTIONS:
     -e END         End  date and time of looping
     --sh STARTHOUR Start time range of looping
     --eh ENDHOUR   End time range of looping
+    -o OUT         Outputfolder
 """
 opts = docopt.docopt(CLI_OPTS)
 
@@ -48,6 +50,10 @@ if opts['--sh']:
     start_hour = datetime.time(int(opts['--sh']), 0, 0)
 if opts['--eh']:
     end_end = datetime.time(int(opts['--eh']), 0, 0)
+if opts['-o']:
+    outputRootPath = opts['-o']
+else:
+    outputRootPath = None
 
 timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
@@ -60,6 +66,12 @@ for img in ts.iter_by_timepoints(start=start, end=end, interval = interval,
                                  start_hour = start_hour, end_hour = end_hour):
     if img is None or img.pixels is None:
         continue
+
+    if outputRootPath:
+        if not os.path.exists(outputRootPath):
+            os.makedirs(outputRootPath)
+        cv2.imwrite(os.path.join(outputRootPath, os.path.basename(img.path)), img.pixels)
+
     # estimate a downscale factor to make image fit into a normal HD screen
     scale = img.pixels.shape[0]//1000 + 1
     imgResized = cv2.resize(img.pixels, (img.pixels.shape[1]//scale, img.pixels.shape[0]//scale))
