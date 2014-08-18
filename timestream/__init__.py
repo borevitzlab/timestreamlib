@@ -381,13 +381,19 @@ class TimeStream(object):
         for datum, value in metadata.items():
             setattr(self, datum, value)
 
-    def iter_by_files(self):
+    def iter_by_files(self, ignored_timestamps=[]):
         for fpath in all_files_with_ext(
                 self.path, self.extension, cs=False):
             img = TimeStreamImage()
             img.parent_timestream = self
             img.path = fpath
             img_date = ts_format_date(img.datetime)
+
+            # skip images in ignored_timestamps
+            if img_date in ignored_timestamps:
+                LOG.info("Skip processing data at {}".format(img.datetime))
+                continue
+
             try:
                 img.data = self.image_data[img_date]
             except KeyError:
