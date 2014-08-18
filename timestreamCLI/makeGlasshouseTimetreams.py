@@ -36,13 +36,14 @@ def saveToTimeStream(FileNameList, NamePrefixList, TimeStampList, RootPath):
         YearPath  = os.path.join(TSPath, TimeStampStr[:4])
         MonthPath = os.path.join(YearPath, TimeStampStr[:7])
         DayPath   = os.path.join(MonthPath, TimeStampStr[:10])
-        if not os.path.exists(DayPath):
-            os.makedirs(DayPath)
+        HourPath  = os.path.join(DayPath, TimeStampStr[11:13])
+        if not os.path.exists(HourPath):
+            os.makedirs(HourPath)
 
         # copy the file over if doesn't exist
-        NewFile = os.path.join(DayPath, os.path.basename(FileName))
+        NewFile = os.path.join(HourPath, os.path.basename(FileName))
         if not os.path.exists(NewFile):
-            print('Copy {} \nto {}'.format(FileName, DayPath))
+            print('Copy {} \nto {}'.format(FileName, HourPath))
             shutil.copyfile(FileName, NewFile)
         else:
             print('File {} exists.'.format(NewFile))
@@ -50,7 +51,7 @@ def saveToTimeStream(FileNameList, NamePrefixList, TimeStampList, RootPath):
 if len(sys.argv) < 3:
     RawPath = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0038/_data/BVZ0038-PhenotypeData'
     RootPath = '/home/chuong/Data/phenocam/a_data/TimeStreams/Borevitz/BVZ0038/_data/BVZ0038-PlantTS'
-    #RootPath = '/home/chuong/Data/BVZ0038-PlantTS'
+#    RootPath = '/home/chuong/Data/BVZ0038-PlantTS'
 else:
     RawPath = sys.argv[1]
     RootPath = sys.argv[2]
