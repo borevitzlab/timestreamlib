@@ -136,20 +136,20 @@ class ImageUndistorter ( PipeComponent ):
     def __call__(self, context, *args):
         print(self.mess)
         tsi = args[0]
-        self.image = cd.rotateImage(tsi.pixels, self.rotationAngle)
+        self.image = tsi.pixels
         if self.UndistMapX != None and self.UndistMapY != None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8), \
                 self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
         else:
             self.imageUndistorted = self.image
 
-        tsi.pixels = self.imageUndistorted
+        tsi.pixels = cd.rotateImage(self.imageUndistorted, self.rotationAngle)
         return [tsi]
 
     def show(self):
         plt.figure()
         plt.subplot(211)
-        plt.imshow(self.image)
+        plt.imshow(cd.rotateImage(self.image))
         plt.title('Original image')
 
         plt.subplot(212)
