@@ -24,38 +24,51 @@ from timestream import TimeStreamTraverser
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
+        """Main window for derandomization user interaction
+
+        Attributes:
+          _ui(QMainWindow): What we get from the ui file created by designer
+          _scene(QGraphicsScene): Where we put the pixmap
+          _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
+            and zoom.
+          _activeTS(TimeStreamTraverser): Is the active instance that the user
+            is interacting with.
+          _timestreams(dict): Where all the TimeStreamTraversers will be. They
+            will be indexed by their id (id(TS))
+        """
         QtGui.QMainWindow.__init__(self)
 
-        self.ui = uic.loadUi("derandui.ui")
+        self._activeTS = None
+        self._ui = uic.loadUi("derandui.ui")
 
         # Setup Image viewer
         # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
         self._scene = QtGui.QGraphicsScene()
-        self.gvImg = PanZoomGraphicsView()
-        self.gvImg.setScene(self._scene)
+        self._gvImg = PanZoomGraphicsView()
+        self._gvImg.setScene(self._scene)
         self.showImage(None)
 
-        # self.ui.csv and self.gvImg take up 50-50 of the vertical space
-        sp = self.gvImg.sizePolicy()
+        # self._ui.csv and self._gvImg take up 50-50 of the vertical space
+        sp = self._gvImg.sizePolicy()
         sp.setVerticalPolicy(QtGui.QSizePolicy.Preferred)
         sp.setVerticalStretch(1)
-        self.gvImg.setSizePolicy(sp)
-        self.ui.vRight.addWidget(self.gvImg)
+        self._gvImg.setSizePolicy(sp)
+        self._ui.vRight.addWidget(self._gvImg)
 
         # Setup the timestream list
-        self.timeStreams = {}
-        self.ui.tslist.horizontalHeader().resizeSection(0,20)
-        self.ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
-        self.addTsItem = self.ui.tslist.item(0,0)
-        self.ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
+        self._timeStreams = {}
+        self._ui.tslist.horizontalHeader().resizeSection(0,20)
+        self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
+        self.addTsItem = self._ui.tslist.item(0,0)
+        self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
         # Button connection
-        self.ui.bOpenCsv.clicked.connect(self.selectCsv)
+        self._ui.bOpenCsv.clicked.connect(self.selectCsv)
 
-        self.ui.show()
+        self._ui.show()
 
     def onClickTimeStreamList(self, row, column):
-        if self.ui.tslist.item(row,column) is self.addTsItem:
+        if self._ui.tslist.item(row,column) is self.addTsItem:
             tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
                     "Select Time Stream", "", \
                     QtGui.QFileDialog.ShowDirsOnly \
@@ -69,22 +82,23 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 ts = TimeStreamTraverser(str(tsdir))
                 tsid = str(id(ts))
 
-                self.ui.tslist.insertRow(0)
+                self._ui.tslist.insertRow(0)
 
                 i = QtGui.QTableWidgetItem("-")
                 i.setTextAlignment(QtCore.Qt.AlignCenter)
-                self.ui.tslist.setItem(0,0,i)
+                self._ui.tslist.setItem(0,0,i)
 
                 i = QtGui.QTableWidgetItem(tsbasedir)
                 i.setTextAlignment(QtCore.Qt.AlignLeft)
-                self.ui.tslist.setItem(0,1,i)
+                self._ui.tslist.setItem(0,1,i)
 
                 i = QtGui.QTableWidgetItem(tsid)
-                self.ui.tslist.setItem(0,2,i)
-                self.timeStreams[tsid] = ts
+                self._ui.tslist.setItem(0,2,i)
+                self._timeStreams[tsid] = ts
 
-                img = ts.next()
-                self.showImage(img.path)
+                # Show if it is the first.
+                if self._activeTS is None:
+                    self.selectRowTS(0)
 
             except Exception as e:
                 errmsg = QtGui.QErrorMessage(self)
@@ -93,14 +107,29 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 errmsg.showMessage(str(e))
 
         elif column == 0 \
-                and self.ui.tslist.item(row,column) is not self.addTsItem:
-            tsid = str(self.ui.tslist.item(row,2).text())
-            del self.timeStreams[tsid]
-            self.ui.tslist.removeRow(row)
+                and self._ui.tslist.item(row,column) is not self.addTsItem:
+            tsid = str(self._ui.tslist.item(row,2).text())
+            del self._timeStreams[tsid]
+            self._ui.tslist.removeRow(row)
 
         else:
-            pass
-            # Here we load First ts image
+            self.selectRowTS(row)
+
+    def selectRowTS(self, row):
+        # Clear all cell coloring
+        #FIXME: Clearing with a forloop, but there must be a better way!!!
+        for r in range(self._ui.tslist.rowCount()-1):
+            for c in range(2):
+                self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
+
+        for c in range(2):
+            self._ui.tslist.item(row,c).setBackground(QtGui.QColor(100,100,200))
+
+        # select in self._activeTS
+        tsid = str(self._ui.tslist.item(row,2).text())
+        self._activeTS = self._timeStreams[tsid]
+        img = self._activeTS.curr()
+        self.showImage(img.path)
 
     def showImage(self, path=None):
         if path is None:
@@ -127,13 +156,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
         maxRows = len(csvFile)
         f.close()
 
-        self.ui.csv.clear()
-        self.ui.csv.setRowCount(maxRows)
-        self.ui.csv.setColumnCount(maxCols)
+        self._ui.csv.clear()
+        self._ui.csv.setRowCount(maxRows)
+        self._ui.csv.setColumnCount(maxCols)
         for i in range(maxRows):
             for j in range(maxCols):
                 item = QtGui.QTableWidgetItem(csvFile[i][j])
-                self.ui.csv.setItem(i,j,item)
+                self._ui.csv.setItem(i,j,item)
 
     def writeOnImage(self):
         L = QtGui.QGraphicsTextItem('joel')
