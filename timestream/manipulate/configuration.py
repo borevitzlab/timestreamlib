@@ -241,6 +241,8 @@ class PCFGConfig(PCFGSection):
         f = file(self.configFile)
         yDict = yaml.load(f)
         f.close()
+        # add path to configFile
+        yDict["configFile"] = self.configFile
 
         return yDict
 

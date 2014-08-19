@@ -175,6 +175,10 @@ class ColorCardDetector ( PipeComponent ):
         super(ColorCardDetector, self).__init__(**kwargs)
         self.ccf = os.path.join(context.ints.path, \
                 self.settingPath, self.colorcardFile)
+        # for glasshouse experiment, color card is outside of timestream path
+        if not os.path.exists(self.ccf):
+            configFilePath = os.path.dirname(context.ints.data["settings"]['configFile'])
+            self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
     def __call__(self, context, *args):
         print(self.mess)
