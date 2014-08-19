@@ -20,7 +20,7 @@ import csv
 import sys
 import os.path
 from PyQt4 import QtGui, QtCore, uic
-from timestream import TimeStream
+from timestream import TimeStreamTraverser
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -30,12 +30,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # Setup Image viewer
         # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
-        pixmap = QtGui.QPixmap(500,500)
         self._scene = QtGui.QGraphicsScene()
-        pixItem = self._scene.addPixmap(pixmap)
-        pixItem.setZValue(-100)
         self.gvImg = PanZoomGraphicsView()
         self.gvImg.setScene(self._scene)
+        self.showImage(None)
 
         # self.ui.csv and self.gvImg take up 50-50 of the vertical space
         sp = self.gvImg.sizePolicy()
@@ -52,7 +50,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self.ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
         # Button connection
-        self.ui.bOpenFile.clicked.connect(self.selectFile)
         self.ui.bOpenCsv.clicked.connect(self.selectCsv)
 
         self.ui.show()
@@ -69,8 +66,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             tsbasedir = os.path.basename(str(tsdir))
             try:
-                ts = TimeStream()
-                ts.load(str(tsdir))
+                ts = TimeStreamTraverser(str(tsdir))
                 tsid = str(id(ts))
 
                 self.ui.tslist.insertRow(0)
@@ -86,6 +82,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 i = QtGui.QTableWidgetItem(tsid)
                 self.ui.tslist.setItem(0,2,i)
                 self.timeStreams[tsid] = ts
+
+                img = ts.next()
+                self.showImage(img.path)
 
             except Exception as e:
                 errmsg = QtGui.QErrorMessage(self)
@@ -103,16 +102,16 @@ class DerandomizeGUI(QtGui.QMainWindow):
             pass
             # Here we load First ts image
 
+    def showImage(self, path=None):
+        if path is None:
+            pixmap = QtGui.QPixmap(500,500)
+        else:
+            pixmap = QtGui.QPixmap(path)
 
-    def selectFile(self):
-        self._imgfilename = QtGui.QFileDialog.getOpenFileName(self, "Select Image",
-                "", "JPG (*.jpg);;PNG (*.png)")
         self._scene.clear()
-        pixmap = QtGui.QPixmap(self._imgfilename)
         pixItem = self._scene.addPixmap(pixmap)
         pixItem.setZValue(-100)
 
-        self.writeOnImage()
 
     def selectCsv(self):
         self._csvfilename = QtGui.QFileDialog.getOpenFileName(self,

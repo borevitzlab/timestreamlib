@@ -131,13 +131,6 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="bOpenFile">
-           <property name="text">
-            <string>Open File</string>
-           </property>
-          </widget>
-         </item>
-         <item>
           <widget class="QPushButton" name="bOpenCsv">
            <property name="text">
             <string>Open CSV</string>

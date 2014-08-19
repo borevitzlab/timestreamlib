@@ -470,6 +470,102 @@ class TimeStream(object):
                     img.data = {}
                 yield img
 
+class TimeStreamTraverser(TimeStream):
+    def __init__(self, ts_path=None, version=None, interval=None,\
+            start=None, end=None, start_hour=None, end_hour=None, \
+            ignored_timestamps=[]):
+        """Class to got back and forth on a TimeStream
+
+        Use This class when you need to traverse the timestream both forwards
+        and backwards in time.
+
+        Args:
+          version(int): Passed directly to TimeStream
+          interval(int): Interval between time stamps
+          start(datetime): Start of time stream
+          end(datetime): End of time stream
+          start_hour(datetime): Starting hour within every day of time stream
+          end_hour(datetime): Ending hour within every day of time stream
+          ignored_timestamps(list): List of ignore time stamps.0
+
+        Attributes:
+          _timestamps(list): List of strings that index all existing image files
+            in this timestream
+          _offset(int): Current offset within _timestamps.
+
+        """
+        super(TimeStreamTraverser, self).__init__(version=version)
+        self.load(ts_path)
+
+        self._offset = 0
+        self._timestamps = []
+        #FIXME: Following is practically equal to TimeStream.iter_by_timepoints.
+        if not start or start < self.start_datetime:
+            start = self.start_datetime
+        if not end or end > self.end_datetime:
+            end = self.end_datetime
+        if not interval:
+            interval = self.interval
+
+        # fix hour range if given
+        if start_hour != None:
+            start = dt.datetime.combine(start.date(), start_hour)
+        if end_hour != None:
+            end = dt.datetime.combine(end.date(), end_hour)
+
+        # iterate thru times
+        for time in iter_date_range(start, end, interval):
+            # skip images in ignored_timestamps
+            if ts_format_date(time) in ignored_timestamps:
+                continue
+
+            # apply hour range if given
+            if start_hour != None:
+                hrstart = dt.datetime.combine(time.date(), start_hour)
+                if time < hrstart:
+                    continue
+            if end_hour != None:
+                hrend = dt.datetime.combine(time.date(), end_hour)
+                if time > hrend:
+                    continue
+
+            # If path exists add index to _timestamps
+            relpath = _ts_date_to_path(self.name, self.extension, time, 0)
+            img_path = path.join(self.path, relpath)
+            if path.exists(img_path):
+                self._timestamps.append(time)
+
+    def next(self):
+        if self._offset == len(self._timestamps) - 1:
+            self._offset = 0
+
+        return self.curr()
+
+    def prev(self):
+        if self._offset == 0:
+            self._offset = len(self._timestamps) - 1
+
+        return self.curr()
+
+    def curr(self):
+        time = self._timestamps[self._offset]
+        relpath = _ts_date_to_path(self.name, self.extension, time, 0)
+        img_path = path.join(self.path, relpath)
+
+        img = self.load_pickled_image(time)
+        if img is None:
+            img = TimeStreamImage(datetime=time)
+
+        img.parent_timestream = self
+        img.path = img_path
+
+        try:
+            img_date = ts_format_date(img.datetime)
+            img.data = self.image_data[img_date]
+        except KeyError:
+            img.data = {}
+
+        return img
 
 class TimeStreamImage(object):
     def __init__(self, datetime=None):
