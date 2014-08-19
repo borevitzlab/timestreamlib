@@ -102,11 +102,7 @@ ts = timestream.TimeStream()
 ts.load(inputRootPath)
 # FIXME: ts.data cannot have plConf because it cannot be handled by json.
 ts.data["settings"] = plConf.asDict()
-#FIXME: TimeStream should have a __str__ method.
-print("Timestream instance loaded:")
-print("   ts.path:", ts.path)
-for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
-    print("   ts.%s:" % attr, getattr(ts, attr))
+print(ts)
 
 # Initialize the context
 ctx = pipeconf.PCFGSection("--")
