@@ -60,6 +60,7 @@ else:
 if not os.path.isfile(tmpPath):
     raise IOError("%s is not a file"%tmpPath)
 plConf = pipeconf.PCFGConfig(tmpPath, 2)
+plConf.configFile = tmpPath
 
 # Timestream configuration
 if opts['-t']:

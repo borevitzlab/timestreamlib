@@ -214,16 +214,16 @@ class PCFGConfig(PCFGSection):
         """PCFGConfig houses all config options
 
         Args:
-          configFile: Full path of the configuration file
-          depth: PCFGConfig depends on nested dictionaries. "depth" defines the
+          _configFile: Full path of the configuration file
+          _depth: PCFGConfig depends on nested dictionaries. "depth" defines the
                  recursion depth to where options will be searched.
                  (e.g config.opt1.opt2=3 has depth 2).
         """
         super(PCFGConfig, self).__init__("--")
         if not os.path.exists(configFile) or not os.path.isfile(configFile):
             raise PCFGExInvalidFile(configFile)
-        self.configFile = configFile
-        self.depth = depth
+        self._configFile = configFile
+        self._depth = depth
 
         # To load from another config format create a loadFrom function
         for func in [self.loadFromYaml]:
@@ -234,15 +234,13 @@ class PCFGConfig(PCFGSection):
             break
 
         # Equal __subsections to allow instance.element.element....
-        tmpSubSec = PCFGConfig.createSection(confDict, self.depth, "-")
+        tmpSubSec = PCFGConfig.createSection(confDict, self._depth, "-")
         self.__dict__["__subsections"] = tmpSubSec.__dict__["__subsections"]
 
     def loadFromYaml(self):
-        f = file(self.configFile)
+        f = file(self._configFile)
         yDict = yaml.load(f)
         f.close()
-        # add path to configFile
-        yDict["configFile"] = self.configFile
 
         return yDict
 
