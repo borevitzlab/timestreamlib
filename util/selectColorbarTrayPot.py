@@ -45,8 +45,11 @@ class Window(QtGui.QDialog):
         self.timestreamTimeText = QtGui.QLineEdit('')
         self.timestreamTimeText.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
 
-        self.initStreamButton = QtGui.QPushButton('&Initialise time-stream')
-        self.initStreamButton.clicked.connect(self.initialiseTimestream)
+        self.initStreamTimeButton = QtGui.QPushButton('&Initialise timestream by time')
+        self.initStreamTimeButton.clicked.connect(self.initialiseTimestreamByTime)
+
+        self.initStreamFileButton = QtGui.QPushButton('&Initialise timestream by files')
+        self.initStreamFileButton.clicked.connect(self.initialiseTimestreamByFiles)
 
         # Image loading and processing
         self.loadImageButton = QtGui.QPushButton('&Load (next) image')
@@ -121,7 +124,8 @@ class Window(QtGui.QDialog):
         buttonlayout.addWidget(self.timestreamDateText)
         buttonlayout.addWidget(self.timestreamTimeLabel)
         buttonlayout.addWidget(self.timestreamTimeText)
-        buttonlayout.addWidget(self.initStreamButton)
+        buttonlayout.addWidget(self.initStreamTimeButton)
+        buttonlayout.addWidget(self.initStreamFileButton)
         buttonlayout.addWidget(self.loadImageButton)
         buttonlayout.addWidget(self.loadCamCalibButton)
         buttonlayout.addWidget(self.rotateImageButton)
@@ -223,7 +227,7 @@ class Window(QtGui.QDialog):
         else:
             self.panMode = False
 
-    def initialiseTimestream(self):
+    def initialiseTimestreamByTime(self):
         self.timestreamRootPath = str(self.timestreamText.text())
         if len(self.timestreamRootPath) > 0:
             self.status.append('Initialise a timestream at ' + str(self.timestreamRootPath))
@@ -243,18 +247,30 @@ class Window(QtGui.QDialog):
         else:
             self.status.append('Please provide timestream root path.')
 
+    def initialiseTimestreamByFiles(self):
+        self.timestreamRootPath = str(self.timestreamText.text())
+        if len(self.timestreamRootPath) > 0:
+            self.status.append('Initialise a timestream at ' + str(self.timestreamRootPath))
+            self.ts = timestream.TimeStream()
+            self.ts.load(self.timestreamRootPath)
+            self.status.append('Done')
+            self.tsImages = self.ts.iter_by_files()
+            self.loadImage()
+        else:
+            self.status.append('Please provide timestream root path.')
+
     def loadImage(self):
         ''' load and show an image'''
         if self.tsImages != None:
             try:
                 tsImage = self.tsImages.next()
-                if tsImage == None:
+                if tsImage.pixels == np.array([]):
                     self.status.append('Missing image.')
             except:
-                tsImage = None
+                tsImage.pixels == np.array([])
                 self.status.append('There is no more images.')
 
-            if tsImage == None:
+            if tsImage.pixels == np.array([]):
                 self.image = None
                 self.updateFigure()
                 return
@@ -288,7 +304,7 @@ class Window(QtGui.QDialog):
 #        cursor = Cursor(self.ax, useblit=True, color='red', linewidth=1)
         self.canvas.setCursor(QtGui.QCursor(QtCore.Qt.CrossCursor ))
 
-    def updateFigure(self, image = None):
+    def updateFigure(self, image = None, resetFigure = False):
         if self.image != None:
             if image == None:
                 image = self.image
@@ -298,7 +314,7 @@ class Window(QtGui.QDialog):
                 self.ax.figure.canvas.mpl_connect('motion_notify_event', self.onMouseMoves)
                 self.ax.figure.canvas.mpl_connect('figure_enter_event', self.changeCursor)
             self.ax.hold(False)
-            if self.plotImg == None:
+            if self.plotImg == None or resetFigure:
                 self.plotImg = self.ax.imshow(image)
             else:
                 self.plotImg.set_data(image)
@@ -527,7 +543,7 @@ class Window(QtGui.QDialog):
             self.rotationAngle = self.rotationAngle - 360
         self.image = np.rot90(self.image) #.astype(uint8)
         self.status.append('Rot. angle = %d deg' %self.rotationAngle)
-        self.updateFigure()
+        self.updateFigure(resetFigure = True)
 
     def rotateSmallAngle(self, value):
         self.smaleRotationAngle = float(value)/4.0

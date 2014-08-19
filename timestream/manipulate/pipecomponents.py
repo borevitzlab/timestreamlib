@@ -175,7 +175,7 @@ class ColorCardDetector ( PipeComponent ):
         super(ColorCardDetector, self).__init__(**kwargs)
         self.ccf = os.path.join(context.ints.path, \
                 self.settingPath, self.colorcardFile)
-        print("Colorcard path = {}".format(self.ccf))
+
     def __call__(self, context, *args):
         print(self.mess)
         tsi = args[0]
