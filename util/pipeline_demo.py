@@ -107,8 +107,6 @@ print(ts)
 # Initialize the context
 ctx = pipeconf.PCFGSection("--")
 ctx.setVal("ints",ts)
-#context = {"rts":ts}
-
 
 #create new timestream for output data
 existing_timestamps = []
@@ -135,7 +133,6 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
         print("   ts_out.path:", ts_out.path)
         existing_timestamps.append(ts_out.image_data.keys())
     ctx.setVal("outts."+outstream["name"], ts_out)
-    #context[outstream["name"]] = ts_out
 
 # get ignored list as intersection of all time stamp lists
 for i,timestamps in enumerate(existing_timestamps):
@@ -149,14 +146,12 @@ print('ignored_timestamps = ', ignored_timestamps)
 
 # We put everything else that is not an time series into outputroot.
 ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
-#context["outputroot"] = os.path.abspath(outputRootPath) + '-results'
 if not os.path.exists(ctx.outputroot):
     os.mkdir(ctx.outputroot)
 
 # Dictionary where we put all values that should be added with an image as soon
 # as it is output with the TimeStream
 ctx.setVal("outputwithimage", {})
-#context["outputwithimage"] = {}
 
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
