@@ -78,23 +78,32 @@ def getRectangleParamters(Rect):
 def findCorner(Image, Corner, CornerType = 'topleft', WindowSize = 100, Threshold = 50):
     x, y = Corner
     HWindowSize = int(WindowSize/2)
-    window = Image[y-HWindowSize:y+HWindowSize+1, x-HWindowSize:x+HWindowSize+1,:].astype(np.float)
+    xStart = max(0, x-HWindowSize)
+    xEnd = min(Image.shape[0], x+HWindowSize+1)
+    yStart = max(0, y-HWindowSize)
+    yEnd = min(Image.shape[1], y+HWindowSize+1)
+    window = Image[yStart:yEnd, xStart:xEnd,:].astype(np.float)
 #        cv2.imwrite('/home/chuong/Data/GC03L-temp/corrected/'+CornerType+'.jpg', window)
     foundLeftEdgeX = False
     foundRightEdgeX = False
     foundTopEdgeY = False
     foundBottomEdgeY = False
-    for i in range(HWindowSize+1):
+
+    HWindowSize = window.shape[1]//2
+    for i in range(HWindowSize):
         diff0 = np.sum(np.abs(window[HWindowSize, HWindowSize-i,:] - window[HWindowSize, HWindowSize,:]))
         diff1 = np.sum(np.abs(window[HWindowSize, HWindowSize+i,:] - window[HWindowSize, HWindowSize,:]))
-        diff2 = np.sum(np.abs(window[HWindowSize-i, HWindowSize,:] - window[HWindowSize, HWindowSize,:]))
-        diff3 = np.sum(np.abs(window[HWindowSize+i, HWindowSize,:] - window[HWindowSize, HWindowSize,:]))
         if diff0 > Threshold and not foundLeftEdgeX:
             xLeftNew = x-i
             foundLeftEdgeX = True
         elif diff1 > Threshold and not foundRightEdgeX:
             xRightNew = x+i
             foundRightEdgeX = True
+
+    VWindowSize = window.shape[0]//2
+    for i in range(VWindowSize):
+        diff2 = np.sum(np.abs(window[VWindowSize-i, VWindowSize,:] - window[VWindowSize, VWindowSize,:]))
+        diff3 = np.sum(np.abs(window[VWindowSize+i, VWindowSize,:] - window[VWindowSize, VWindowSize,:]))
         if diff2 > Threshold and not foundTopEdgeY:
             yTopNew = y-i
             foundTopEdgeY = True
