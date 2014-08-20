@@ -153,7 +153,12 @@ def ts_guess_manifest_v1(ts_path):
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
         intervals.append(interval.seconds)
-    retval["interval"] = max(min(intervals), 1)
+    if "interval" in retval.keys():
+        retval["interval"] = max(min(intervals), 1)
+    else:
+        # FIXME: handle timestream-like data structure without fixed time interval
+        # interval should not be used in this case. Just set a valid value.
+        retval["interval"] = 1
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
