@@ -33,8 +33,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
           _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
             and zoom.
           _activeTS(TimeStreamTraverser): Holds all active instances related to a TS
-          _timestreams(dict): Containing TimeStreamTraverser instances. They
-            will be indexed by their id (id())
         """
         QtGui.QMainWindow.__init__(self)
 
@@ -56,7 +54,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.vRight.addWidget(self._gvImg)
 
         # Setup the timestream list
-        self._timeStreams = {}
         self._ui.tslist.horizontalHeader().resizeSection(0,20)
         self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
         self.addTsItem = self._ui.tslist.item(0,0)
@@ -99,8 +96,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 errmsg.showMessage(str(e))
                 return
 
-            tsid = str(id(tst))
-
             self._ui.tslist.insertRow(0)
 
             i = QtGui.QTableWidgetItem("-")
@@ -109,11 +104,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             i = QtGui.QTableWidgetItem(tsbasedir)
             i.setTextAlignment(QtCore.Qt.AlignLeft)
+            i.setData(QtCore.Qt.UserRole, tst)
             self._ui.tslist.setItem(0,1,i)
-
-            i = QtGui.QTableWidgetItem(tsid)
-            self._ui.tslist.setItem(0,2,i)
-            self._timeStreams[tsid] = tst
 
             # Show if it is the first.
             if self._activeTS is None:
@@ -122,16 +114,15 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Deleting
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
-            #FIXME: Need to reset self._activeTS when we delete the active
-            tsid = str(self._ui.tslist.item(row,2).text())
+            item = self._ui.tslist.item(row,1)
+            dtst = item.data(QtCore.Qt.UserRole).toPyObject()
             self._ui.tslist.removeRow(row)
-            if self._activeTS is self._timeStreams[tsid]:
+            if self._activeTS is dtst:
                 self._activeTS = None
                 if self._ui.tslist.rowCount() > 1:
-                    ntsid = str(self._ui.tslist.item(0,2).text())
-                    self._activeTS = self._timestreams[ntsid]
+                    nitem = self._ui.tslist.item(0,1)
+                    self._activeTS = nitem.data(QtCore.Qt.UserRole).toPyObject()
 
-            del self._timeStreams[tsid]
             self._tscb.assignTst(self._activeTS)
 
         # Selecting
@@ -152,8 +143,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
             self._ui.tslist.item(row,c).setBackground(QtGui.QColor(100,100,200))
 
         # select in self._activeTS
-        tsid = str(self._ui.tslist.item(row,2).text())
-        self._activeTS = self._timeStreams[tsid]
+        item = self._ui.tslist.item(row,1)
+        self._activeTS = item.data(QtCore.Qt.UserRole).toPyObject()
 
         self._tscb.assignTst(self._activeTS)
 

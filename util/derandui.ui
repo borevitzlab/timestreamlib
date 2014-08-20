@@ -75,7 +75,7 @@
             <number>1</number>
            </property>
            <property name="columnCount">
-            <number>3</number>
+            <number>2</number>
            </property>
            <attribute name="horizontalHeaderVisible">
             <bool>true</bool>
@@ -121,14 +121,6 @@
            <column>
             <property name="text">
              <string>Time Stream</string>
-            </property>
-            <property name="textAlignment">
-             <set>AlignHCenter|AlignVCenter|AlignCenter</set>
-            </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>HIDDEN</string>
             </property>
             <property name="textAlignment">
              <set>AlignHCenter|AlignVCenter|AlignCenter</set>
