@@ -165,7 +165,10 @@ class ColorCardDetector ( PipeComponent ):
                 "minIntensity": [False, "Skip colorcard detection if intensity below this value", 0],
                 "colorcardFile": [True, "Path to the color card file"],
                 "colorcardPosition": [True, "(x,y) of the colorcard"],
-                "settingPath": [True, "Path to setting files"]
+                "settingPath": [True, "Path to setting files"],
+                "useWhiteBackground": [False, "Use white background as reference for color correction", False],
+                "backgroundWindow": [False, "Window background region with top-left and botom-right corners", []],
+                "maxIntensity": [False, "Max intensity when applying color correction using white background", 255]
                 }
 
     runExpects = [TimeStreamImage]
@@ -190,44 +193,55 @@ class ColorCardDetector ( PipeComponent ):
             print('Image is too dark, mean(I) = %f < %f. Skip colorcard detection!' %(meanIntensity, self.minIntensity) )
             return([self.image, [None, None, None]])
 
-        self.imagePyramid = cd.createImagePyramid(self.image)
-        self.colorcardImage = cv2.imread(self.ccf)[:,:,::-1]
-        if self.colorcardImage == None:
-            raise ValueError ( "Failed to read %s" % self.ccf )
-        self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
+        if not self.useWhiteBackground:
+            self.imagePyramid = cd.createImagePyramid(self.image)
+            self.colorcardImage = cv2.imread(self.ccf)[:,:,::-1]
+            if self.colorcardImage == None:
+                raise ValueError ( "Failed to read %s" % self.ccf )
+            self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
 
-        # create image pyramid for multiscale matching
-        SearchRange = [self.colorcardPyramid[0].shape[1], self.colorcardPyramid[0].shape[0]]
-        score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, self.colorcardPyramid, \
-            0, EstimatedLocation = self.colorcardPosition, SearchRange = SearchRange)
-        if score > 0.3:
-            # extract color information
-            self.foundCard = self.image[loc[1]-self.colorcardImage.shape[0]//2:loc[1]+self.colorcardImage.shape[0]//2, \
-                                        loc[0]-self.colorcardImage.shape[1]//2:loc[0]+self.colorcardImage.shape[1]//2]
-            self.colorcardColors, _ = cd.getColorcardColors(self.foundCard, GridSize = [6, 4])
-            self.colorcardParams = cd.estimateColorParameters(self.colorcardTrueColors, self.colorcardColors)
-            # for displaying
-            self.loc = loc
+            # create image pyramid for multiscale matching
+            SearchRange = [self.colorcardPyramid[0].shape[1], self.colorcardPyramid[0].shape[0]]
+            score, loc, angle = cd.matchTemplatePyramid(self.imagePyramid, self.colorcardPyramid, \
+                0, EstimatedLocation = self.colorcardPosition, SearchRange = SearchRange)
+            if score > 0.3:
+                # extract color information
+                self.foundCard = self.image[loc[1]-self.colorcardImage.shape[0]//2:loc[1]+self.colorcardImage.shape[0]//2, \
+                                            loc[0]-self.colorcardImage.shape[1]//2:loc[0]+self.colorcardImage.shape[1]//2]
+                self.colorcardColors, _ = cd.getColorcardColors(self.foundCard, GridSize = [6, 4])
+                self.colorcardParams = cd.estimateColorParameters(self.colorcardTrueColors, self.colorcardColors)
+                # for displaying
+                self.loc = loc
+            else:
+                print('Cannot find color card')
+                self.colorcardParams = [None, None, None]
         else:
-            print('Cannot find color card')
-            self.colorcardParams = [None, None, None]
+            self.colorcardParams = cd.estimateColorParametersFromWhiteBackground(
+                    self.image, self.backgroundWindow, self.maxIntensity)
 
         return([tsi, self.colorcardParams])
 
     def show(self):
         plt.figure()
-        plt.subplot(211)
-        plt.imshow(self.image)
-        plt.hold(True)
-        if hasattr(self, "loc"):
-            plt.plot([self.loc[0]], [self.loc[1]], 'ys')
-            plt.text(self.loc[0]-30, self.loc[1]-15, 'ColorCard', color='yellow')
-            plt.title('Detected color card')
+        if not self.useWhiteBackground:
+            plt.subplot(211)
+            plt.imshow(self.image)
+            plt.hold(True)
+            if hasattr(self, "loc"):
+                plt.plot([self.loc[0]], [self.loc[1]], 'ys')
+                plt.text(self.loc[0]-30, self.loc[1]-15, 'ColorCard', color='yellow')
+                plt.title('Detected color card')
 
-            plt.subplot(212)
-            plt.imshow(self.foundCard)
-            plt.title('Detected color card')
-            plt.show()
+                plt.subplot(212)
+                plt.imshow(self.foundCard)
+                plt.title('Detected color card')
+        else:
+            plt.imshow(self.image)
+            TLC = self.backgroundWindow[0:2]
+            BRC = self.backgroundWindow[2:]
+            plt.plot([TLC[0], TLC[0], BRC[0], BRC[0], TLC[0]], [TLC[1], BRC[1], BRC[1], TLC[1], TLC[1]], 'w')
+            plt.title('Selected white region for color correction')
+        plt.show()
 
 class ImageColorCorrector ( PipeComponent ):
     actName = "colorcorrect"

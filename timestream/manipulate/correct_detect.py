@@ -9,6 +9,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import cv2
 from scipy import optimize
+import matplotlib.pylab as plt
 
 #RED GRN BLU
 CameraTrax_24ColorCard = \
@@ -341,27 +342,38 @@ def createMap(Centre, Width, Height, Angle):
     MapY2 = -MapX*np.sin(Angle) + MapY*np.cos(Angle) + Centre[1]
     return MapX2.astype(np.float32), MapY2.astype(np.float32)
 
-def getColorcardColors(ColorCardCaptured, GridSize):
+def getColorcardColors(ColorCardCaptured, GridSize, Show = False):
     GridCols, GridRows = GridSize
     Captured_Colors = np.zeros([3,GridRows*GridCols])
     STD_Colors = np.zeros([GridRows*GridCols])
     SquareSize2 = int(ColorCardCaptured.shape[0]/GridRows)
     HalfSquareSize2 = int(SquareSize2/2)
+    SampleSize = int(0.5*HalfSquareSize2)
+    if Show:
+        plt.figure()
+        plt.imshow(ColorCardCaptured)
+        plt.hold(True)
     for i in range(GridRows*GridCols):
         Row = i//GridCols
         Col = i - Row*GridCols
         rr = Row*SquareSize2 + HalfSquareSize2
         cc = Col*SquareSize2 + HalfSquareSize2
-        Captured_R = ColorCardCaptured[rr-10:rr+10, cc-10:cc+10, 0].astype(np.float)
-        Captured_G = ColorCardCaptured[rr-10:rr+10, cc-10:cc+10, 1].astype(np.float)
-        Captured_B = ColorCardCaptured[rr-10:rr+10, cc-10:cc+10, 2].astype(np.float)
+        Captured_R = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 0].astype(np.float)
+        Captured_G = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 1].astype(np.float)
+        Captured_B = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 2].astype(np.float)
         STD_Colors[i] = np.std(Captured_R) + np.std(Captured_G) + np.std(Captured_B)
-        Captured_R = np.sum(Captured_R)/Captured_R.size
-        Captured_G = np.sum(Captured_G)/Captured_G.size
-        Captured_B = np.sum(Captured_B)/Captured_B.size
+#        Captured_R = np.sum(Captured_R)/Captured_R.size
+#        Captured_G = np.sum(Captured_G)/Captured_G.size
+#        Captured_B = np.sum(Captured_B)/Captured_B.size
+        Captured_R = np.median(Captured_R)
+        Captured_G = np.median(Captured_G)
+        Captured_B = np.median(Captured_B)
         Captured_Colors[0,i] = Captured_R
         Captured_Colors[1,i] = Captured_G
         Captured_Colors[2,i] = Captured_B
+        if Show:
+            plt.plot([cc-SampleSize, cc-SampleSize, cc+SampleSize, cc+SampleSize, cc-SampleSize], [rr-SampleSize, rr+SampleSize, rr+SampleSize, rr-SampleSize, rr-SampleSize], 'w')
+    plt.show()
     return Captured_Colors, STD_Colors
 
 # Using modified Gamma Correction Algorithm by
@@ -405,6 +417,30 @@ def getColorMatchingErrorVectorised(Arg, Colors, Captured_Colors):
     ErrorList = np.sqrt(np.sum(Diff*Diff, axis= 0)).tolist()
     return ErrorList
 
+def estimateColorParametersFromWhiteBackground(Image, Window, MaxIntensity = 255):
+    TopLeftCorner = Window[0:2]
+    BottomRightCorner = Window[2:]
+    Captured_R = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 0].astype(np.float)
+    Captured_G = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 1].astype(np.float)
+    Captured_B = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 2].astype(np.float)
+    Captured_R = np.median(Captured_R)
+    Captured_G = np.median(Captured_G)
+    Captured_B = np.median(Captured_B)
+
+    scale_R = MaxIntensity/Captured_R
+    scale_G = MaxIntensity/Captured_G
+    scale_B = MaxIntensity/Captured_B
+
+    colorMatrix = np.eye(3)
+    colorConstant = np.zeros([3,1])
+    colorGamma = np.ones([3,1])
+
+    colorMatrix[0,0] = scale_R
+    colorMatrix[1,1] = scale_G
+    colorMatrix[2,2] = scale_B
+
+    return colorMatrix, colorConstant, colorGamma
+
 def estimateColorParameters(TrueColors, ActualColors):
     # estimate color-correction parameters
     colorMatrix = np.eye(3)
@@ -440,6 +476,14 @@ def correctColorVectorised(Image, ColorMatrix, ColorConstant, ColorGamma):
     CorrectedR = CorrectedRGB[0,:].reshape([Height, Width])
     CorrectedG = CorrectedRGB[1,:].reshape([Height, Width])
     CorrectedB = CorrectedRGB[2,:].reshape([Height, Width])
+
+    CorrectedR[np.where(CorrectedR < 0)] = 0
+    CorrectedG[np.where(CorrectedG < 0)] = 0
+    CorrectedB[np.where(CorrectedB < 0)] = 0
+    CorrectedR[np.where(CorrectedR > 255)] = 255
+    CorrectedG[np.where(CorrectedG > 255)] = 255
+    CorrectedB[np.where(CorrectedB > 255)] = 255
+
     ImageCorrected = np.zeros_like(Image)
     ImageCorrected[:,:,0] = CorrectedR
     ImageCorrected[:,:,1] = CorrectedG
@@ -534,7 +578,6 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle = None, 
                 SearchRange2 = [SearchRange[0]//2**i, SearchRange[1]//2**i]
             else:
                 SearchRange2 = SearchRange
-
             matchedLocImage, maxVal, maxLoc, corrMap = matchTemplateLocation(PyramidImages[i], PyramidTemplates[i], maxLocEst, SearchRange = SearchRange2)
             if RotationAngle == None:
                 matchedLocImage180, maxVal180, maxLoc180, corrMap180 = matchTemplateLocation(np.rot90(PyramidImages[i],2).astype(np.uint8), PyramidTemplates[i], maxLocEst, SearchRange)
