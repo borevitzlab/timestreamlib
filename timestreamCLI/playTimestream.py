@@ -17,7 +17,7 @@ import os
 
 CLI_OPTS = """
 USAGE:
-    playtTimestream.py -i IN [-d DELAY] [--int INTERVAL] [-s START] [-e END] [--sh STARTHOUR] [--eh ENDHOUR] [-o OUT]
+    playtTimestream.py -i IN [-d DELAY] [--int INTERVAL] [-s START] [-e END] [--sh STARTHOUR] [--eh ENDHOUR] [-o OUT] [--byfiles]
 
 OPTIONS:
     -i IN          Input timestream directory
@@ -28,6 +28,7 @@ OPTIONS:
     --sh STARTHOUR Start time range of looping
     --eh ENDHOUR   End time range of looping
     -o OUT         Outputfolder
+    --byfiles      Loop over by file [by time]
 """
 opts = docopt.docopt(CLI_OPTS)
 
@@ -62,8 +63,12 @@ ts.load(inputRootPath)
 windowName = 'image'
 cv2.imshow(windowName, np.zeros([100,100], dtype = np.uint8))
 cv2.moveWindow(windowName, 10,10)
-for img in ts.iter_by_timepoints(start=start, end=end, interval = interval,
-                                 start_hour = start_hour, end_hour = end_hour):
+if opts['--byfiles']:
+    iterator = ts.iter_by_files()
+else:
+    iterator = ts.iter_by_timepoints(start=start, end=end, interval = interval,
+                                 start_hour = start_hour, end_hour = end_hour)
+for img in iterator:
     if img is None or img.pixels is None:
         continue
 
