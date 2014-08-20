@@ -23,9 +23,6 @@ from PyQt4 import QtGui, QtCore, uic
 from timestream import TimeStreamTraverser
 from collections import namedtuple
 
-# helper class. Holds a TimeStreamTraverser(tst) and a DropDownMenu(ddm)
-WindowTS = namedtuple("WindowTS", ["tst", "ddm"])
-
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
         """Main window for derandomization user interaction
@@ -35,8 +32,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
           _scene(QGraphicsScene): Where we put the pixmap
           _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
             and zoom.
-          _activeTS(WindowTS): Holds all active instances related to a TS
-          _timestreams(dict): Containing WindowTS instances. They
+          _activeTS(TimeStreamTraverser): Holds all active instances related to a TS
+          _timestreams(dict): Containing TimeStreamTraverser instances. They
             will be indexed by their id (id())
         """
         QtGui.QMainWindow.__init__(self)
@@ -65,7 +62,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self.addTsItem = self._ui.tslist.item(0,0)
         self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
-        # Setup the csv table
+        # Setup the csv table, item(0,0) of _ui.csv will be a combobox
+        self._tscb = QComboBox_TS(self._ui.csv, self)
+        self._ui.csv.setCellWidget(0,0,self._tscb)
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self.selectCsv)
@@ -100,9 +99,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 errmsg.showMessage(str(e))
                 return
 
-            ddm = DropDownMenu_TS(tst, self._ui.csv, self)
-            wts = WindowTS(tst, ddm)
-            wtsid = str(id(wts))
+            tsid = str(id(tst))
 
             self._ui.tslist.insertRow(0)
 
@@ -114,9 +111,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
             i.setTextAlignment(QtCore.Qt.AlignLeft)
             self._ui.tslist.setItem(0,1,i)
 
-            i = QtGui.QTableWidgetItem(wtsid)
+            i = QtGui.QTableWidgetItem(tsid)
             self._ui.tslist.setItem(0,2,i)
-            self._timeStreams[wtsid] = wts
+            self._timeStreams[tsid] = tst
 
             # Show if it is the first.
             if self._activeTS is None:
@@ -126,8 +123,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
             #FIXME: Need to reset self._activeTS when we delete the active
-            wtsid = str(self._ui.tslist.item(row,2).text())
-            del self._timeStreams[wtsid]
+            tsid = str(self._ui.tslist.item(row,2).text())
+            del self._timeStreams[tsid]
             self._ui.tslist.removeRow(row)
 
         # Selecting
@@ -148,14 +145,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
             self._ui.tslist.item(row,c).setBackground(QtGui.QColor(100,100,200))
 
         # select in self._activeTS
-        wtsid = str(self._ui.tslist.item(row,2).text())
-        self._activeTS = self._timeStreams[wtsid]
+        tsid = str(self._ui.tslist.item(row,2).text())
+        self._activeTS = self._timeStreams[tsid]
 
-        # Replace ddm with self._activeTS
-        self._activeTS.ddm.fill()
+        self._tscb.assignTst(self._activeTS)
 
         # Show image of self._activeTS
-        img = self._activeTS.tst.curr()
+        img = self._activeTS.curr()
         self.showImage(img.path)
 
     def showImage(self, path=None):
@@ -204,56 +200,42 @@ class DerandomizeGUI(QtGui.QMainWindow):
         L.setZValue(100)
         self._scene.addItem(L)
 
-class DropDownMenu(QtGui.QToolButton):
-    def __init__(self, *args, **kwargs):
-        super(DropDownMenu, self).__init__(*args, **kwargs)
-        self.setPopupMode(QtGui.QToolButton.MenuButtonPopup)
-        self._menu = QtGui.QMenu(self)
-        self.setMenu(self._menu)
-
-class DropDownMenu_TS(DropDownMenu):
-    def __init__(self, tst, csvTable, *args, **kwargs):
-        """Controls the first column of self._ui.csv
-
-        Attributes:
-          _tst(TimeStreamTraverser): The TimeStream instance
-          _csvTable(QtTableWidget): The table holding all the csv information.
-          _metaid(str): Metaid that user selects to derandomize.
-        """
-        super(DropDownMenu_TS, self).__init__(*args, **kwargs)
-        self.setText("Time Stream ID")
-        self._tst = tst
+class QComboBox_TS(QtGui.QComboBox):
+    def __init__(self, csvTable, *args, **kwargs):
+        super(QComboBox_TS, self).__init__(*args, **kwargs)
         self._csvTable = csvTable
+        self.setEditText("Select TS MetaID")
 
-        #FIXME: We need to put the metaids in the TIMESTREAM!!!!
-        # Set metaid. If no metaid, we default to original potIds
-        img = self._tst.curr()
-        self._mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-        self._mids.append("potid")
-        self._midOffset = 0
+    def assignTst(self, tst):
+        """Menu widget at position self._csvTable(0,0) and init column vals"""
+        #FIXME: We need to put the metaids in the TimeStream!!!!
+        self.clear() # start from an empty menu
 
-    def fill(self):
-        """Fills the first column of csv table with self._ts data"""
-        self._csvTable.setCellWidget(0,0,self)
-        img = self._tst.curr()
+        # Create an action per every metaid in TimeStream
+        img = tst.curr()
+        mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
+        mids.append("potid") # The default is original pot ids.
+        for mid in mids:
+            self.addItem(str(mid), QtCore.QVariant(mid))
 
         # Append sufficient rows. first row is menu (+1)
         if img.ipm.numPots+1 > self._csvTable.rowCount():
             self._csvTable.setRowCount( img.ipm.numPots + 1)
 
-        # Fill first column with self._mids[self._midOffset]
+        # Fill first Column with active action mid
+        mid = str(self.itemData(self.currentIndex()).toPyObject())
         potIds = img.ipm.potIds
-        metaid = self._mids[self._midOffset]
-        print(metaid)
+
         for r in range(1, self._csvTable.rowCount()):
             item = QtGui.QTableWidgetItem(" ")
-            item.setTextAlignment(QtCore.Qt.AlignCenter)
             if len(potIds) > 0:
                 pot = img.ipm.getPot(potIds.pop(0))
                 metaval = pot.id
-                if metaid != "potid":
-                    metaval = pot.getMetaId(metaid)
+                if mid != "potid":
+                    metaval = pot.getMetaId(mid)
                 item.setText(str(metaval))
+
+            item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
