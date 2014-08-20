@@ -174,15 +174,20 @@ class DerandomizeGUI(QtGui.QMainWindow):
             csvFile.append(row)
             if maxCols < len(row):
                 maxCols = len(row)
+                print maxCols
         maxRows = len(csvFile)
         f.close()
 
-        self._ui.csv.clear()
-        self._ui.csv.setRowCount(maxRows)
-        self._ui.csv.setColumnCount(maxCols)
-        for r in range(maxRows):
-            for c in range(maxCols):
-                item = QtGui.QTableWidgetItem(csvFile[r][c])
+        if self._ui.csv.rowCount() < maxRows:
+            self._ui.csv.setRowCount(maxRows)
+        if self._ui.csv.columnCount() < maxCols + 2:
+            self._ui.csv.setColumnCount(maxCols + 2)
+        for r in range(self._ui.csv.rowCount()):
+            for c in range(2, self._ui.csv.columnCount()):
+                try:
+                    item = QtGui.QTableWidgetItem(csvFile[r][c])
+                except:
+                    item = QtGui.QTableWidgetItem(" ")
                 self._ui.csv.setItem(r,c,item)
 
     def writeOnImage(self):
