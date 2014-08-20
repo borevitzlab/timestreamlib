@@ -172,7 +172,8 @@ for InTSFolder in InTSFolderList:
             tsoutpath = outstream["outpath"]
 
         if not os.path.exists(tsoutpath) or len(os.listdir(os.path.join(tsoutpath, '_data'))) == 0:
-            os.makedirs(tsoutpath)
+            if not os.path.exists(tsoutpath) :
+                os.makedirs(tsoutpath)
             ts_out.create(tsoutpath)
             print("Timestream instance created:")
             print("   ts_out.path:", ts_out.path)
@@ -197,7 +198,7 @@ for InTSFolder in InTSFolderList:
     print('ignored_timestamps = ', ignored_timestamps)
 
     # We put everything else that is not an time series into outputroot.
-    ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
+    ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results')
 
     if not os.path.exists(ctx.outputroot):
         os.mkdir(ctx.outputroot)
@@ -209,6 +210,7 @@ for InTSFolder in InTSFolderList:
     # initialise processing pipeline
     pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
 
+#    for img in ts.iter_by_files():
     for img in ts.iter_by_files(ignored_timestamps):
 
         if len(img.pixels) == 0:
