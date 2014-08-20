@@ -124,8 +124,15 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
             #FIXME: Need to reset self._activeTS when we delete the active
             tsid = str(self._ui.tslist.item(row,2).text())
-            del self._timeStreams[tsid]
             self._ui.tslist.removeRow(row)
+            if self._activeTS is self._timeStreams[tsid]:
+                self._activeTS = None
+                if self._ui.tslist.rowCount() > 1:
+                    ntsid = str(self._ui.tslist.item(0,2).text())
+                    self._activeTS = self._timestreams[ntsid]
+
+            del self._timeStreams[tsid]
+            self._tscb.assignTst(self._activeTS)
 
         # Selecting
         elif row != self._ui.tslist.rowCount()-1:
@@ -210,17 +217,19 @@ class QComboBox_TS(QtGui.QComboBox):
 
     def assignTst(self, tst):
         """Menu widget at position self._csvTable(0,0) and init column vals"""
-        #FIXME: We need to put the metaids in the TimeStream!!!!
-        self.clear() # start from an empty menu
 
         # if we get a None it means to clear everything.
         if tst is None:
             self._tst = None
-            for r in range(1,self._csvTable.rowCount()):
-                iterm = QtGui.QTableWidgetItem(" ")
+            self.clear()
+            for r in range(1, self._csvTable.rowCount()):
+                item = QtGui.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
                 self._csvTable.setItem(r, 0, item)
-                return
+            return
+
+        #FIXME: We need to put the metaids in the TimeStream!!!!
+        self.clear() # start from an empty menu
 
         # Create an action per every metaid in TimeStream
         self._tst = tst
@@ -237,6 +246,9 @@ class QComboBox_TS(QtGui.QComboBox):
         self.onChange(self.currentIndex())
 
     def onChange(self, index):
+        if self._tst is None:
+            return
+
         img = self._tst.curr()
 
         # Fill first Column with active action mid
