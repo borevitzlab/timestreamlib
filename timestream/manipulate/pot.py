@@ -479,6 +479,26 @@ class ImagePotMatrix(object):
             raise TypeError("ipmPrev must be ImagePotMatrix or None")
         self._ipmPrev = val
 
+    @property
+    def potIds(self):
+        """Returns a list of pot ids"""
+        return self._pots.keys()
+
+    @property
+    def potFeatures(self):
+        """ Return a feature name list with all possible features in pots """
+        featureNames = []
+        for key, pot in self._pots.iteritems():
+            for featName in pot.getCalcedFeatures():
+                if featName not in featureNames:
+                    featureNames.append(featName)
+
+        return (featureNames)
+
+    @property
+    def numPots(self):
+        return len(self._pots)
+
     def getPot(self, potId):
         if potId not in self._pots.keys():
             raise IndexError("No pot id %d found"%potNum)
@@ -495,25 +515,9 @@ class ImagePotMatrix(object):
             pot.ipm = self
         self._pots[pot.id] = pot
 
-    @property
-    def potIds(self):
-        """Returns a list of pot ids"""
-        return self._pots.keys()
-
     def iter_through_pots(self):
         for key, pot in self._pots.iteritems():
             yield(key, pot)
-
-    @property
-    def potFeatures(self):
-        """ Return a feature name list with all possible features in pots """
-        featureNames = []
-        for key, pot in self._pots.iteritems():
-            for featName in pot.getCalcedFeatures():
-                if featName not in featureNames:
-                    featureNames.append(featName)
-
-        return (featureNames)
 
     def show(self):
         """ Show segmented image with the plot squares on top. """
