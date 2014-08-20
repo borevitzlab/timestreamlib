@@ -204,15 +204,27 @@ class QComboBox_TS(QtGui.QComboBox):
     def __init__(self, csvTable, *args, **kwargs):
         super(QComboBox_TS, self).__init__(*args, **kwargs)
         self._csvTable = csvTable
+        self._tst = None
         self.setEditText("Select TS MetaID")
+        self.currentIndexChanged.connect(self.onChange)
 
     def assignTst(self, tst):
         """Menu widget at position self._csvTable(0,0) and init column vals"""
         #FIXME: We need to put the metaids in the TimeStream!!!!
         self.clear() # start from an empty menu
 
+        # if we get a None it means to clear everything.
+        if tst is None:
+            self._tst = None
+            for r in range(1,self._csvTable.rowCount()):
+                iterm = QtGui.QTableWidgetItem(" ")
+                item.setTextAlignment(QtCore.Qt.AlignCenter)
+                self._csvTable.setItem(r, 0, item)
+                return
+
         # Create an action per every metaid in TimeStream
-        img = tst.curr()
+        self._tst = tst
+        img = self._tst.curr()
         mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
         mids.append("potid") # The default is original pot ids.
         for mid in mids:
@@ -222,8 +234,13 @@ class QComboBox_TS(QtGui.QComboBox):
         if img.ipm.numPots+1 > self._csvTable.rowCount():
             self._csvTable.setRowCount( img.ipm.numPots + 1)
 
+        self.onChange(self.currentIndex())
+
+    def onChange(self, index):
+        img = self._tst.curr()
+
         # Fill first Column with active action mid
-        mid = str(self.itemData(self.currentIndex()).toPyObject())
+        mid = str(self.itemData(index).toPyObject())
         potIds = img.ipm.potIds
 
         for r in range(1, self._csvTable.rowCount()):
@@ -237,6 +254,7 @@ class QComboBox_TS(QtGui.QComboBox):
 
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
+
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
