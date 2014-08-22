@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#coding=utf-8
+# coding=utf-8
 # Copyright (C) 2014
 # Author(s): Joel Granados <joel.granados@gmail.com>
 #
@@ -20,7 +20,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import timestream.manipulate.plantSegmenter as tm_ps
 
+
 class ImagePotRectangle(object):
+
     def __init__(self, rectDesc, imgSize, growM=100):
         """ Handles all logic to do with rectangles in images.
 
@@ -37,18 +39,19 @@ class ImagePotRectangle(object):
         Raises:
           TypeError: When we don't receive a list for a rectangle descriptor.
         """
-        self._rect = np.array([-1,-1,-1,-1])
+        self._rect = np.array([-1, -1, -1, -1])
 
         if not isinstance(imgSize, tuple) or len(imgSize) < 2:
             raise TypeError("ImgSize must be a tuple of at least len 2")
-        if True in (np.array(imgSize[0:2])<1):
+        if True in (np.array(imgSize[0:2]) < 1):
             raise TypeError("ImgSize elements must be >0")
         self._imgwidth = imgSize[1]
         self._imgheight = imgSize[0]
 
         if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.array))\
-                or (len(rectDesc) != 2 and len(rectDesc) != 4 ):
-            raise TypeError("Rectangle Descriptor must be a list of len 2 or 4")
+                or (len(rectDesc) != 2 and len(rectDesc) != 4):
+            raise TypeError(
+                "Rectangle Descriptor must be a list of len 2 or 4")
 
         elif len(rectDesc) == 4:
             self._rect = np.array(rectDesc)
@@ -60,8 +63,8 @@ class ImagePotRectangle(object):
 
         # Check to see if rect is within size.
         if sum(self._rect < 0) > 0 \
-                or sum(self._rect[[1,3]] > self._imgheight) > 0 \
-                or sum(self._rect[[0,2]] > self._imgwidth) > 0:
+                or sum(self._rect[[1, 3]] > self._imgheight) > 0 \
+                or sum(self._rect[[0, 2]] > self._imgwidth) > 0:
             raise TypeError("Rectangle is outside containing image dims.")
 
     def __getitem__(self, item):
@@ -79,15 +82,17 @@ class ImagePotRectangle(object):
 
     @property
     def width(self):
-        return abs(self._rect[2]-self._rect[0])
+        return abs(self._rect[2] - self._rect[0])
 
     @property
     def height(self):
-        return abs(self._rect[3]-self._rect[1])
+        return abs(self._rect[3] - self._rect[1])
+
 
 class ImagePotHandler(object):
-    def __init__(self, potID, rect, ipm, \
-            metaids=None, ps=None):
+
+    def __init__(self, potID, rect, ipm,
+                 metaids=None, ps=None):
         """ImagePotHandler: a class for individual pot images.
 
         Args:
@@ -135,7 +140,7 @@ class ImagePotHandler(object):
             raise RuntimeError("rect size must be equal to superImage shape")
         self._rect = rect
 
-        if ps == None:
+        if ps is None:
             self._ps = None
         elif isinstance(ps, tm_ps.PotSegmenter):
             self._ps = ps
@@ -156,17 +161,17 @@ class ImagePotHandler(object):
         # Check all metaids are (int, long, float, complex, str)
         for key, val in self._mids.iteritems():
             if not isinstance(val, (int, long, float, complex, str)):
-                raise TypeError("Metaids must be of type"\
-                        + "int, long, float, complex or string")
+                raise TypeError("Metaids must be of type"
+                                + "int, long, float, complex or string")
 
     @property
     def mask(self):
         if self._mask is not None:
             return self._mask
 
-        if self._ps == None:
-            return np.zeros([self._rect.height, self._rect.width], \
-                    np.dtype("float64"))
+        if self._ps is None:
+            return np.zeros([self._rect.height, self._rect.width],
+                            np.dtype("float64"))
 
         self._mask = self.getSegmented()
         return (self._mask)
@@ -208,8 +213,8 @@ class ImagePotHandler(object):
 
         # Raise error if there is an id conflict in the new ImagePotMatrix
         if self.id in val.potIds() and self.id is not val.getPot(self.id):
-            raise RuntimeError("Pot with Id %s different from %s exists"\
-                    %(self.id, self))
+            raise RuntimeError("Pot with Id %s different from %s exists"
+                               % (self.id, self))
 
         # Setting ipm effectively changes the image, mask features....
         self.mask = None
@@ -240,44 +245,44 @@ class ImagePotHandler(object):
             pm = self.iphPrev.mask
 
             vDiff = msk.shape[0] - pm.shape[0]
-            if vDiff < 0: # reduce pm vertically
+            if vDiff < 0:  # reduce pm vertically
                 side = True
                 for i in range(abs(vDiff)):
                     if side:
-                        pm = pm[1:,:]
+                        pm = pm[1:, :]
                     else:
-                        pm = pm[:-1,:]
+                        pm = pm[:-1, :]
                     side = not side
 
-            if vDiff > 0: # grow pm vertically
-                padS = np.array([1,0])
+            if vDiff > 0:  # grow pm vertically
+                padS = np.array([1, 0])
                 for i in range(abs(vDiff)):
-                    pm = np.lib.pad(pm, (padS.tolist(), (0,0)), 'constant', \
-                            constant_values = 0)
-                    padS = -(padS-1) # other side
+                    pm = np.lib.pad(pm, (padS.tolist(), (0, 0)), 'constant',
+                                    constant_values=0)
+                    padS = -(padS - 1)  # other side
 
             hDiff = msk.shape[1] - pm.shape[1]
-            if hDiff < 0: # reduce pm horizontally
+            if hDiff < 0:  # reduce pm horizontally
                 side = True
                 for i in range(abs(hDiff)):
                     if side:
-                        pm = pm[:,1:]
+                        pm = pm[:, 1:]
                     else:
-                        pm = pm[:,:-1]
+                        pm = pm[:, :-1]
                     side = not side
 
-            if hDiff > 0: # grow pm horizontally
-                padS = np.array([1,0])
+            if hDiff > 0:  # grow pm horizontally
+                padS = np.array([1, 0])
                 for i in range(abs(hDiff)):
-                    pm = np.lib.pad(pm, ((0,0), padS.tolist()), 'constant', \
-                            constant_values = 0)
-                    padS = -(padS-1) # other side
+                    pm = np.lib.pad(pm, ((0, 0), padS.tolist()), 'constant',
+                                    constant_values=0)
+                    padS = -(padS - 1)  # other side
 
             msk = pm
 
         return msk
 
-    @property # not deletable
+    @property  # not deletable
     def rect(self):
         return self._rect
 
@@ -292,12 +297,12 @@ class ImagePotHandler(object):
         elif isinstance(ImagePotRectangle):
             # The right thing to do here is to create a new Imagepotrectangle so
             # we are sure we relate it to the correct image shape.
-            self._rect = ImagePotRectangle(r.asList(),\
-                    self._ipm.image.pixels.shape)
+            self._rect = ImagePotRectangle(r.asList(),
+                                           self._ipm.image.pixels.shape)
 
         else:
             raise TypeError("To set rectangle must pass list or"
-                    + "ImagePotRectangle")
+                            + "ImagePotRectangle")
 
         # Changing rect modifies mask, features, image....
         self.mask = None
@@ -305,13 +310,13 @@ class ImagePotHandler(object):
     @property
     def superImage(self):
         """We return the ndarray"""
-        #FIXME: check for _ipm
+        # FIXME: check for _ipm
         return self._ipm.image.pixels
 
-    @property # not settable nor delettable
+    @property  # not settable nor delettable
     def _image(self):
         # No need to return copy. For internal use only
-        return ( self._ipm.image.pixels[self._rect[1]:self._rect[3],
+        return (self._ipm.image.pixels[self._rect[1]:self._rect[3],
                                         self._rect[0]:self._rect[2], :] )
 
     @property
@@ -329,19 +334,19 @@ class ImagePotHandler(object):
         img = self._image
 
         height, width, dims = img.shape
-        msk = np.reshape(msk, (height*width, 1), order="F")
-        img = np.reshape(img, (height*width, dims), order="F")
+        msk = np.reshape(msk, (height * width, 1), order="F")
+        img = np.reshape(img, (height * width, dims), order="F")
 
         retVal = np.zeros((height, width, dims), dtype=img.dtype)
-        retVal = np.reshape(retVal, (height*width, dims), order="F")
+        retVal = np.reshape(retVal, (height * width, dims), order="F")
 
         Ind = np.where(msk)[0]
-        retVal[Ind,:] = img[Ind,:]
+        retVal[Ind, :] = img[Ind,:]
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
         if inSuper:
             superI = self._ipm.image.pixels.copy()
-            superI[self._rect[1]:self._rect[3], \
+            superI[self._rect[1]:self._rect[3],
                        self._rect[0]:self._rect[2], :] = retVal
             retVal = superI
 
@@ -381,7 +386,7 @@ class ImagePotHandler(object):
 
     def getFeature(self, fKey):
         if not fKey in self._features.keys():
-            raise KeyError("%s is not a valid feature key"%fKey)
+            raise KeyError("%s is not a valid feature key" % fKey)
 
         return self._features[fKey]
 
@@ -390,21 +395,24 @@ class ImagePotHandler(object):
 
     def getMetaId(self, mKey):
         if mKey not in self._mids.keys():
-            raise IndexError("%s is not a meta key."%mKey)
+            raise IndexError("%s is not a meta key." % mKey)
         else:
             return self._mids[mKey]
+
     def setMetaId(self, mKey, mValue):
         if not isinstance(mValue, (int, long, float, complex, str)):
-            raise TypeError("Metaids values must be of type"\
-                    + "int, long, float, complex or string")
+            raise TypeError("Metaids values must be of type"
+                            + "int, long, float, complex or string")
         else:
             self._mids[mKey] = mValue
 
     def strip(self):
         self._mask = None
 
+
 class ImagePotMatrix(object):
-    def __init__(self, image, pots=[], growM=100, ipmPrev = None):
+
+    def __init__(self, image, pots=[], growM=100, ipmPrev=None):
         """ImagePotMatrix: To house all the ImagePotHandlers
 
         We make sure that their IDs are unique inside the ImagePotMatrix
@@ -433,7 +441,7 @@ class ImagePotMatrix(object):
         else:
             self._image = image
 
-        if ipmPrev == None:
+        if ipmPrev is None:
             self._ipmPrev = None
         elif isinstance(ipmPrev, ImagePotMatrix):
             self._ipmPrev = ipmPrev
@@ -445,21 +453,21 @@ class ImagePotMatrix(object):
         # We make ImagePotHandler instances with whatever we find.
         if not isinstance(pots, list):
             raise TypeError("pots must be a list")
-        potIndex = -1 # Used when creating from rect
+        potIndex = -1  # Used when creating from rect
         self._pots = {}
         for p in pots:
             if isinstance(p, ImagePotMatrix):
                 self._pots[p.id] = p
 
-            elif isinstance(p, list) and (len(p)==2 or len(p)==4):
-                r = ImagePotRectangle(pot, self._image.pixels.shape, \
-                        growM=growM)
+            elif isinstance(p, list) and (len(p) == 2 or len(p) == 4):
+                r = ImagePotRectangle(pot, self._image.pixels.shape,
+                                      growM=growM)
                 self._pots[potIndex] = ImagePotHandler(potIndex, r, self)
                 potIndex -= 1
 
             else:
-                TypeError("Elements in pots must be ImagePotHandler or list" \
-                        + " of 2 or 4 elments")
+                TypeError("Elements in pots must be ImagePotHandler or list"
+                          + " of 2 or 4 elments")
 
     @property
     def image(self):
@@ -467,7 +475,8 @@ class ImagePotMatrix(object):
 
     @image.setter
     def image(self, val):
-        raise RuntimeError("ImagePotMatrix.image should only be set by __init__")
+        raise RuntimeError(
+            "ImagePotMatrix.image should only be set by __init__")
 
     @property
     def ipmPrev(self):
@@ -501,7 +510,7 @@ class ImagePotMatrix(object):
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
-            raise IndexError("No pot id %d found"%potNum)
+            raise IndexError("No pot id %d found" % potNum)
 
         return self._pots[potId]
 
@@ -542,4 +551,3 @@ class ImagePotMatrix(object):
         self._ipmPrev = None
         for key, pot in self._pots.iteritems():
             pot.strip()
-

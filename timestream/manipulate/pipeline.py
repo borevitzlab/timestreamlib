@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 # Copyright (C) 2014
 # Author(s): Joel Granados <joel.granados@gmail.com>
 #            Chuong Nguyen <chuong.v.nguyen@gmail.com>
@@ -22,22 +22,23 @@ import numpy as np
 
 from timestream.manipulate.pipecomponents import *
 
-class ImagePipeline ( object ):
+
+class ImagePipeline (object):
     complist = {
-                 ImageUndistorter.actName:      ImageUndistorter,
-                 ColorCardDetector.actName:     ColorCardDetector, \
-                 ImageColorCorrector.actName:   ImageColorCorrector, \
-                 TrayDetector.actName:          TrayDetector, \
-                 PotDetector.actName:           PotDetector, \
-                 PlantExtractor.actName:        PlantExtractor, \
-                 ResultingImageWriter.actName:  ResultingImageWriter, \
-                 FeatureExtractor.actName:      FeatureExtractor, \
-                 ResultingFeatureWriter_ndarray.actName: \
-                        ResultingFeatureWriter_ndarray, \
-                 ResultingFeatureWriter_csv.actName: \
-                        ResultingFeatureWriter_csv, \
-                 PopulatePotMetaIds.actName: PopulatePotMetaIds
-               }
+        ImageUndistorter.actName: ImageUndistorter,
+        ColorCardDetector.actName: ColorCardDetector,
+        ImageColorCorrector.actName: ImageColorCorrector,
+        TrayDetector.actName: TrayDetector,
+        PotDetector.actName: PotDetector,
+        PlantExtractor.actName: PlantExtractor,
+        ResultingImageWriter.actName: ResultingImageWriter,
+        FeatureExtractor.actName: FeatureExtractor,
+        ResultingFeatureWriter_ndarray.actName:
+        ResultingFeatureWriter_ndarray,
+        ResultingFeatureWriter_csv.actName:
+        ResultingFeatureWriter_csv,
+        PopulatePotMetaIds.actName: PopulatePotMetaIds
+    }
 
     def __init__(self, plConf, context):
         # FIXME: Check the first element is ok.
@@ -45,37 +46,38 @@ class ImagePipeline ( object ):
         # Add elements while checking for dependencies
         for i, setElem in plConf.iter_as_list():
             component = ImagePipeline.complist[setElem["name"]]
-            if i > 0: # 0 element skipped; expects ndarray.
+            if i > 0:  # 0 element skipped; expects ndarray.
                 compExpects = component.runExpects
                 prevReturns = self.pipeline[-1].__class__.runReturns
 
                 # Error if compExpects and prevReturns are not lists
-                if (not isinstance(compExpects, list) \
+                if (not isinstance(compExpects, list)
                         or not isinstance(prevReturns, list)):
-                    raise ValueError("Both %s and %s must handle in lists" % \
-                            (component, self.pipeline[-1].__class__) )
+                    raise ValueError("Both %s and %s must handle in lists" %
+                                     (component, self.pipeline[-1].__class__))
 
                 # Special case for components with prevReturns = [None]
-                if len(prevReturns) > 0 and prevReturns[0] == None:
+                if len(prevReturns) > 0 and prevReturns[0] is None:
                     # Previous [-2, -3....] prevReturns until not [None]
-                    for j in [x * -1 for x in range(2,len(self.pipeline)+1)]:
+                    for j in [x * -1 for x in range(2, len(self.pipeline) + 1)]:
                         prevReturns = self.pipeline[j].__class__.runReturns
                         if prevReturns[0] is not None:
                             break
 
-                # Error if first compExpects not contained prevReturns (in order)
-                if ( len(compExpects) > len(prevReturns) \
-                     or False in [compExpects[k] == prevReturns[k] \
-                                for k in range(len(compExpects))] ):
-                    raise ValueError( "Dependency error between %s and %s" % \
-                            (component, self.pipeline[-1].__class__) )
+                # Error if first compExpects not contained prevReturns (in
+                # order)
+                if (len(compExpects) > len(prevReturns)
+                    or False in [compExpects[k] == prevReturns[k]
+                                 for k in range(len(compExpects))]):
+                    raise ValueError("Dependency error between %s and %s" %
+                                     (component, self.pipeline[-1].__class__))
 
-            self.pipeline.append( component(context, **setElem) )
+            self.pipeline.append(component(context, **setElem))
 
     # contArgs: struct/class containing context arguments.
     #           Name are predefined for all pipe components.
     # initArgs: argument list to get the pipeline going.
-    def process(self, contArgs, initArgs, visualise = False):
+    def process(self, contArgs, initArgs, visualise=False):
         # First elem with input image
         res = initArgs
         for elem in self.pipeline:

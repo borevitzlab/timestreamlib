@@ -24,7 +24,9 @@ from timestream import (
     setup_module_logging,
 )
 
+
 class TestSetupDebugLogging(TestCase):
+
     def setUp(self):
         """remove all existing handlers before each test"""
         log = logging.getLogger("timestreamlib")

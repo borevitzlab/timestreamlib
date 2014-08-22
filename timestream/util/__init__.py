@@ -16,6 +16,7 @@ try:
 except NameError:
     UC = str
 
+
 def dict_unicode_to_str(dct):
     """Convert strings in a ``dict`` from ``unicode`` to ``str``
 
@@ -45,6 +46,7 @@ def dict_unicode_to_str(dct):
         output[key] = val
     return output
 
+
 def numpy2str(array):
     """Stringify a numpy array, preserving the dtype and shape"""
     if not isinstance(array, np.ndarray):
@@ -54,6 +56,7 @@ def numpy2str(array):
     arr_str = base64.b64encode(array.tostring())
     enc = [str(array.dtype), arr_str, array.shape, ]
     return json.dumps(enc)
+
 
 def str2numpy(arr_str):
     """destringify a numpy array, preserving the dtype and shape"""
@@ -73,6 +76,7 @@ def str2numpy(arr_str):
     arr = arr.reshape(shape)
     return arr
 
+
 def dejsonify_data(data):
     """Converd jsonified dict back to a real dict"""
     if not isinstance(data, str):
@@ -87,6 +91,7 @@ def dejsonify_data(data):
             key = key[7:]
         clean_dict[key] = val
     return clean_dict
+
 
 def jsonify_data(data, recursive=False):
     """Jsonify a dict that may contain numpy arrays"""

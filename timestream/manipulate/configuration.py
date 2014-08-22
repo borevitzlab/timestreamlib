@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#coding=utf-8
+# coding=utf-8
 # Copyright (C) 2014
 # Author(s): Joel Granados <joel.granados@gmail.com>
 #
@@ -19,20 +19,33 @@
 import os.path
 import yaml
 
+
 class PCFGException(Exception):
+
     def __str__(self):
         return "Pipeline Configuration Error: %s" % self.message
+
+
 class PCFGExInvalidSubsection(PCFGException):
+
     def __init__(self, name):
-        self.message = "Invalid subsection %s"%name
+        self.message = "Invalid subsection %s" % name
+
+
 class PCFGExInvalidFile(PCFGException):
+
     def __init__(self, name):
-        self.message = "Invalid Configuration File %s"%name
+        self.message = "Invalid Configuration File %s" % name
+
+
 class PCFGExInvalidType(PCFGException):
+
     def __init__(self, E, T):
-        self.message = "Expected a %s got a %s instead"%(E,T)
+        self.message = "Expected a %s got a %s instead" % (E, T)
+
 
 class PCFGSection(object):
+
     def __init__(self, name):
         """ Generic configuration subsection
 
@@ -74,12 +87,12 @@ class PCFGSection(object):
         retVal = None
         # We look for the value in the nested section
         if len(index) > 1:
-            if not isinstance(self.__dict__["__subsections"][index[0]], \
-                    PCFGSection):
+            if not isinstance(self.__dict__["__subsections"][index[0]],
+                              PCFGSection):
                 raise PCFGExInvalidSubsection(index[0])
             else:
                 retVal = self.__dict__["__subsections"][index[0]]. \
-                        getVal(index[1:])
+                    getVal(index[1:])
 
         elif len(index) == 1:
             retVal = self.__dict__["__subsections"][index[0]]
@@ -115,8 +128,8 @@ class PCFGSection(object):
                 self.__dict__["__subsections"][index[0]] = tmpSec
 
             # if exists but its not a subsection
-            if not isinstance(self.__dict__["__subsections"][index[0]], \
-                    PCFGSection):
+            if not isinstance(self.__dict__["__subsections"][index[0]],
+                              PCFGSection):
                 raise PCFGExInvalidSubsection(index[0])
 
             self.__dict__["__subsections"][index[0]].setVal(index[1:], value)
@@ -126,26 +139,26 @@ class PCFGSection(object):
             if index[0] not in self.__dict__["__subsections"]:
                 self.__dict__["__subsections"][index[0]] = None
 
-            if isinstance(self.__dict__["__subsections"][index[0]], \
-                    PCFGSection):
-                raise PCFGExInvalidType("non PCFGSection", \
-                        type(self.__dict__["__subsections"][index[0]]))
+            if isinstance(self.__dict__["__subsections"][index[0]],
+                          PCFGSection):
+                raise PCFGExInvalidType("non PCFGSection",
+                                        type(self.__dict__["__subsections"][index[0]]))
             else:
                 self.__dict__["__subsections"][index[0]] = value
 
-    def listIndexes(self, withVals = False, endline=""):
+    def listIndexes(self, withVals=False, endline=""):
         """Return the total tree of suboptions"""
         retStr = []
         for key in self.__dict__["__subsections"].keys():
             tmpstr = None
             if isinstance(self.__dict__["__subsections"][key], PCFGSection):
                 tmpstr = self.__dict__["__subsections"][key].\
-                                listIndexes(withVals, endline)
+                    listIndexes(withVals, endline)
                 for i in range(len(tmpstr)):
                     tmpstr[i] = key + "." + tmpstr[i]
                 retStr.extend(tmpstr)
 
-            else: # Config value
+            else:  # Config value
                 tmpstr = ""
                 if withVals:
                     tmpstr = "=" + str(self.__dict__["__subsections"][key])
@@ -168,16 +181,16 @@ class PCFGSection(object):
         # list values in order with their index. Only works for subsections that
         # have keys of the type _{number}.
 
-        if False in [x.startswith("_") \
-                for x in self.__dict__["__subsections"].keys()]:
+        if False in [x.startswith("_")
+                     for x in self.__dict__["__subsections"].keys()]:
             raise PCFGExInvalidType("_ prefix", "non _ prefix")
 
         # transform string keys into sorted nubmers
-        numKeys = sorted([int(x.strip("_")) \
-                for x in self.__dict__["__subsections"].keys()])
+        numKeys = sorted([int(x.strip("_"))
+                          for x in self.__dict__["__subsections"].keys()])
 
         for numKey in numKeys:
-            strKey = "_"+str(numKey)
+            strKey = "_" + str(numKey)
             valKey = None
 
             if isinstance(self.__dict__["__subsections"][strKey], PCFGSection):
@@ -209,7 +222,9 @@ class PCFGSection(object):
     def size(self):
         return len(self.__dict__["__subsections"])
 
+
 class PCFGConfig(PCFGSection):
+
     def __init__(self, configFile, depth):
         """PCFGConfig houses all config options
 
@@ -258,9 +273,9 @@ class PCFGConfig(PCFGSection):
             retVal = PCFGSection(name)
             if depth > 0:
                 for key in confElems.keys():
-                    retVal.addSubSec(key, \
-                            cls.createSection(confElems[key], \
-                                depth-1, key))
+                    retVal.addSubSec(key,
+                                     cls.createSection(confElems[key],
+                                                       depth - 1, key))
             else:
                 for key in confElems.keys():
                     retVal.addSubSec(key, confElems[key])
@@ -269,12 +284,12 @@ class PCFGConfig(PCFGSection):
             retVal = PCFGSection(name)
             if depth > 0:
                 for i in range(len(confElems)):
-                    retVal.addSubSec("_%d"%i, \
-                            cls.createSection(confElems[i], \
-                                depth-1, "_%d"%i))
+                    retVal.addSubSec("_%d" % i,
+                                     cls.createSection(confElems[i],
+                                                       depth - 1, "_%d" % i))
             else:
                 for i in range(len(confElems)):
-                    retVal.addSubSec("_%d"%i,confElems[i])
+                    retVal.addSubSec("_%d" % i, confElems[i])
 
         else:
             # We stop. Even depth == 0 has not been reached.

@@ -99,6 +99,7 @@ def get_exif_tag(image, tag, mode="silent"):
         else:
             raise exc
 
+
 def get_exif_date(image):
     """Get a tag from image exif header
 

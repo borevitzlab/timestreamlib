@@ -3,13 +3,14 @@ import netCDF4 as ncdf
 from netCDF4 import num2date, date2num, date2index
 
 from timestream.manipulate import (
-        NOEOL,
-        )
+    NOEOL,
+)
 from timestream.parse import (
-        ts_iter_images,
-        ts_iter_numpy,
-        ts_parse_date_path,
-        )
+    ts_iter_images,
+    ts_iter_numpy,
+    ts_parse_date_path,
+)
+
 
 def ts_to_tsnc(ts_path, tsnc_path):
     log = logging.getLogger("CONSOLE")
@@ -36,7 +37,7 @@ def ts_to_tsnc(ts_path, tsnc_path):
     # create actual pixel array
     px_type = 'u{d}'.format(mat0.dtype.itemsize)
     pixels = root.createVariable("pixel", px_type, ('t', 'y', 'x', 'z'),
-            zlib=True)
+                                 zlib=True)
     log.info("Created netcdf4 file {} with pixel array dimensions {!r}".format(
         tsnc_path, pixels.shape))
     # iteratively add images
@@ -44,12 +45,12 @@ def ts_to_tsnc(ts_path, tsnc_path):
     for img, mat in mats:
         n_dates = len(root.dimensions['t'])
         time = ts_parse_date_path(img)
-        times[n_dates] = date2num([time,], units=times.units,
-                calendar=times.calendar)
-        pixels[n_dates, :, :, :] = mat
+        times[n_dates] = date2num([time, ], units=times.units,
+                                  calendar=times.calendar)
+        pixels[n_dates, :,:,:] = mat
         count += 1
         log.debug("Processed {}. Matrix shape is {!r}".format(img,
-            pixels.shape))
+                                                              pixels.shape))
         if count % 2 == 0:
             log.log(NOEOL, "Processed {: 5d} images.\r".format(count))
     log.info("Processed {: 5d} images. ts_to_tsnc finished!".format(count))

@@ -92,6 +92,7 @@ class TestDictUnicodeToString(TestCase):
 
 
 class TestJsonifyDataDict(TestCase):
+
     """Test ts.util.jsonify_data"""
 
     def test_jsonify_primitive_types(self):
@@ -105,8 +106,8 @@ class TestJsonifyDataDict(TestCase):
     def test_jsonify_nested(self):
         """Test jsonify_data with primitive data types only"""
         dct = {"a": 1, "b": "2", "1": True, "31": None,
-               "dct": {"nesting": "isfun",},
-        }
+               "dct": {"nesting": "isfun", },
+               }
         res = jsonify_data(dct)
         self.assertEqual(res, json.dumps(dct))
         back = dejsonify_data(res)
@@ -114,7 +115,7 @@ class TestJsonifyDataDict(TestCase):
 
     def test_jsonify_numpy(self):
         """Test jsonify_data with dict w/ numpy array"""
-        dct = { "array": np.arange(10),}
+        dct = {"array": np.arange(10), }
         res = jsonify_data(dct)
         back = dejsonify_data(res)
         self.assertIsInstance(res, str)
@@ -126,7 +127,7 @@ class TestJsonifyDataDict(TestCase):
 
     def test_jsonify_numpy_shaped(self):
         """Test jsonify_data with dict w/ 3d numpy array"""
-        dct = { "array": np.arange(27).reshape((3,3,3)),}
+        dct = {"array": np.arange(27).reshape((3, 3, 3)), }
         res = jsonify_data(dct)
         back = dejsonify_data(res)
         self.assertIsInstance(res, str)
@@ -136,7 +137,9 @@ class TestJsonifyDataDict(TestCase):
         self.assertEqual(dct["array"].dtype, back["array"].dtype)
         self.assertEqual(dct["array"].shape, back["array"].shape)
 
+
 class TestStrNumpy(TestCase):
+
     """Test ts.util.str2numpy and numpy2str"""
 
     def _arrays_eq(self, arr1, arr2):
@@ -164,7 +167,7 @@ class TestStrNumpy(TestCase):
 
     def test_int64_3d(self):
         arr = np.arange(27)
-        arr = arr.reshape((3,3,3))
+        arr = arr.reshape((3, 3, 3))
         arr_str = numpy2str(arr)
         arr_loaded = str2numpy(arr_str)
         self._arrays_eq(arr, arr_loaded)

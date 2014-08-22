@@ -34,7 +34,7 @@ FILES = {
                                   "IMG_0001_NOEXIF.JPG"),
     "basic_tiff": path.join(TESTS_DIR, "data", "cam_images", "IMG_0001.tiff"),
     "basic_tiff_exif": path.join(TESTS_DIR, "data", "cam_images",
-                                "IMG_0001-tiff-exif.json"),
+                                 "IMG_0001-tiff-exif.json"),
     "empty_dir": path.join(TESTS_DIR, "data", "empty_dir"),
     "tmp_dir": path.join(TESTS_DIR, "data", "tmp"),
     "timestream": path.join(TESTS_DIR, "data", "timestreams",
@@ -134,6 +134,8 @@ if path.exists(FILES["empty_dir"]):
 os.mkdir(FILES["empty_dir"])
 
 NUM_TEMPS = 0
+
+
 def make_tmp_file():
     if not path.isdir(FILES["tmp_dir"]):
         os.mkdir(FILES["tmp_dir"])

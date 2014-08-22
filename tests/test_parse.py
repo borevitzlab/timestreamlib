@@ -22,6 +22,7 @@ from timestream.parse import (
 
 
 class TestAllFilesWithExt(TestCase):
+
     """Test function timestream.parse.all_files_with_ext"""
     _multiprocess_can_split_ = True
     maxDiff = None

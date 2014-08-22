@@ -101,6 +101,7 @@ def ts_guess_manifest(ts_path):
          DeprecationWarning)
     return ts_guess_manifest_v1(ts_path)
 
+
 def ts_guess_manifest_v1(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
@@ -127,8 +128,9 @@ def ts_guess_manifest_v1(ts_path):
             pass
     # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["extension"] = exts.most_common(1)[0][0]
-    all_files = ifilter(lambda x: path.splitext(x)[1][1:] == retval["extension"],
-                       all_files)
+    all_files = ifilter(
+        lambda x: path.splitext(x)[1][1:] == retval["extension"],
+        all_files)
     # get image type from extension:
     try:
         retval["image_type"] = IMAGE_EXT_TO_TYPE[retval["extension"]]
@@ -172,17 +174,17 @@ def all_files_with_ext(topdir, ext, cs=False):
     """
     if not isinstance(topdir, str):
         msg = PARAM_TYPE_ERR.format(param="topdir",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(ext, str):
         msg = PARAM_TYPE_ERR.format(param="ext",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(cs, bool):
         msg = PARAM_TYPE_ERR.format(param="cs",
-                                    func="all_files_with_ext",  type="bool")
+                                    func="all_files_with_ext", type="bool")
         LOG.error(msg)
         raise ValueError(msg)
     # Trim any leading spaces from the extension we've been given
@@ -218,7 +220,7 @@ def all_files_with_exts(topdir, exts, cs=False):
     """
     if not isinstance(exts, list):
         msg = PARAM_TYPE_ERR.format(param="exts",
-                                    func="all_files_with_exts",  type="list")
+                                    func="all_files_with_exts", type="list")
         LOG.error(msg)
         raise ValueError(msg)
     ext_dict = {}
@@ -311,7 +313,7 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         raise ValueError(msg)
     if not isinstance(ts_path, str):
         msg = PARAM_TYPE_ERR.format(param="ts_path",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     # Get ts_info from manifest
@@ -360,6 +362,7 @@ def ts_iter_numpy(fname_iter):
                      "Raw images not supported")
             yield (img, cv2.imread(img))
 
+
 def _is_ts_v2(ts_path):
     """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""
     # This will need to be written properly, but for now we just check the
@@ -369,6 +372,7 @@ def _is_ts_v2(ts_path):
     with open(ts_path, "rb") as tmpfh:
         file_sig = tmpfh.read(8)
         return file_sig == '\x89\x48\x44\x46\x0d\x0a\x1a\x0a'
+
 
 def _is_ts_v1(ts_path):
     """Check if ``ts_path`` is a v1 timestream stored as date-nested folders"""
@@ -385,18 +389,19 @@ def _is_ts_v1(ts_path):
         worked = False
         try:
             if not fldr.startswith("_"):
-                  datetime.strptime(fldr, '%Y')
+                datetime.strptime(fldr, '%Y')
             worked = True
         except ValueError:
             worked = False
         is_ok &= worked
     if is_ok:
         LOG.debug("'{}' contains only year-based folders, assume v1 TS".format(
-                ts_path))
+            ts_path))
     else:
         LOG.debug("'{}' contains non-year-based folders, or has extras".format(
-                ts_path))
+            ts_path))
     return is_ok
+
 
 def ts_make_dirs(fpath):
     """Make image dir if not exists"""

@@ -11,31 +11,36 @@ import cv2
 from scipy import optimize
 import matplotlib.pylab as plt
 
-#RED GRN BLU
+# RED GRN BLU
 CameraTrax_24ColorCard = \
- [[ 115., 196.,  91.,  94., 129.,  98., 223.,  58., 194.,  93., 162., 229., \
-    49.,  77., 173., 241., 190.,   0., 242., 203., 162., 120.,  84.,  50.], \
- [  83., 147., 122., 108., 128., 190., 124.,  92.,  82.,  60., 190., 158., \
-    66., 153.,  57., 201.,  85., 135., 243., 203., 163., 120.,  84.,  50.], \
- [  68., 127., 155.,  66., 176., 168.,  47., 174.,  96., 103.,  62.,  41., \
-   147.,  71.,  60.,  25., 150., 166., 245., 204., 162., 120.,  84.,  52.]]
+    [[115., 196., 91., 94., 129., 98., 223., 58., 194., 93., 162., 229.,
+      49., 77., 173., 241., 190., 0., 242., 203., 162., 120., 84., 50.],
+     [83., 147., 122., 108., 128., 190., 124., 92., 82., 60., 190., 158.,
+      66., 153., 57., 201., 85., 135., 243., 203., 163., 120., 84., 50.],
+     [68., 127., 155., 66., 176., 168., 47., 174., 96., 103., 62., 41.,
+      147., 71., 60., 25., 150., 166., 245., 204., 162., 120., 84., 52.]]
 CameraTrax_24ColorCard180deg = \
- [[  50.,  84., 120., 162., 203., 242.,   0., 190., 241., 173.,  77.,  49., \
-   229., 162.,  93., 194.,  58., 223.,  98., 129.,  94.,  91., 196., 115.], \
- [  50.,  84., 120., 163., 203., 243., 135.,  85., 201.,  57., 153.,  66., \
-   158., 190.,  60.,  82.,  92., 124., 190., 128., 108., 122., 147.,  83.], \
- [  52.,  84., 120., 162., 204., 245., 166., 150.,  25.,  60.,  71., 147., \
-    41.,  62., 103.,  96., 174.,  47., 168., 176.,  66., 155., 127.,  68.]]
+    [[50., 84., 120., 162., 203., 242., 0., 190., 241., 173., 77., 49.,
+     229., 162., 93., 194., 58., 223., 98., 129., 94., 91., 196., 115.],
+     [50., 84., 120., 163., 203., 243., 135., 85., 201., 57., 153., 66.,
+      158., 190., 60., 82., 92., 124., 190., 128., 108., 122., 147., 83.],
+     [52., 84., 120., 162., 204., 245., 166., 150., 25., 60., 71., 147.,
+      41., 62., 103., 96., 174., 47., 168., 176., 66., 155., 127., 68.]]
 
-def getRectCornersFrom2Points(Image, Points, AspectRatio, Rounded = False):
+
+def getRectCornersFrom2Points(Image, Points, AspectRatio, Rounded=False):
 #    print('Points =', Points)
-    Length = np.sqrt((Points[0][0] - Points[1][0])**2 + \
-                     (Points[0][1] - Points[1][1])**2)
-    Height = Length/np.sqrt(1+AspectRatio**2)
-    Width = Height*AspectRatio
-    Centre = np.asarray([Points[0][0] + Points[1][0], Points[0][1] + Points[1][1]])/2.0
+    Length = np.sqrt((Points[0][0] - Points[1][0]) ** 2 +
+                     (Points[0][1] - Points[1][1]) ** 2)
+    Height = Length / np.sqrt(1 + AspectRatio ** 2)
+    Width = Height * AspectRatio
+    Centre = np.asarray(
+        [Points[0][0] + Points[1][0],
+         Points[0][1] + Points[1][1]]) / 2.0
     Angle = np.arctan2(Height, Width) - \
-            np.arctan2(Points[1][1] - Points[0][1], Points[1][0] - Points[0][0])
+        np.arctan2(
+            Points[1][1] - Points[0][1],
+            Points[1][0] - Points[0][0])
     InitRect = createRectangle(Centre, Width, Height, Angle)
     CornerTypes = ['topleft', 'bottomleft', 'bottomright', 'topright']
     Rect = []
@@ -47,18 +52,20 @@ def getRectCornersFrom2Points(Image, Points, AspectRatio, Rounded = False):
         Rect = findRoundedCorner(Image, InitRect)
     return Rect
 
+
 def createRectangle(Centre, Width, Height, Angle):
-    tl2 = np.asarray([-Width, -Height])/2.0
-    bl2 = np.asarray([-Width,  Height])/2.0
-    br2 = np.asarray([ Width,  Height])/2.0
-    tr2 = np.asarray([ Width, -Height])/2.0
+    tl2 = np.asarray([-Width, -Height]) / 2.0
+    bl2 = np.asarray([-Width, Height]) / 2.0
+    br2 = np.asarray([Width, Height]) / 2.0
+    tr2 = np.asarray([Width, -Height]) / 2.0
     RectFit = [tl2, bl2, br2, tr2]
     for i in range(len(RectFit)):
         # rotate around center
-        xrot =  RectFit[i][0]*np.cos(Angle) + RectFit[i][1]*np.sin(Angle)
-        yrot = -RectFit[i][0]*np.sin(Angle) + RectFit[i][1]*np.cos(Angle)
-        RectFit[i][0], RectFit[i][1] = (xrot+Centre[0]), (yrot+Centre[1])
+        xrot = RectFit[i][0] * np.cos(Angle) + RectFit[i][1] * np.sin(Angle)
+        yrot = -RectFit[i][0] * np.sin(Angle) + RectFit[i][1] * np.cos(Angle)
+        RectFit[i][0], RectFit[i][1] = (xrot + Centre[0]), (yrot + Centre[1])
     return RectFit
+
 
 def getRectangleParamters(Rect):
     tl = np.asarray(Rect[0])
@@ -67,49 +74,55 @@ def getRectangleParamters(Rect):
     tr = np.asarray(Rect[3])
 
     # paramters of fitted Rectangle
-    Centre = (tl + bl + br + tr)/4.0
-    Width  = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl))/2.0
-    Height = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr))/2.0
-    Angle = (np.arctan2(-(tr[1] - tl[1]), tr[0] - tl[0]) + \
-             np.arctan2(-(br[1] - bl[1]), br[0] - bl[0]) + \
-             np.arctan2(  bl[0] - tl[0] , bl[1] - tl[1]) + \
-             np.arctan2(  br[0] - tr[0] , br[1] - tr[1]))/4
+    Centre = (tl + bl + br + tr) / 4.0
+    Width = (np.linalg.norm(tr - tl) + np.linalg.norm(br - bl)) / 2.0
+    Height = (np.linalg.norm(bl - tl) + np.linalg.norm(br - tr)) / 2.0
+    Angle = (np.arctan2(-(tr[1] - tl[1]), tr[0] - tl[0]) +
+             np.arctan2(-(br[1] - bl[1]), br[0] - bl[0]) +
+             np.arctan2(bl[0] - tl[0], bl[1] - tl[1]) +
+             np.arctan2(br[0] - tr[0], br[1] - tr[1])) / 4
     return Centre, Width, Height, Angle
 
-def findCorner(Image, Corner, CornerType = 'topleft', WindowSize = 100, Threshold = 50):
+
+def findCorner(
+        Image,
+        Corner,
+        CornerType='topleft',
+        WindowSize=100,
+        Threshold=50):
     x, y = Corner
-    HWindowSize = int(WindowSize/2)
-    xStart = max(0, x-HWindowSize)
-    xEnd = min(Image.shape[0], x+HWindowSize+1)
-    yStart = max(0, y-HWindowSize)
-    yEnd = min(Image.shape[1], y+HWindowSize+1)
-    window = Image[yStart:yEnd, xStart:xEnd,:].astype(np.float)
+    HWindowSize = int(WindowSize / 2)
+    xStart = max(0, x - HWindowSize)
+    xEnd = min(Image.shape[0], x + HWindowSize + 1)
+    yStart = max(0, y - HWindowSize)
+    yEnd = min(Image.shape[1], y + HWindowSize + 1)
+    window = Image[yStart:yEnd, xStart:xEnd, :].astype(np.float)
 #        cv2.imwrite('/home/chuong/Data/GC03L-temp/corrected/'+CornerType+'.jpg', window)
     foundLeftEdgeX = False
     foundRightEdgeX = False
     foundTopEdgeY = False
     foundBottomEdgeY = False
 
-    HWindowSize = window.shape[1]//2
+    HWindowSize = window.shape[1] // 2
     for i in range(HWindowSize):
-        diff0 = np.sum(np.abs(window[HWindowSize, HWindowSize-i,:] - window[HWindowSize, HWindowSize,:]))
-        diff1 = np.sum(np.abs(window[HWindowSize, HWindowSize+i,:] - window[HWindowSize, HWindowSize,:]))
+        diff0 = np.sum(np.abs(window[HWindowSize, HWindowSize-i, :] - window[HWindowSize, HWindowSize,:]))
+        diff1 = np.sum(np.abs(window[HWindowSize, HWindowSize+i, :] - window[HWindowSize, HWindowSize,:]))
         if diff0 > Threshold and not foundLeftEdgeX:
-            xLeftNew = x-i
+            xLeftNew = x - i
             foundLeftEdgeX = True
         elif diff1 > Threshold and not foundRightEdgeX:
-            xRightNew = x+i
+            xRightNew = x + i
             foundRightEdgeX = True
 
-    VWindowSize = window.shape[0]//2
+    VWindowSize = window.shape[0] // 2
     for i in range(VWindowSize):
-        diff2 = np.sum(np.abs(window[VWindowSize-i, VWindowSize,:] - window[VWindowSize, VWindowSize,:]))
-        diff3 = np.sum(np.abs(window[VWindowSize+i, VWindowSize,:] - window[VWindowSize, VWindowSize,:]))
+        diff2 = np.sum(np.abs(window[VWindowSize-i, VWindowSize, :] - window[VWindowSize, VWindowSize,:]))
+        diff3 = np.sum(np.abs(window[VWindowSize+i, VWindowSize, :] - window[VWindowSize, VWindowSize,:]))
         if diff2 > Threshold and not foundTopEdgeY:
-            yTopNew = y-i
+            yTopNew = y - i
             foundTopEdgeY = True
         elif diff3 > Threshold and not foundBottomEdgeY:
-            yBottomNew = y+i
+            yBottomNew = y + i
             foundBottomEdgeY = True
 
     if CornerType.lower() == 'topleft' and foundLeftEdgeX and foundTopEdgeY:
@@ -124,39 +137,42 @@ def findCorner(Image, Corner, CornerType = 'topleft', WindowSize = 100, Threshol
         print('Cannot detect corner ' + CornerType)
         return [x, y]
 
-def findRoundedCorner(Image, InitRect, searchDistance = 20, Threshold = 20):
-    #TODO: add search for rounded corner with better accuracy
+
+def findRoundedCorner(Image, InitRect, searchDistance=20, Threshold=20):
+    # TODO: add search for rounded corner with better accuracy
     [topLeft, _, bottomRight, _] = InitRect
-    initPot = np.double(Image[topLeft[1]:bottomRight[1], topLeft[0]:bottomRight[0],:])
+    initPot = np.double(Image[topLeft[1]:bottomRight[1], topLeft[0]:bottomRight[0], :])
     foundLeftEdgeX = False
     foundRightEdgeX = False
     foundTopEdgeY = False
     foundBottomEdgeY = False
     for i in range(searchDistance):
-        diff0 = np.mean(np.abs(initPot[:,0,:]  - initPot[:,i,:]))
-        diff1 = np.mean(np.abs(initPot[:,-1,:] - initPot[:,-i-1,:]))
-        diff2 = np.mean(np.abs(initPot[0,:,:]  - initPot[i,:,:]))
-        diff3 = np.mean(np.abs(initPot[-1,:,:] - initPot[-i-1,:,:]))
+        diff0 = np.mean(np.abs(initPot[:, 0, :]  - initPot[:, i,:]))
+        diff1 = np.mean(np.abs(initPot[:, -1, :] - initPot[:, -i-1,:]))
+        diff2 = np.mean(np.abs(initPot[0, :,:]  - initPot[i,:,:]))
+        diff3 = np.mean(np.abs(initPot[-1, :,:] - initPot[-i-1,:,:]))
 #        print([diff0, diff1, diff2, diff3])
         if diff0 > Threshold and not foundLeftEdgeX:
-            xLeftNew = topLeft[0]+i
+            xLeftNew = topLeft[0] + i
             foundLeftEdgeX = True
         elif diff1 > Threshold and not foundRightEdgeX:
-            xRightNew = bottomRight[0]-i
+            xRightNew = bottomRight[0] - i
             foundRightEdgeX = True
         if diff2 > Threshold and not foundTopEdgeY:
-            yTopNew = topLeft[1]+i
+            yTopNew = topLeft[1] + i
             foundTopEdgeY = True
         elif diff3 > Threshold and not foundBottomEdgeY:
-            yBottomNew = bottomRight[1]-i
+            yBottomNew = bottomRight[1] - i
             foundBottomEdgeY = True
     if foundLeftEdgeX and foundRightEdgeX and foundTopEdgeY and foundBottomEdgeY:
         print('Found pot edges')
-        Rect = [[xLeftNew, yTopNew], [xLeftNew, yBottomNew], [xRightNew, yBottomNew], [xRightNew, yTopNew]]
+        Rect = [[xLeftNew, yTopNew], [xLeftNew, yBottomNew],
+                [xRightNew, yBottomNew], [xRightNew, yTopNew]]
         return Rect
     return InitRect
 
-def correctPointOrder(Rect, tolerance = 40):
+
+def correctPointOrder(Rect, tolerance=40):
     # find minimum values of x and y
     minX = 10e6
     minY = 10e6
@@ -165,7 +181,7 @@ def correctPointOrder(Rect, tolerance = 40):
             minX = Rect[i][0]
         if minY > Rect[i][1]:
             minY = Rect[i][1]
-    #separate left and right
+    # separate left and right
     topLeft, bottomLeft, topRight, bottomRight = [], [], [], []
     for i in range(len(Rect[0])):
         if abs(minX - Rect[0][i]) < tolerance:
@@ -178,12 +194,13 @@ def correctPointOrder(Rect, tolerance = 40):
                 topRight = [Rect[i][0], Rect[i][1]]
             else:
                 bottomRight = [Rect[i][0], Rect[i][1]]
-    if len(topLeft)*len(bottomLeft)*len(topRight)*len(bottomRight) == 0:
+    if len(topLeft) * len(bottomLeft) * len(topRight) * len(bottomRight) == 0:
         print('Cannot find corRect corner order. Change tolerance value.')
         return Rect
     else:
         Rect = [topLeft, bottomLeft, bottomRight, topRight]
         return Rect
+
 
 def getMedianRectSize(RectList):
     WidthList = []
@@ -192,33 +209,37 @@ def getMedianRectSize(RectList):
         Centre, Width, Height, Angle = getRectangleParamters(Rect)
         WidthList.append(Width)
         HeightList.append(Height)
-    MedianWidth = int(sorted(WidthList)[int(len(RectList)/2)])
-    MedianHeight = int(sorted(HeightList)[int(len(RectList)/2)])
+    MedianWidth = int(sorted(WidthList)[int(len(RectList) / 2)])
+    MedianHeight = int(sorted(HeightList)[int(len(RectList) / 2)])
     return MedianWidth, MedianHeight
+
 
 def rectifyRectImages(Image, RectList, MedianSize):
     Width, Height = MedianSize
-    RectifiedCorners = np.float32([[0,0], [0,Height], [Width,Height], [Width,0]])
+    RectifiedCorners = np.float32(
+        [[0, 0], [0, Height], [Width, Height], [Width, 0]])
     RectifiedTrayImages = []
     for Rect in RectList:
         Corners = np.float32(Rect)
         M = cv2.getPerspectiveTransform(Corners, RectifiedCorners)
-        RectifiedTrayImage = cv2.warpPerspective(Image, M,(Width, Height))
+        RectifiedTrayImage = cv2.warpPerspective(Image, M, (Width, Height))
         RectifiedTrayImages.append(RectifiedTrayImage)
     return RectifiedTrayImages
 
+
 def readValueFromLineYML(line):
     name = line[:line.index(':')].strip()
-    string = line[line.index(':')+1:].strip()
+    string = line[line.index(':') + 1:].strip()
     if string[0] in '-+.0123456789':
         if '.' in string:
-            value =  float(string)
+            value = float(string)
         else:
             value = int(string)
     else:
         value = string
 
     return name, value
+
 
 def readOpenCVArrayFromYML(myfile):
     line = myfile.readline().strip()
@@ -230,7 +251,7 @@ def readOpenCVArrayFromYML(myfile):
     line = myfile.readline().strip()
     dname, data = readValueFromLineYML(line)
     if rname != 'rows' and cname != 'cols' and dtname != 'dt' \
-        and dname != 'data' and '[' in data:
+            and dname != 'data' and '[' in data:
         print('Error reading YML file')
     elif dtype != 'd':
         print('Unsupported data type: dt = ' + dtype)
@@ -241,7 +262,7 @@ def readOpenCVArrayFromYML(myfile):
                 data = data + line
                 if ']' in line:
                     break
-        data = data[data.index('[')+1: data.index(']')].split(',')
+        data = data[data.index('[') + 1: data.index(']')].split(',')
         dlist = [float(el) for el in data]
         if cols == 1:
             value = np.asarray(dlist)
@@ -249,8 +270,9 @@ def readOpenCVArrayFromYML(myfile):
             value = np.asarray(dlist).reshape([rows, cols])
     return value
 
+
 def yml2dic(filename):
-    with open (filename, 'r') as myfile:
+    with open(filename, 'r') as myfile:
         dicdata = {}
         while True:
             line = myfile.readline()
@@ -273,33 +295,36 @@ def yml2dic(filename):
 
     return dicdata
 
+
 def writeOpenCVArrayToYML(myfile, key, data):
     myfile.write(key + ': !!opencv-matrix\n')
-    myfile.write('   rows: %d\n' %data.shape[0])
-    myfile.write('   cols: %d\n' %data.shape[1])
+    myfile.write('   rows: %d\n' % data.shape[0])
+    myfile.write('   cols: %d\n' % data.shape[1])
     myfile.write('   dt: d\n')
     myfile.write('   data: [')
     datalist = []
     for i in range(data.shape[0]):
-        datalist = datalist + [str(num) for num in list(data[i,:])]
+        datalist = datalist + [str(num) for num in list(data[i, :])]
     myfile.write(', '.join(datalist))
     myfile.write(']\n')
 
+
 def dic2yml(filename, dicdata):
-    with open (filename, 'w') as myfile:
+    with open(filename, 'w') as myfile:
         myfile.write('%YAML:1.0\n')
         for key in dicdata:
             data = dicdata[key]
-            if type(data) == np.ndarray:
+            if isinstance(data, np.ndarray):
                 writeOpenCVArrayToYML(myfile, key, data)
             elif isinstance(data, str):
-                myfile.write(key+': "%s"\n' %data)
+                myfile.write(key + ': "%s"\n' % data)
             elif isinstance(data, int):
-                myfile.write(key+': %d\n' %data)
+                myfile.write(key + ': %d\n' % data)
             elif isinstance(data, float):
-                myfile.write(key+': %f\n' %data)
+                myfile.write(key + ': %f\n' % data)
             else:
                 print('Unsupported data: ', data)
+
 
 def readCalibration(CalibFile):
     parameters = yml2dic(CalibFile)
@@ -313,169 +338,226 @@ def readCalibration(CalibFile):
     TVecs = parameters['TVecs']
     return ImageSize, SquareSize, CameraMatrix, DistCoefs, RVecs, TVecs
 
+
 def readGeometries(GeometryFile):
     parameters = yml2dic(GeometryFile)
     rotationAngle = parameters['rotationAngle']
     distortionCorrected = bool(parameters['distortionCorrected'])
     colorcardList = parameters['colorcardList'].tolist()
     colorcardList2 = []
-    for i in range(0,len(colorcardList),4):
-        colorcardList2.append([colorcardList[i], colorcardList[i+1], \
-                               colorcardList[i+2], colorcardList[i+3]])
+    for i in range(0, len(colorcardList), 4):
+        colorcardList2.append([colorcardList[i], colorcardList[i + 1],
+                               colorcardList[i + 2], colorcardList[i + 3]])
     trayList = parameters['trayList'].tolist()
     trayList2 = []
-    for i in range(0,len(trayList),4):
-        trayList2.append([trayList[i], trayList[i+1], \
-                          trayList[i+2], trayList[i+3]])
+    for i in range(0, len(trayList), 4):
+        trayList2.append([trayList[i], trayList[i + 1],
+                          trayList[i + 2], trayList[i + 3]])
     potList = parameters['potList'].tolist()
     potList2 = []
-    for i in range(0,len(potList),4):
-        potList2.append([potList[i], potList[i+1], \
-                         potList[i+2], potList[i+3]])
-    return rotationAngle, distortionCorrected, colorcardList2, trayList2, potList2
+    for i in range(0, len(potList), 4):
+        potList2.append([potList[i], potList[i + 1],
+                         potList[i + 2], potList[i + 3]])
+    return (
+        rotationAngle, distortionCorrected, colorcardList2, trayList2, potList2
+    )
+
 
 def createMap(Centre, Width, Height, Angle):
     MapX, MapY = np.meshgrid(np.arange(Width), np.arange(Height))
-    MapX = MapX - Width/2.0
-    MapY = MapY - Height/2.0
-    MapX2 =  MapX*np.cos(Angle) + MapY*np.sin(Angle) + Centre[0]
-    MapY2 = -MapX*np.sin(Angle) + MapY*np.cos(Angle) + Centre[1]
+    MapX = MapX - Width / 2.0
+    MapY = MapY - Height / 2.0
+    MapX2 = MapX * np.cos(Angle) + MapY * np.sin(Angle) + Centre[0]
+    MapY2 = -MapX * np.sin(Angle) + MapY * np.cos(Angle) + Centre[1]
     return MapX2.astype(np.float32), MapY2.astype(np.float32)
 
-def getColorcardColors(ColorCardCaptured, GridSize, Show = False):
+
+def getColorcardColors(ColorCardCaptured, GridSize, Show=False):
     GridCols, GridRows = GridSize
-    Captured_Colors = np.zeros([3,GridRows*GridCols])
-    STD_Colors = np.zeros([GridRows*GridCols])
-    SquareSize2 = int(ColorCardCaptured.shape[0]/GridRows)
-    HalfSquareSize2 = int(SquareSize2/2)
-    SampleSize = int(0.5*HalfSquareSize2)
+    Captured_Colors = np.zeros([3, GridRows * GridCols])
+    STD_Colors = np.zeros([GridRows * GridCols])
+    SquareSize2 = int(ColorCardCaptured.shape[0] / GridRows)
+    HalfSquareSize2 = int(SquareSize2 / 2)
+    SampleSize = int(0.5 * HalfSquareSize2)
     if Show:
         plt.figure()
         plt.imshow(ColorCardCaptured)
         plt.hold(True)
-    for i in range(GridRows*GridCols):
-        Row = i//GridCols
-        Col = i - Row*GridCols
-        rr = Row*SquareSize2 + HalfSquareSize2
-        cc = Col*SquareSize2 + HalfSquareSize2
-        Captured_R = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 0].astype(np.float)
-        Captured_G = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 1].astype(np.float)
-        Captured_B = ColorCardCaptured[rr-SampleSize:rr+SampleSize, cc-SampleSize:cc+SampleSize, 2].astype(np.float)
-        STD_Colors[i] = np.std(Captured_R) + np.std(Captured_G) + np.std(Captured_B)
+    for i in range(GridRows * GridCols):
+        Row = i // GridCols
+        Col = i - Row * GridCols
+        rr = Row * SquareSize2 + HalfSquareSize2
+        cc = Col * SquareSize2 + HalfSquareSize2
+        Captured_R = ColorCardCaptured[
+            rr -
+            SampleSize:rr +
+            SampleSize,
+            cc -
+            SampleSize:cc +
+            SampleSize,
+            0].astype(
+            np.float)
+        Captured_G = ColorCardCaptured[
+            rr -
+            SampleSize:rr +
+            SampleSize,
+            cc -
+            SampleSize:cc +
+            SampleSize,
+            1].astype(
+            np.float)
+        Captured_B = ColorCardCaptured[
+            rr -
+            SampleSize:rr +
+            SampleSize,
+            cc -
+            SampleSize:cc +
+            SampleSize,
+            2].astype(
+            np.float)
+        STD_Colors[i] = np.std(Captured_R) + \
+            np.std(Captured_G) + np.std(Captured_B)
 #        Captured_R = np.sum(Captured_R)/Captured_R.size
 #        Captured_G = np.sum(Captured_G)/Captured_G.size
 #        Captured_B = np.sum(Captured_B)/Captured_B.size
         Captured_R = np.median(Captured_R)
         Captured_G = np.median(Captured_G)
         Captured_B = np.median(Captured_B)
-        Captured_Colors[0,i] = Captured_R
-        Captured_Colors[1,i] = Captured_G
-        Captured_Colors[2,i] = Captured_B
+        Captured_Colors[0, i] = Captured_R
+        Captured_Colors[1, i] = Captured_G
+        Captured_Colors[2, i] = Captured_B
         if Show:
-            plt.plot([cc-SampleSize, cc-SampleSize, cc+SampleSize, cc+SampleSize, cc-SampleSize], [rr-SampleSize, rr+SampleSize, rr+SampleSize, rr-SampleSize, rr-SampleSize], 'w')
+            plt.plot(
+                [cc - SampleSize,
+                 cc - SampleSize,
+                 cc + SampleSize,
+                 cc + SampleSize,
+                 cc - SampleSize],
+                [rr - SampleSize,
+                 rr + SampleSize,
+                 rr + SampleSize,
+                 rr - SampleSize,
+                 rr - SampleSize],
+                'w')
     plt.show()
     return Captured_Colors, STD_Colors
 
 # Using modified Gamma Correction Algorithm by
-# Constantinou2013 - A comparison of color correction algorithms for endoscopic cameras
+# Constantinou2013 - A comparison of color correction algorithms for
+# endoscopic cameras
+
+
 def getColorMatchingError(Arg, Colors, Captured_Colors):
-    ColorMatrix = Arg[:9].reshape([3,3])
+    ColorMatrix = Arg[:9].reshape([3, 3])
     ColorConstant = Arg[9:12]
     ColorGamma = Arg[12:15]
     ErrorList = []
     for Color, Captured_Color in zip(Colors, Captured_Colors):
         Color2 = np.dot(ColorMatrix, Captured_Color) + ColorConstant
-        Color3 = 255.0 * np.power(Color2/255.0, ColorGamma)
+        Color3 = 255.0 * np.power(Color2 / 255.0, ColorGamma)
         Error = np.linalg.norm(Color - Color3)
         ErrorList.append(Error)
     return ErrorList
+
 
 def correctColor(Image, ColorMatrix, ColorConstant, ColorGamma):
     ImageCorrected = np.zeros_like(Image)
     for i in range(Image.shape[0]):
         for j in range(Image.shape[1]):
-            Captured_Color = Image[i,j,:].reshape([3])
+            Captured_Color = Image[i, j, :].reshape([3])
             Color2 = np.dot(ColorMatrix, Captured_Color) + ColorConstant
-            Color3 = 255.0 * np.power(Color2/255.0, ColorGamma)
-            ImageCorrected[i,j,:] = np.uint8(Color3)
+            Color3 = 255.0 * np.power(Color2 / 255.0, ColorGamma)
+            ImageCorrected[i, j, :] = np.uint8(Color3)
     return ImageCorrected
 
 # Using modified Gamma Correction Algorithm by
-# Constantinou2013 - A comparison of color correction algorithms for endoscopic cameras
+# Constantinou2013 - A comparison of color correction algorithms for
+# endoscopic cameras
+
+
 def getColorMatchingErrorVectorised(Arg, Colors, Captured_Colors):
-    ColorMatrix = Arg[:9].reshape([3,3])
-    ColorConstant = Arg[9:12].reshape([3,1])
+    ColorMatrix = Arg[:9].reshape([3, 3])
+    ColorConstant = Arg[9:12].reshape([3, 1])
     ColorGamma = Arg[12:15]
 
     TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
     Corrected_Colors = np.zeros_like(TempRGB)
-    Corrected_Colors[0,:] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
-    Corrected_Colors[1,:] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
-    Corrected_Colors[2,:] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
+    Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
+    Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
+    Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
 
     Diff = Colors - Corrected_Colors
-    ErrorList = np.sqrt(np.sum(Diff*Diff, axis= 0)).tolist()
+    ErrorList = np.sqrt(np.sum(Diff * Diff, axis=0)).tolist()
     return ErrorList
 
-def estimateColorParametersFromWhiteBackground(Image, Window, MaxIntensity = 255):
+
+def estimateColorParametersFromWhiteBackground(
+        Image,
+        Window,
+        MaxIntensity=255):
     TopLeftCorner = Window[0:2]
     BottomRightCorner = Window[2:]
-    Captured_R = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 0].astype(np.float)
-    Captured_G = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 1].astype(np.float)
-    Captured_B = Image[TopLeftCorner[1]:BottomRightCorner[1], TopLeftCorner[0]:BottomRightCorner[0], 2].astype(np.float)
+    Captured_R = Image[TopLeftCorner[1]:BottomRightCorner[1],
+                       TopLeftCorner[0]:BottomRightCorner[0], 0].astype(np.float)
+    Captured_G = Image[TopLeftCorner[1]:BottomRightCorner[1],
+                       TopLeftCorner[0]:BottomRightCorner[0], 1].astype(np.float)
+    Captured_B = Image[TopLeftCorner[1]:BottomRightCorner[1],
+                       TopLeftCorner[0]:BottomRightCorner[0], 2].astype(np.float)
     Captured_R = np.median(Captured_R)
     Captured_G = np.median(Captured_G)
     Captured_B = np.median(Captured_B)
 
-    scale_R = MaxIntensity/Captured_R
-    scale_G = MaxIntensity/Captured_G
-    scale_B = MaxIntensity/Captured_B
+    scale_R = MaxIntensity / Captured_R
+    scale_G = MaxIntensity / Captured_G
+    scale_B = MaxIntensity / Captured_B
 
     colorMatrix = np.eye(3)
-    colorConstant = np.zeros([3,1])
-    colorGamma = np.ones([3,1])
+    colorConstant = np.zeros([3, 1])
+    colorGamma = np.ones([3, 1])
 
-    colorMatrix[0,0] = scale_R
-    colorMatrix[1,1] = scale_G
-    colorMatrix[2,2] = scale_B
+    colorMatrix[0, 0] = scale_R
+    colorMatrix[1, 1] = scale_G
+    colorMatrix[2, 2] = scale_B
 
     return colorMatrix, colorConstant, colorGamma
+
 
 def estimateColorParameters(TrueColors, ActualColors):
     # estimate color-correction parameters
     colorMatrix = np.eye(3)
-    colorConstant = np.zeros([3,1])
-    colorGamma = np.ones([3,1])
+    colorConstant = np.zeros([3, 1])
+    colorGamma = np.ones([3, 1])
 
     Arg2 = np.zeros([9 + 3 + 3])
     Arg2[:9] = colorMatrix.reshape([9])
     Arg2[9:12] = colorConstant.reshape([3])
     Arg2[12:15] = colorGamma.reshape([3])
 
-    ArgRefined, _ = optimize.leastsq(getColorMatchingErrorVectorised, \
-            Arg2, args=(TrueColors, ActualColors), maxfev=10000)
+    ArgRefined, _ = optimize.leastsq(getColorMatchingErrorVectorised,
+                                     Arg2, args=(TrueColors, ActualColors), maxfev=10000)
 
-    colorMatrix = ArgRefined[:9].reshape([3,3])
-    colorConstant = ArgRefined[9:12].reshape([3,1])
+    colorMatrix = ArgRefined[:9].reshape([3, 3])
+    colorConstant = ArgRefined[9:12].reshape([3, 1])
     colorGamma = ArgRefined[12:15]
     return colorMatrix, colorConstant, colorGamma
 
+
 def correctColorVectorised(Image, ColorMatrix, ColorConstant, ColorGamma):
     Width, Height = Image.shape[1::-1]
-    CapturedR = Image[:,:,0].reshape([1,Width*Height])
-    CapturedG = Image[:,:,1].reshape([1,Width*Height])
-    CapturedB = Image[:,:,2].reshape([1,Width*Height])
+    CapturedR = Image[:, :, 0].reshape([1, Width*Height])
+    CapturedG = Image[:, :, 1].reshape([1, Width*Height])
+    CapturedB = Image[:, :, 2].reshape([1, Width*Height])
     CapturedRGB = np.concatenate((CapturedR, CapturedG, CapturedB), axis=0)
 
     TempRGB = np.dot(ColorMatrix, CapturedRGB) + ColorConstant
     CorrectedRGB = np.zeros_like(TempRGB)
-    CorrectedRGB[0,:] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
-    CorrectedRGB[1,:] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
-    CorrectedRGB[2,:] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
+    CorrectedRGB[0, :] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
+    CorrectedRGB[1, :] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
+    CorrectedRGB[2, :] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
 
-    CorrectedR = CorrectedRGB[0,:].reshape([Height, Width])
-    CorrectedG = CorrectedRGB[1,:].reshape([Height, Width])
-    CorrectedB = CorrectedRGB[2,:].reshape([Height, Width])
+    CorrectedR = CorrectedRGB[0, :].reshape([Height, Width])
+    CorrectedG = CorrectedRGB[1, :].reshape([Height, Width])
+    CorrectedB = CorrectedRGB[2, :].reshape([Height, Width])
 
     CorrectedR[np.where(CorrectedR < 0)] = 0
     CorrectedG[np.where(CorrectedG < 0)] = 0
@@ -485,58 +567,102 @@ def correctColorVectorised(Image, ColorMatrix, ColorConstant, ColorGamma):
     CorrectedB[np.where(CorrectedB > 255)] = 255
 
     ImageCorrected = np.zeros_like(Image)
-    ImageCorrected[:,:,0] = CorrectedR
-    ImageCorrected[:,:,1] = CorrectedG
-    ImageCorrected[:,:,2] = CorrectedB
+    ImageCorrected[:, :, 0] = CorrectedR
+    ImageCorrected[:, :, 1] = CorrectedG
+    ImageCorrected[:, :, 2] = CorrectedB
     return ImageCorrected
 
-def rotateImage(Image, RotationAngle = 0.0):
-    if RotationAngle%90.0 == 0:
-        k = RotationAngle//90.0
+
+def rotateImage(Image, RotationAngle=0.0):
+    if RotationAngle % 90.0 == 0:
+        k = RotationAngle // 90.0
         Image_ = np.rot90(Image, k)
     elif RotationAngle != 0:
-        center=tuple(np.array(Image.shape[1::-1])/2)
-        rot_mat = cv2.getRotationMatrix2D(center, RotationAngle,1.0)
-        Image_ = cv2.warpAffine(Image, rot_mat, Image.shape[1::-1],flags=cv2.INTER_LINEAR)
+        center = tuple(np.array(Image.shape[1::-1]) / 2)
+        rot_mat = cv2.getRotationMatrix2D(center, RotationAngle, 1.0)
+        Image_ = cv2.warpAffine(
+            Image,
+            rot_mat,
+            Image.shape[1::-1],
+            flags=cv2.INTER_LINEAR)
     return Image_
 
-def matchTemplateLocation(Image, Template, EstimatedLocation, SearchRange = [0.5, 0.5], RangeInImage = True):
-    if RangeInImage: # use image size
+
+def matchTemplateLocation(
+        Image,
+        Template,
+        EstimatedLocation,
+        SearchRange=[0.5,
+                     0.5],
+        RangeInImage=True):
+    if RangeInImage:  # use image size
         Width = Image.shape[1]
         Height = Image.shape[0]
-    else: # use template size
+    else:  # use template size
         Width = Template.shape[1]
         Height = Template.shape[0]
 
-    if SearchRange == None: # search throughout the whole images
-        CroppedHalfWidth  = Width//2
-        CroppedHalfHeight = Height//2
-    elif SearchRange[0] <= 1.0 and SearchRange[1] <= 1.0: # in fraction values
-        CroppedHalfWidth  = (Template.shape[1]+SearchRange[0]*Width)//2
-        CroppedHalfHeight = (Template.shape[0]+SearchRange[1]*Height)//2
-    else: # in pixels values
-        CroppedHalfWidth  = (Template.shape[1]+SearchRange[0])//2
-        CroppedHalfHeight = (Template.shape[0]+SearchRange[1])//2
+    if SearchRange is None:  # search throughout the whole images
+        CroppedHalfWidth = Width // 2
+        CroppedHalfHeight = Height // 2
+    elif SearchRange[0] <= 1.0 and SearchRange[1] <= 1.0:  # in fraction values
+        CroppedHalfWidth = (Template.shape[1] + SearchRange[0] * Width) // 2
+        CroppedHalfHeight = (Template.shape[0] + SearchRange[1] * Height) // 2
+    else:  # in pixels values
+        CroppedHalfWidth = (Template.shape[1] + SearchRange[0]) // 2
+        CroppedHalfHeight = (Template.shape[0] + SearchRange[1]) // 2
 
-    if CroppedHalfWidth > Image.shape[1]//2-1:
-        CroppedHalfWidth = Image.shape[1]//2-1
-    if CroppedHalfHeight > Image.shape[0]//2-1:
-        CroppedHalfHeight = Image.shape[0]//2-1
+    if CroppedHalfWidth > Image.shape[1] // 2 - 1:
+        CroppedHalfWidth = Image.shape[1] // 2 - 1
+    if CroppedHalfHeight > Image.shape[0] // 2 - 1:
+        CroppedHalfHeight = Image.shape[0] // 2 - 1
 
-    SearchTopLeftCorner     = [EstimatedLocation[0]-CroppedHalfWidth, EstimatedLocation[1]-CroppedHalfHeight]
-    SearchBottomRightCorner = [EstimatedLocation[0]+CroppedHalfWidth, EstimatedLocation[1]+CroppedHalfHeight]
+    SearchTopLeftCorner = [
+        EstimatedLocation[
+            0] -
+        CroppedHalfWidth,
+        EstimatedLocation[
+            1] -
+        CroppedHalfHeight]
+    SearchBottomRightCorner = [
+        EstimatedLocation[
+            0] +
+        CroppedHalfWidth,
+        EstimatedLocation[
+            1] +
+        CroppedHalfHeight]
 
-    return matchTemplateWindow(Image, Template, SearchTopLeftCorner, SearchBottomRightCorner)
+    return (
+        matchTemplateWindow(
+            Image,
+            Template,
+            SearchTopLeftCorner,
+            SearchBottomRightCorner)
+    )
 
-def matchTemplateWindow(Image, Template, SearchTopLeftCorner, SearchBottomRightCorner):
-    CropedImage = Image[SearchTopLeftCorner[1]:SearchBottomRightCorner[1], SearchTopLeftCorner[0]:SearchBottomRightCorner[0]]
-    corrMap = cv2.matchTemplate(CropedImage.astype(np.uint8), Template.astype(np.uint8), cv2.TM_CCOEFF_NORMED)
+
+def matchTemplateWindow(
+        Image,
+        Template,
+        SearchTopLeftCorner,
+        SearchBottomRightCorner):
+    CropedImage = Image[
+        SearchTopLeftCorner[
+            1]:SearchBottomRightCorner[
+            1],
+        SearchTopLeftCorner[
+            0]:SearchBottomRightCorner[
+            0]]
+    corrMap = cv2.matchTemplate(
+        CropedImage.astype(np.uint8),
+        Template.astype(np.uint8),
+        cv2.TM_CCOEFF_NORMED)
     _, maxVal, _, maxLoc = cv2.minMaxLoc(corrMap)
     # recalculate max position in cropped image space
-    matchedLocImageCropped = (maxLoc[0] + Template.shape[1]//2,
-                              maxLoc[1] + Template.shape[0]//2)
+    matchedLocImageCropped = (maxLoc[0] + Template.shape[1] // 2,
+                              maxLoc[1] + Template.shape[0] // 2)
     # recalculate max position in full image space
-    matchedLocImage = (matchedLocImageCropped[0] + SearchTopLeftCorner[0], \
+    matchedLocImage = (matchedLocImageCropped[0] + SearchTopLeftCorner[0],
                        matchedLocImageCropped[1] + SearchTopLeftCorner[1])
 #    if isShow:
 #        plt.figure()
@@ -557,35 +683,44 @@ def matchTemplateWindow(Image, Template, SearchTopLeftCorner, SearchBottomRightC
 
     return matchedLocImage, maxVal, maxLoc, corrMap
 
-def createImagePyramid(Image, NoLevels = 5):
+
+def createImagePyramid(Image, NoLevels=5):
     for i in range(NoLevels):
         if i == 0:
             PyramidImages = [Image.astype(np.uint8)]
         else:
-            PyramidImages.append(cv2.pyrDown(PyramidImages[i-1]).astype(np.uint8))
+            PyramidImages.append(
+                cv2.pyrDown(PyramidImages[i - 1]).astype(np.uint8))
     return PyramidImages
 
-def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle = None, \
-        EstimatedLocation = None, SearchRange = None, NoLevels = 4, FinalLevel = 1):
-    for i in range(NoLevels-1, -1, -1):
-        if i == NoLevels-1:
-            if EstimatedLocation == None:
-                maxLocEst = [PyramidImages[i].shape[1]//2, PyramidImages[i].shape[0]//2] # image center
+
+def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
+                         EstimatedLocation=None, SearchRange=None, NoLevels=4, FinalLevel=1):
+    for i in range(NoLevels - 1, -1, -1):
+        if i == NoLevels - 1:
+            if EstimatedLocation is None:
+                maxLocEst = [PyramidImages[i].shape[1] // 2,
+                             PyramidImages[i].shape[0] // 2]  # image center
             else:
-                maxLocEst = [EstimatedLocation[0]//2**i, EstimatedLocation[1]//2**i] # scale position to the pyramid level
+                # scale position to the pyramid level
+                maxLocEst = [EstimatedLocation[0] // 2 ** i,
+                             EstimatedLocation[1] // 2 ** i]
 
             if SearchRange[0] > 1.0 and SearchRange[1] > 1.0:
-                SearchRange2 = [SearchRange[0]//2**i, SearchRange[1]//2**i]
+                SearchRange2 = [SearchRange[0] // 2 ** i,
+                                SearchRange[1] // 2 ** i]
             else:
                 SearchRange2 = SearchRange
-            matchedLocImage, maxVal, maxLoc, corrMap = matchTemplateLocation(PyramidImages[i], PyramidTemplates[i], maxLocEst, SearchRange = SearchRange2)
-            if RotationAngle == None:
-                matchedLocImage180, maxVal180, maxLoc180, corrMap180 = matchTemplateLocation(np.rot90(PyramidImages[i],2).astype(np.uint8), PyramidTemplates[i], maxLocEst, SearchRange)
+            matchedLocImage, maxVal, maxLoc, corrMap = matchTemplateLocation(
+                PyramidImages[i], PyramidTemplates[i], maxLocEst, SearchRange=SearchRange2)
+            if RotationAngle is None:
+                matchedLocImage180, maxVal180, maxLoc180, corrMap180 = matchTemplateLocation(
+                    np.rot90(PyramidImages[i], 2).astype(np.uint8), PyramidTemplates[i], maxLocEst, SearchRange)
                 if maxVal < 0.3 and maxVal180 < 0.3:
                     print('#### Warning: low matching score ####')
 #                    return None, None, None
                 if maxVal < maxVal180:
-                    PyramidImages = [np.rot90(Img,2) for Img in PyramidImages]
+                    PyramidImages = [np.rot90(Img, 2) for Img in PyramidImages]
                     matchedLocImage, matchedLocImage180 = matchedLocImage180, matchedLocImage
                     maxVal, maxVal180 = maxVal180, maxVal
                     maxLoc, maxLoc180 = maxLoc180, maxLoc
@@ -594,14 +729,21 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle = None, 
                 else:
                     RotationAngle = 0
             # rescale to location in level-0 image
-            matchedLocImage0 = (matchedLocImage[0]*2**i, matchedLocImage[1]*2**i)
+            matchedLocImage0 = (
+                matchedLocImage[0] * 2 ** i,
+                matchedLocImage[1] * 2 ** i)
         else:
-            maxLocEst = (matchedLocImage0[0]//2**i, matchedLocImage0[1]//2**i)
-            searchRange = [6,6]
+            maxLocEst = (
+                matchedLocImage0[0] // 2 ** i,
+                matchedLocImage0[1] // 2 ** i)
+            searchRange = [6, 6]
 
-            matchedLocImage, maxVal, maxLoc, corrMap = matchTemplateLocation(PyramidImages[i], PyramidTemplates[i], maxLocEst, searchRange)
+            matchedLocImage, maxVal, maxLoc, corrMap = matchTemplateLocation(
+                PyramidImages[i], PyramidTemplates[i], maxLocEst, searchRange)
             # rescale to location in level-0 image
-            matchedLocImage0 = (matchedLocImage[0]*2**i, matchedLocImage[1]*2**i)
+            matchedLocImage0 = (
+                matchedLocImage[0] * 2 ** i,
+                matchedLocImage[1] * 2 ** i)
 
 #        plt.figure()
 #        plt.imshow(PyramidTemplates[i])
@@ -620,7 +762,7 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle = None, 
 #        plt.title('Level = %d, RotationAngle = %f' %(i, RotationAngle))
 #        plt.show()
 
-        if i ==  FinalLevel:
+        if i == FinalLevel:
             # Skip early to save time
             break
 

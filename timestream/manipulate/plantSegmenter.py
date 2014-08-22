@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#coding=utf-8
+# coding=utf-8
 # Copyright (C) 2014
 # Author(s): Joel Granados <joel.granados@gmail.com>
 #
@@ -25,6 +25,7 @@ import inspect
 import matplotlib.pyplot as plt
 import skimage
 
+
 class StatParamCalculator(object):
 
     def area(self, mask):
@@ -46,19 +47,19 @@ class StatParamCalculator(object):
             return (0.0)
         area = retVal[0]["Area"]
         perim = retVal[0]["Perimeter"]
-        return ( (4*np.pi * area) / np.power(perim,2) )
+        return ((4 * np.pi * area) / np.power(perim, 2))
 
     def compactness(self, mask):
         # In skimage its called solidity
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
         if len(compactness) == 0:
-            return (0.0) #FIXME: is this the best default?
+            return (0.0)  # FIXME: is this the best default?
         return (compactness[0]["Solidity"])
 
     def eccentricity(self, mask):
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) == 0:
-            return (0.0) #FIXME: is this the best default?
+            return (0.0)  # FIXME: is this the best default?
         return (ecce[0]["Eccentricity"])
 
     @classmethod
@@ -67,9 +68,10 @@ class StatParamCalculator(object):
         meths = inspect.getmembers(cls, predicate=inspect.ismethod)
         retVal = []
         for meth in meths:
-            if ( not meth[0] in ignore ):
+            if (not meth[0] in ignore):
                 retVal.append(meth[0])
         return (retVal)
+
 
 class FeatureCalculator(object):
     RELATIVE_NORM = 1
@@ -89,12 +91,12 @@ class FeatureCalculator(object):
         self._imgRGB = img.astype(np.uint8)
         self._imgLAB = None
 
-        ignore = ["__init__", "imgLAB", "normRange", \
-                    "_oneLAB", "_oneRGB", "getFeatures"]
+        ignore = ["__init__", "imgLAB", "normRange",
+                  "_oneLAB", "_oneRGB", "getFeatures"]
         fMeths = inspect.getmembers(self, predicate=inspect.ismethod)
         self.feats = {}
         for feat in fMeths:
-            if ( not feat[0] in ignore ):
+            if (not feat[0] in ignore):
                 self.feats[feat[0]] = feat[1]
 
     @property
@@ -129,62 +131,68 @@ class FeatureCalculator(object):
     def _oneRGB(self, norm, dim):
         retVal = None
         if norm == FeatureCalculator.RELATIVE_NORM:
-            retVal = self.normRange(self._imgRGB[:,:dim])
+            retVal = self.normRange(self._imgRGB[:, :dim])
         elif norm == FeatureCalculator.FULL_NORM:
-            retVal = self.normRange(self._imgRGB[:,:,dim], rangeVal=(0,255))
+            retVal = self.normRange(self._imgRGB[:, :, dim], rangeVal=(0, 255))
         else:
             raise ValueError("Must select relative or full normalization")
         retVal = np.reshape(retVal, (retVal.shape[0], retVal.shape[1], 1))
         return retVal
+
     def RGB_R(self, norm):
         return self._oneRGB(norm, 0)
+
     def RGB_G(self, norm):
         return self._oneRGB(norm, 1)
+
     def RGB_B(self, norm):
         return self._oneRGB(norm, 2)
 
     def _oneLAB(self, norm, dim):
         retVal = None
         if norm == FeatureCalculator.RELATIVE_NORM:
-            retVal = self.normRange(self.imgLAB[:,:,dim])
+            retVal = self.normRange(self.imgLAB[:, :, dim])
         elif norm == FeatureCalculator.FULL_NORM:
-            retVal = self.normRange(self.imgLAB[:,:,dim], rangeVal=(0,255))
+            retVal = self.normRange(self.imgLAB[:, :, dim], rangeVal=(0, 255))
         else:
             raise ValueError("Must select relative or full normalization")
         retVal = np.reshape(retVal, (retVal.shape[0], retVal.shape[1], 1))
         return retVal
+
     def LAB_L(self, norm):
         return self._oneLAB(norm, 0)
+
     def LAB_A(self, norm):
         return self._oneLAB(norm, 1)
+
     def LAB_B(self, norm):
         return self._oneLAB(norm, 2)
 
     def minervini(self, norm):
         # Calculate texture response filter from Minervini 2013
         # FIXME: radius, gaussian size and sigmas should be user defined.
-        falloff = 1.0/50.0
+        falloff = 1.0 / 50.0
         pillsize = 7
         gaussize = 17
         sdH = 4
         sdL = 1
 
         # pillbox feature (F1)
-        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, \
-                (pillsize,pillsize))
+        pillse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                           (pillsize, pillsize))
         pillse = pillse.astype(float)
-        pillse = pillse/sum(sum(pillse))
-        F1 = cv2.filter2D(self.imgLAB[:,:,1], -1, pillse)
+        pillse = pillse / sum(sum(pillse))
+        F1 = cv2.filter2D(self.imgLAB[:, :, 1], -1, pillse)
 
         # Difference of Gaussian (DoG) featrue (F2)
         G1 = cv2.getGaussianKernel(gaussize, sdH)
         G2 = cv2.getGaussianKernel(gaussize, sdL)
         G1 = G1 * cv2.transpose(G1)
         G2 = G2 * cv2.transpose(G2)
-        F2 = cv2.filter2D(self.imgLAB[:,:,0], -1, G1-G2)
+        F2 = cv2.filter2D(self.imgLAB[:, :, 0], -1, G1 - G2)
 
-        F = np.exp( -falloff * np.abs(F1+F2) )
-        #FIXME: We are ignoring norm for now.
+        F = np.exp(-falloff * np.abs(F1 + F2))
+        # FIXME: We are ignoring norm for now.
         F = self.normRange(F)
         F = np.reshape(F, (F.shape[0], F.shape[1], 1))
 
@@ -192,18 +200,18 @@ class FeatureCalculator(object):
 
     def G4mB3mR1(self, norm):
         # We ignore the norm here becase we always FULL_NORM
-        F = 4 * self.normRange(self._imgRGB[:,:,1], rangeVal=(0,255) ) \
-            - 3 * self.normRange(self._imgRGB[:,:,2], rangeVal=(0,255)) \
-            - 1 * self.normRange(self._imgRGB[:,:,0], rangeVal=(0,255))
+        F = 4 * self.normRange(self._imgRGB[:, :, 1], rangeVal=(0, 255) ) \
+            - 3 * self.normRange(self._imgRGB[:, :, 2], rangeVal=(0, 255)) \
+            - 1 * self.normRange(self._imgRGB[:, :, 0], rangeVal=(0, 255))
         F = np.reshape(F, (F.shape[0], F.shape[0], 1))
         return(F)
 
-    def getFeatures(self, feats, norm = RELATIVE_NORM):
+    def getFeatures(self, feats, norm=RELATIVE_NORM):
         """ Calc features in feats (by name). Order matters"""
         retVal = None
         for f in feats:
             if f not in self.feats.keys():
-                raise ValueError("%s is not a valid feature"%f)
+                raise ValueError("%s is not a valid feature" % f)
             if retVal is None:
                 retVal = self.feats[f](norm)
                 continue
@@ -212,7 +220,9 @@ class FeatureCalculator(object):
 
         return retVal
 
+
 class PotSegmenter(object):
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -227,26 +237,28 @@ class PotSegmenter(object):
 
     def calcComplexity(self, mask, size=5):
         """Apply Parrott et. al. 2008"""
-        se = np.ones([size,size])
+        se = np.ones([size, size])
         convMask = signal.convolve2d(mask, se)
 
-        freq = [ float(convMask[np.where(convMask==i)].shape[0]) \
-                for i in range((size*size)+1) ]
+        freq = [float(convMask[np.where(convMask == i)].shape[0])
+                for i in range((size * size) + 1)]
         freq = np.array(freq)
-        freq = freq/sum(freq)
+        freq = freq / sum(freq)
 
         # be carefull with ln(0)
         freq = freq + 0.00001
 
         # spatial complexity
-        sc = -sum(freq*np.log(freq)) / np.log(freq.shape[0])
+        sc = -sum(freq * np.log(freq)) / np.log(freq.shape[0])
 
         return (sc)
 
+
 class PotSegmenter_Method1(PotSegmenter):
+
     def __init__(self, threshold=0.6, kSize=5, blobMinSize=50):
         self.threshold = threshold
-        if kSize%2 == 0:
+        if kSize % 2 == 0:
             raise ValueError("kSize must be inpair")
         self.kSize = kSize
         if blobMinSize < 10:
@@ -263,26 +275,28 @@ class PotSegmenter_Method1(PotSegmenter):
         4. Remove all blobs greater than self.blobMinSize
         """
         fc = FeatureCalculator(img)
-        fts = fc.getFeatures( ["G4mB3mR1"] )
+        fts = fc.getFeatures(["G4mB3mR1"])
         mask = cv2.medianBlur(fts, self.kSize)
         v, mask = cv2.threshold(mask, self.threshold, 1, cv2.THRESH_BINARY)
 
         # Remove all blobs that are greater than self.blobMinSize
         mask = label(mask, background=0)
-        if -1 in mask: # skimage is going to change in 0.12
+        if -1 in mask:  # skimage is going to change in 0.12
             mask += 1
 
-        for i in range(1,np.max(mask)+1):
+        for i in range(1, np.max(mask) + 1):
             indx = np.where(mask == i)
             if indx[0].shape[0] < self.blobMinSize:
                 mask[indx] = 0
 
-        indx = np.where(mask!=0)
+        indx = np.where(mask != 0)
         mask[indx] = 1
 
-        return ([mask,hints])
+        return ([mask, hints])
+
 
 class PotSegmenter_KmeansSquare(PotSegmenter):
+
     def __init__(self, maxIter=10, epsilon=1, attempts=20):
         """PotSegmenter_Kmeans: Segmenter by k-means
 
@@ -308,11 +322,11 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         """
 
         fc = FeatureCalculator(img)
-        fts = fc.getFeatures( ["LAB_A", "LAB_B", "minervini"])
+        fts = fc.getFeatures(["LAB_A", "LAB_B", "minervini"])
 
         mask = self.calcKmeans(fts)
 
-        se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+        se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, se)
 
         # When complexity is large, image is too noisy.
@@ -332,27 +346,25 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         """
         oShape = img.shape
         img = np.float32(img)
-        img = np.reshape(img, (oShape[0]*oShape[1], oShape[2]), order="F")
+        img = np.reshape(img, (oShape[0] * oShape[1], oShape[2]), order="F")
 
         # k-means. max 10 iters. Stop if diff < 1. Init centers at random
-        compactness,labels,centers = cv2.kmeans(img, 2, \
-                ( cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, \
-                  self.maxIter, self.epsilon ), \
-                self.attempts, cv2.KMEANS_RANDOM_CENTERS)
+        compactness, labels, centers = cv2.kmeans(img, 2,
+                                                  (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+                                                   self.maxIter, self.epsilon),
+                                                  self.attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
 
         labels = labels.astype(np.float64)
-        #FIXME: do this check if we don't have mean centers.
-        FG = sum(sum(labels==1))
-        BG = sum(sum(labels==0))
+        # FIXME: do this check if we don't have mean centers.
+        FG = sum(sum(labels == 1))
+        BG = sum(sum(labels == 0))
         if BG < FG:
-            labels = -(labels-1)
-
+            labels = -(labels - 1)
 
         return (labels.astype(np.float64))
 
-#FIXME: Find a better place to put this.
+# FIXME: Find a better place to put this.
 segmentingMethods = {"k-means-square": PotSegmenter_KmeansSquare,
-        "method1": PotSegmenter_Method1}
-
+                     "method1": PotSegmenter_Method1}

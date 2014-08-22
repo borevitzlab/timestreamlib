@@ -44,7 +44,9 @@ from timestream.parse.validate import (
     TS_MANIFEST_KEYS,
 )
 
+
 class TestTimeStreamStr(TestCase):
+
     """Test str(instance) of TimeStream classes."""
 
     def _check_ts_instance_ts_v1(self, ts_path):
@@ -58,6 +60,7 @@ class TestTimeStreamStr(TestCase):
 
 
 class TestTimeStreamLoad(TestCase):
+
     """Test loading of TimeStream classes. Tests read_metadata as well."""
 
     def _check_ts_instance_ts_v1(self, ts_path):
@@ -77,13 +80,13 @@ class TestTimeStreamLoad(TestCase):
     def test_timestream_init(self):
         """Test TimeStream initialisation with good timestream"""
         self._check_ts_instance_ts_v1(
-                helpers.FILES["timestream"])
+            helpers.FILES["timestream"])
         self._check_ts_instance_ts_v1(
-                helpers.FILES["timestream_gaps"])
+            helpers.FILES["timestream_gaps"])
         self._check_ts_instance_ts_v1(
-                helpers.FILES["timestream_datafldr"])
+            helpers.FILES["timestream_datafldr"])
         self._check_ts_instance_ts_v1(
-                helpers.FILES["timestream_imgdata"])
+            helpers.FILES["timestream_imgdata"])
 
     def test_timestream_load_bad(self):
         """Test TimeStream initialisation with bad/non timestream"""
@@ -123,6 +126,7 @@ class TestTimeStreamLoad(TestCase):
 
 
 class TestTimeStreamInit(TestCase):
+
     """Test init of TimeStream classes"""
 
     def test_timestream_init_bad_params(self):
@@ -133,8 +137,8 @@ class TestTimeStreamInit(TestCase):
             inst = TimeStream(version=3)
 
 
-
 class TestTimeStreamImageInit(TestCase):
+
     """Test setup of TimeStreamImage classes."""
 
     def test_image_init(self):
@@ -165,6 +169,7 @@ class TestTimeStreamImageInit(TestCase):
 
 
 class TestTimeStreamImagePathAssing(TestCase):
+
     """Test TimeStreamImage() path assignment"""
 
     def test_ts_image_path_assign(self):
@@ -191,7 +196,9 @@ class TestTimeStreamImagePathAssing(TestCase):
         self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
         self.assertEqual(img.datetime, helpers.TS_DATES_PARSED[0])
 
+
 class TestTimeStreamImageClone(TestCase):
+
     """Test TimeStreamImage().clone()"""
 
     def test_ts_image_clone(self):
@@ -227,7 +234,9 @@ class TestTimeStreamImageClone(TestCase):
         # Strings are cached, so no assertIsNot for path
         self.assertEqual(cpy.path, img.path)
 
+
 class TestTimeStreamIterByFiles(TestCase):
+
     """Test TimeStream().iter_by_files()"""
 
     def test_iter_by_files(self):
@@ -243,7 +252,9 @@ class TestTimeStreamIterByFiles(TestCase):
             self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
             self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
+
 class TestTimeStreamIterByTimepoints(TestCase):
+
     """Test TimeStream().iter_by_timepoints"""
 
     def test_iter_by_timepoints_full(self):
@@ -298,8 +309,11 @@ class TestTimeStreamIterByTimepoints(TestCase):
             # will fail above, or be a problem in our data files which should
             # change the date and make the previous statement fail.
 
+
 class TestTimeStreamCreate(TestCase):
+
     """Test TimeStream().create()"""
+
     def setUp(self):
         self.tmp_path = helpers.make_tmp_file()
 
@@ -326,6 +340,7 @@ class TestTimeStreamCreate(TestCase):
         except (OSError,):
             pass
 
+
 class TestTimeStreamWrite(TestCase):
 
     def setUp(self):
@@ -351,7 +366,6 @@ class TestTimeStreamWrite(TestCase):
             self.assertIn(str_date, ts.image_data)
             self.assertDictEqual(img.data, ts.image_data[str_date])
             self.assertTrue(path.exists, img.path)
-
 
     def tearDown(self):
         try:

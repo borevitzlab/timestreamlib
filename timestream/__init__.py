@@ -82,6 +82,7 @@ def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
 
 
 class TimeStream(object):
+
     def __init__(self, version=None):
         """A TimeStream, including metadata and parsers"""
         # Store version
@@ -288,7 +289,7 @@ class TimeStream(object):
                 self.start_datetime = image.datetime
             self.image_data[ts_format_date(image.datetime)] = image.data
             self.write_metadata()
-            #FIXME: pass the overwrite_mode
+            # FIXME: pass the overwrite_mode
             image.write(fpath=fpath, overwrite=True)
             self.write_pickled_image(image, overwrite=True)
 
@@ -301,8 +302,8 @@ class TimeStream(object):
             LOG.error(msg)
             raise TypeError(msg)
 
-        pPath = path.join(self.data_dir, \
-                _ts_date_to_path(self.name, "p",image.datetime,0))
+        pPath = path.join(self.data_dir,
+                          _ts_date_to_path(self.name, "p", image.datetime, 0))
 
         if path.isfile(pPath) and not overwrite:
             msg = "File {} exists and overwrite is {}".format(pPath, overwrite)
@@ -321,8 +322,8 @@ class TimeStream(object):
 
     def load_pickled_image(self, datetime):
         retImg = None
-        pPath = path.join(self.data_dir, \
-                _ts_date_to_path(self.name, "p", datetime, 0))
+        pPath = path.join(self.data_dir,
+                          _ts_date_to_path(self.name, "p", datetime, 0))
         if path.isfile(pPath):
             f = file(pPath, "r")
             retImg = cPickle.load(f)
@@ -416,9 +417,9 @@ class TimeStream(object):
             interval = self.interval
 
         # fix hour range if given
-        if start_hour != None:
+        if start_hour is not None:
             start = dt.datetime.combine(start.date(), start_hour)
-        if end_hour != None:
+        if end_hour is not None:
             end = dt.datetime.combine(end.date(), end_hour)
 
         # iterate thru times
@@ -429,11 +430,11 @@ class TimeStream(object):
                 continue
 
             # apply hour range if given
-            if start_hour != None:
+            if start_hour is not None:
                 hrstart = dt.datetime.combine(time.date(), start_hour)
                 if time < hrstart:
                     continue
-            if end_hour != None:
+            if end_hour is not None:
                 hrend = dt.datetime.combine(time.date(), end_hour)
                 if time > hrend:
                     continue
@@ -470,10 +471,12 @@ class TimeStream(object):
                     img.data = {}
                 yield img
 
+
 class TimeStreamTraverser(TimeStream):
-    def __init__(self, ts_path=None, version=None, interval=None,\
-            start=None, end=None, start_hour=None, end_hour=None, \
-            ignored_timestamps=[]):
+
+    def __init__(self, ts_path=None, version=None, interval=None,
+                 start=None, end=None, start_hour=None, end_hour=None,
+                 ignored_timestamps=[]):
         """Class to got back and forth on a TimeStream
 
         Use This class when you need to traverse the timestream both forwards
@@ -499,7 +502,8 @@ class TimeStreamTraverser(TimeStream):
 
         self._offset = 0
         self._timestamps = []
-        #FIXME: Following is practically equal to TimeStream.iter_by_timepoints.
+        # FIXME: Following is practically equal to
+        # TimeStream.iter_by_timepoints.
         if not start or start < self.start_datetime:
             start = self.start_datetime
         if not end or end > self.end_datetime:
@@ -508,9 +512,9 @@ class TimeStreamTraverser(TimeStream):
             interval = self.interval
 
         # fix hour range if given
-        if start_hour != None:
+        if start_hour is not None:
             start = dt.datetime.combine(start.date(), start_hour)
-        if end_hour != None:
+        if end_hour is not None:
             end = dt.datetime.combine(end.date(), end_hour)
 
         # iterate thru times
@@ -520,11 +524,11 @@ class TimeStreamTraverser(TimeStream):
                 continue
 
             # apply hour range if given
-            if start_hour != None:
+            if start_hour is not None:
                 hrstart = dt.datetime.combine(time.date(), start_hour)
                 if time < hrstart:
                     continue
-            if end_hour != None:
+            if end_hour is not None:
                 hrend = dt.datetime.combine(time.date(), end_hour)
                 if time > hrend:
                     continue
@@ -567,7 +571,9 @@ class TimeStreamTraverser(TimeStream):
 
         return img
 
+
 class TimeStreamImage(object):
+
     def __init__(self, datetime=None):
         """Class to represent an image in a TimeSeries.
 
@@ -584,8 +590,8 @@ class TimeStreamImage(object):
             the pot specific data for this image.
           data(dict): related data.
         """
-        #FIXME: datetime should always represent the module!!
-        #if not datetime and not isinstance(datetime, dt):
+        # FIXME: datetime should always represent the module!!
+        # if not datetime and not isinstance(datetime, dt):
         #    msg = "datetime must be an instance of datetime"
         #    LOG.error(msg)
         #    raise TypeError(msg)
@@ -638,7 +644,7 @@ class TimeStreamImage(object):
             raise RuntimeError(msg)
 
         if path.exists(fpath) and not overwrite:
-            msg = "Path {} exists and overwrite is {}".format(fpath,overwrite)
+            msg = "Path {} exists and overwrite is {}".format(fpath, overwrite)
             LOG.error(msg)
             raise RuntimeError(msg)
 
@@ -710,7 +716,7 @@ class TimeStreamImage(object):
             LOG.error(msg)
             raise TypeError(msg)
 
-        #FIXME: breaks relation with _datetime and _timestream
+        # FIXME: breaks relation with _datetime and _timestream
         self._path = img_path
 
     @property
