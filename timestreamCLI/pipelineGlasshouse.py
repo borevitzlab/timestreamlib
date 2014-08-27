@@ -145,8 +145,9 @@ for InTSFolder in InTSFolderList:
     ts.load(InTSFolder)
     # FIXME: ts.data cannot have plConf because it cannot be handled by json.
     ts.data["settings"] = plConf.asDict()
+    ts.data["configFile"] = tmpPath
     #FIXME: TimeStream should have a __str__ method.
-    print("Timestream instance loaded:")
+    print("Timestream ingiot stance loaded:")
     print("   ts.path:", ts.path)
     for attr in timestream.parse.validate.TS_MANIFEST_KEYS:
         print("   ts.%s:" % attr, getattr(ts, attr))
@@ -166,7 +167,9 @@ for InTSFolder in InTSFolderList:
         ts_out.name = outstream["name"]
 
         # timeseries output input path plus a suffix
-        tsoutpath = os.path.join(os.path.abspath(outputRootPath), os.path.basename(InTSFolder) + '-' + outstream["name"])
+        tsoutpath = os.path.join(os.path.abspath(outputRootPath),
+                                 os.path.basename(InTSFolder) + \
+                                 '-' + outstream["name"])
         print(tsoutpath)
         if "outpath" in outstream.keys():
             tsoutpath = outstream["outpath"]
