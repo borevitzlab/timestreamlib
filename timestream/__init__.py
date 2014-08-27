@@ -454,13 +454,13 @@ class TimeStream(object):
             if remove_gaps and img_path is None:
                 continue
             elif img_path is None:
-                img = TimeStreamImage(datetime=time)
+                img = TimeStreamImage(dt=time)
                 img.pixels = np.array([])
                 yield img
             else:
                 img = self.load_pickled_image(time)
                 if img is None:
-                    img = TimeStreamImage(datetime=time)
+                    img = TimeStreamImage(dt=time)
                 img.parent_timestream = self
                 img.path = img_path
 
@@ -558,7 +558,7 @@ class TimeStreamTraverser(TimeStream):
 
         img = self.load_pickled_image(time)
         if img is None:
-            img = TimeStreamImage(datetime=time)
+            img = TimeStreamImage(dt=time)
 
         img.parent_timestream = self
         img.path = img_path
@@ -573,32 +573,28 @@ class TimeStreamTraverser(TimeStream):
 
 
 class TimeStreamImage(object):
+    """Class to represent an image in a TimeSeries.
 
-    def __init__(self, datetime=None):
-        """Class to represent an image in a TimeSeries.
-
-        Args:
-          datetime (datetime): The timestamp for this image
-
-        Attributes:
-          _datetime(datetime): The timestamp for this image
-          _timestream(TimeStream): The stream that this image is related to.
-          _path(str): This class is driven by _path. _path should be valid at
+       Attributes:
+          datetime(datetime): The timestamp for this image
+          timestream(TimeStream): The stream that this image is related to.
+          path(str): This class is driven by _path. _path should be valid at
             end of all methods.!!
-          _Pixels(ndarray): The actual image.
-          _ipm(ImagePotMatrix): The ImagePotMatrix instance should contain all
+          pixels(ndarray): The actual image.
+          ipm(ImagePotMatrix): The ImagePotMatrix instance should contain all
             the pot specific data for this image.
           data(dict): related data.
-        """
-        # FIXME: datetime should always represent the module!!
-        # if not datetime and not isinstance(datetime, dt):
-        #    msg = "datetime must be an instance of datetime"
-        #    LOG.error(msg)
-        #    raise TypeError(msg)
+    """
 
+    def __init__(self, dt=None):
+        """Initialise a TimeStreamImage
+
+        :param dt: The timestamp for this image.
+        :type dt: datetime.datetime object
+        """
         self._datetime = None
-        if datetime:
-            self._datetime = ts_parse_date(datetime)
+        if dt:
+            self._datetime = ts_parse_date(dt)
         self._timestream = None
         self._path = None
         self._pixels = None
@@ -606,10 +602,19 @@ class TimeStreamImage(object):
         self.data = {}
 
     def clone(self, copy_pixels=False, copy_path=False, copy_timestream=False):
-        """
-        Make an exact copy of ``self`` in a new instance. By default, the
-        members pixels, path and timestream are not copied. All members are
-        copied by value, not by reference, so can be changed.
+        """Make an exact copy of ``self`` in a new instance.
+
+        By default, the members pixels, path and timestream are not copied. All
+        members are copied by value, not by reference, so can be changed.
+
+        :param copy_pixels: Should we copy pixels?
+        :type copy_pixels: Boolean
+        :param copy_path: Should we copy path?
+        :type copy_path: Boolean
+        :param copy_timestream: Should we copy timestream?
+        :type copy_timestream: Boolean
+        :returns: A copy of self.
+        :rtype: TimeStreamInstance
         """
         new = TimeStreamImage()
         new._datetime = deepcopy(self._datetime)
@@ -628,7 +633,6 @@ class TimeStreamImage(object):
             msg = "fpath must be string"
             LOG.error(msg)
             raise TypeError(msg)
-
         # We default to whatever we have in _path
         if fpath is None and self._path is None:
             msg = "There is no default path to write to"
@@ -636,7 +640,6 @@ class TimeStreamImage(object):
             raise RuntimeError(msg)
         if not fpath:
             fpath = self._path
-
         # We assume that there is something in _pixels to write
         if self._pixels is None:
             msg = "Image pixels must be set to write"
@@ -715,7 +718,6 @@ class TimeStreamImage(object):
             msg = "Image path must be an instance of str."
             LOG.error(msg)
             raise TypeError(msg)
-
         # FIXME: breaks relation with _datetime and _timestream
         self._path = img_path
 
@@ -825,6 +827,8 @@ class TimeStreamImage(object):
 
     @classmethod
     def pickledump(cls, tsi, filepath, overwrite=False):
+        # FIXME: KDM: Shouldn't this operate on self, and just be an
+        # instancemethod?
         if not isinstance(tsi, TimeStreamImage):
             msg = "Object must be instance of TimeStreamImage"
             LOG.error(msg)
