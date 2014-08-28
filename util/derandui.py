@@ -59,13 +59,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self.addTsItem = self._ui.tslist.item(0,0)
         self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
-        # Setup the csv table, item(0,0) of _ui.csv will be a combobox
-        self._tscb = QComboBox_TS(self._ui.csv, self)
-        self._ui.csv.setCellWidget(0,0,self._tscb)
-
-        # item(0,1) of _ui.csv will be a combobox
-        self._csvcb = QComboBox_CSV(self._ui.csv, self)
-        self._ui.csv.setCellWidget(0,1, self._csvcb)
+        # Setup first two columns
+        self._ftc = FirstTwoColumns(self._ui.csv, self)
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self.selectCsv)
@@ -127,7 +122,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
                     nitem = self._ui.tslist.item(0,1)
                     self._activeTS = nitem.data(QtCore.Qt.UserRole).toPyObject()
 
-            self._tscb.assignTst(self._activeTS)
+            self._ftc.refreshCol0Header(self._activeTS)
             self.showImage(self._activeTS)
 
         # Selecting
@@ -151,7 +146,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         item = self._ui.tslist.item(row,1)
         self._activeTS = item.data(QtCore.Qt.UserRole).toPyObject()
 
-        self._tscb.assignTst(self._activeTS)
+        self._ftc.refreshCol0Header(self._activeTS)
 
         # Show image of self._activeTS
         img = self._activeTS.curr()
@@ -195,7 +190,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 self._ui.csv.setItem(r,c,item)
 
         # Fill the csv combobox
-        self._csvcb.fill()
+        self._ftc.refreshCol1Header()
 
     def writeOnImage(self):
         L = QtGui.QGraphicsTextItem('joel')
@@ -210,29 +205,37 @@ class DerandomizeGUI(QtGui.QMainWindow):
         L.setZValue(100)
         self._scene.addItem(L)
 
-class QComboBox_TS(QtGui.QComboBox):
-    def __init__(self, csvTable, *args, **kwargs):
-        super(QComboBox_TS, self).__init__(*args, **kwargs)
+class FirstTwoColumns(object):
+    def __init__(self, csvTable, parent):
         self._csvTable = csvTable
+        # Setup the csv table, item(0,0) of _ui.csv will be a combobox
         self._tst = None
-        self.setEditText("Select TS MetaID")
-        self.currentIndexChanged.connect(self.onChange)
+        self._tscb = QtGui.QComboBox(parent)
+        self._csvTable.setCellWidget(0,0,self._tscb)
+        self._tscb.setEditText("Select TS MetaID")
+        self._tscb.currentIndexChanged.connect(self.onChangeCol0Header)
 
-    def assignTst(self, tst):
-        """Menu widget at position self._csvTable(0,0) and init column vals"""
+        # item(0,1) of _ui.csv will be a combobox
+        self._csvcb = QtGui.QComboBox(parent)
+        self._csvTable.setCellWidget(0,1, self._csvcb)
+        self._csvcb.setEditText("Select CSV Column")
+        self._csvcb.currentIndexChanged.connect(self.onChangeCol1Header)
+
+    def refreshCol0Header(self, tst):
+        """Menu widget at position self._csvTable(0,0)"""
+        # FIXME: Add column reorder logic
+        # FIXME: We need to put the metaids in the TimeStream!!!!
+
+        self._tscb.clear()
 
         # if we get a None it means to clear everything.
         if tst is None:
             self._tst = None
-            self.clear()
             for r in range(1, self._csvTable.rowCount()):
                 item = QtGui.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
                 self._csvTable.setItem(r, 0, item)
             return
-
-        #FIXME: We need to put the metaids in the TimeStream!!!!
-        self.clear() # start from an empty menu
 
         # Create an action per every metaid in TimeStream
         self._tst = tst
@@ -240,22 +243,22 @@ class QComboBox_TS(QtGui.QComboBox):
         mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
         mids.append("potid") # The default is original pot ids.
         for mid in mids:
-            self.addItem(str(mid), QtCore.QVariant(mid))
+            self._tscb.addItem(str(mid), QtCore.QVariant(mid))
 
         # Append sufficient rows. first row is menu (+1)
         if img.ipm.numPots+1 > self._csvTable.rowCount():
             self._csvTable.setRowCount( img.ipm.numPots + 1)
 
-        self.onChange(self.currentIndex())
+        self.onChangeCol0Header(self._tscb.currentIndex())
 
-    def onChange(self, index):
+    def onChangeCol0Header(self, index):
         if self._tst is None:
             return
 
         img = self._tst.curr()
 
         # Fill first Column with active action mid
-        mid = str(self.itemData(index).toPyObject())
+        mid = str(self._tscb.itemData(index).toPyObject())
         potIds = img.ipm.potIds
 
         for r in range(1, self._csvTable.rowCount()):
@@ -270,33 +273,23 @@ class QComboBox_TS(QtGui.QComboBox):
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
 
-class QComboBox_CSV(QtGui.QComboBox):
-    def __init__(self, csvTable, *args, **kwargs):
-        super(QComboBox_CSV, self).__init__(*args, **kwargs)
-        self._csvTable = csvTable
-        self.setEditText("Select CSV Column")
-        self.currentIndexChanged.connect(self.onChange)
-
-    def fill(self):
-        # Put colnames (2,end).
-        self.clear()
-
+    def refreshCol1Header(self):
+        """Menu widget at position self._csvTable(0,1)"""
+        self._csvcb.clear()
         for c in range(2, self._csvTable.columnCount()):
             colName = self._csvTable.item(0, c).text()
-            self.addItem(colName, QtCore.QVariant(c))
+            self._csvcb.addItem(colName, c)
 
-
-    def onChange(self, index):
+    def onChangeCol1Header(self, index):
         if index == -1:
             return
 
         # Column to display (col)
-        col = self.itemData(index).toPyObject()
+        col = self._csvcb.itemData(index).toPyObject()
 
         for r in range(1, self._csvTable.rowCount()):
             item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
             self._csvTable.setItem(r,1, item)
-
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
