@@ -124,6 +124,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
                     self._activeTS = nitem.data(QtCore.Qt.UserRole).toPyObject()
 
             self._tscb.assignTst(self._activeTS)
+            self.showImage(self._activeTS)
 
         # Selecting
         elif row != self._ui.tslist.rowCount()-1:
@@ -154,7 +155,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
     def showImage(self, path=None):
         if path is None:
-            pixmap = QtGui.QPixmap(500,500)
+            pixmap = QtGui.QPixmap(0,0)
         else:
             pixmap = QtGui.QPixmap(path)
 
