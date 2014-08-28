@@ -63,6 +63,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._tscb = QComboBox_TS(self._ui.csv, self)
         self._ui.csv.setCellWidget(0,0,self._tscb)
 
+        # item(0,1) of _ui.csv will be a combobox
+        self._csvcb = QComboBox_CSV(self._ui.csv, self)
+        self._ui.csv.setCellWidget(0,1, self._csvcb)
+
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self.selectCsv)
 
@@ -175,7 +179,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
             csvFile.append(row)
             if maxCols < len(row):
                 maxCols = len(row)
-                print maxCols
         maxRows = len(csvFile)
         f.close()
 
@@ -190,6 +193,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 except:
                     item = QtGui.QTableWidgetItem(" ")
                 self._ui.csv.setItem(r,c,item)
+
+        # Fill the csv combobox
+        self._csvcb.fill()
 
     def writeOnImage(self):
         L = QtGui.QGraphicsTextItem('joel')
@@ -263,6 +269,33 @@ class QComboBox_TS(QtGui.QComboBox):
 
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
+
+class QComboBox_CSV(QtGui.QComboBox):
+    def __init__(self, csvTable, *args, **kwargs):
+        super(QComboBox_CSV, self).__init__(*args, **kwargs)
+        self._csvTable = csvTable
+        self.setEditText("Select CSV Column")
+        self.currentIndexChanged.connect(self.onChange)
+
+    def fill(self):
+        # Put colnames (2,end).
+        self.clear()
+
+        for c in range(2, self._csvTable.columnCount()):
+            colName = self._csvTable.item(0, c).text()
+            self.addItem(colName, QtCore.QVariant(c))
+
+
+    def onChange(self, index):
+        if index == -1:
+            return
+
+        # Column to display (col)
+        col = self.itemData(index).toPyObject()
+
+        for r in range(1, self._csvTable.rowCount()):
+            item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
+            self._csvTable.setItem(r,1, item)
 
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
