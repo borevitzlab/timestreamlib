@@ -301,6 +301,28 @@ class FirstTwoColumns(object):
             item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
             self._csvTable.setItem(r,1, item)
 
+    def swapRow(self, r1, r2):
+        """Swap all columns except 0
+
+        In general: Put r1 in temp, copy r2 to r1, copy temp to r2
+        """
+        if r1 < 0 or r2 < 0 \
+                or r1 > self._csvTable.rowCount() \
+                or r2 > self._csvTable.rowCount():
+
+            msg = "Row number swap error"
+            raise IndexError(msg)
+
+        # We have to use two temps because QTableWidget does not allow assigning
+        # the same objec to two cells
+        for c in range(1, self._csvTable.columnCount()):
+            tmpr1 = self._csvTable.item(r1,c)
+            self._csvTable.removeCellWidget(r1,c)
+            tmpr2 = self._csvTable.item(r2,c)
+            self._csvTable.removeCellWidget(r2,c)
+            self._csvTable.setItem(tmpr1, r2, c)
+            self._csvTable.setItem(tmpr2, r1, c)
+
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
     def __init__(self):
