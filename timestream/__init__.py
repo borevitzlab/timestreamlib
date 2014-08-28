@@ -827,8 +827,6 @@ class TimeStreamImage(object):
 
     @classmethod
     def pickledump(cls, tsi, filepath, overwrite=False):
-        # FIXME: KDM: Shouldn't this operate on self, and just be an
-        # instancemethod?
         if not isinstance(tsi, TimeStreamImage):
             msg = "Object must be instance of TimeStreamImage"
             LOG.error(msg)
