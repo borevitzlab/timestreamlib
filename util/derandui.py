@@ -207,19 +207,28 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
 class FirstTwoColumns(object):
     def __init__(self, csvTable, parent):
+        """Class in charge of the first two columns in self._ui.csv
+
+        Attribures:
+          _csvTable(QTableWidget): The table widget where everything is.
+          _tst(TimeStreamTraverser): Current time stream traverser related to
+            FirstTwoColumns
+          _tscb(QComboBox): Combo box containing timestream data
+          _csvcb(QComboBox): Combo box containing csv data
+        """
         self._csvTable = csvTable
         # Setup the csv table, item(0,0) of _ui.csv will be a combobox
         self._tst = None
         self._tscb = QtGui.QComboBox(parent)
         self._csvTable.setCellWidget(0,0,self._tscb)
         self._tscb.setEditText("Select TS MetaID")
-        self._tscb.currentIndexChanged.connect(self.onChangeCol0Header)
+        self._tscb.currentIndexChanged.connect(self.refreshCol0)
 
         # item(0,1) of _ui.csv will be a combobox
         self._csvcb = QtGui.QComboBox(parent)
         self._csvTable.setCellWidget(0,1, self._csvcb)
         self._csvcb.setEditText("Select CSV Column")
-        self._csvcb.currentIndexChanged.connect(self.onChangeCol1Header)
+        self._csvcb.currentIndexChanged.connect(self.refreshCol1)
 
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
@@ -227,35 +236,34 @@ class FirstTwoColumns(object):
         # FIXME: We need to put the metaids in the TimeStream!!!!
 
         self._tscb.clear()
+        self._tst = tst
 
-        # if we get a None it means to clear everything.
-        if tst is None:
-            self._tst = None
+        if self._tst is not None:
+            # Create an action per every metaid in TimeStream
+            img = self._tst.curr()
+            mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
+            mids.append("potid") # The default is original pot ids.
+            for mid in mids:
+                self._tscb.addItem(str(mid), QtCore.QVariant(mid))
+
+        self.refreshCol0()
+
+    def refreshCol0(self, index=0):
+        if index == -1:
+            return
+
+        if self._tst is None or self._tscb.count() < 1:
             for r in range(1, self._csvTable.rowCount()):
                 item = QtGui.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
                 self._csvTable.setItem(r, 0, item)
             return
 
-        # Create an action per every metaid in TimeStream
-        self._tst = tst
         img = self._tst.curr()
-        mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-        mids.append("potid") # The default is original pot ids.
-        for mid in mids:
-            self._tscb.addItem(str(mid), QtCore.QVariant(mid))
 
         # Append sufficient rows. first row is menu (+1)
         if img.ipm.numPots+1 > self._csvTable.rowCount():
             self._csvTable.setRowCount( img.ipm.numPots + 1)
-
-        self.onChangeCol0Header(self._tscb.currentIndex())
-
-    def onChangeCol0Header(self, index):
-        if self._tst is None:
-            return
-
-        img = self._tst.curr()
 
         # Fill first Column with active action mid
         mid = str(self._tscb.itemData(index).toPyObject())
@@ -280,8 +288,10 @@ class FirstTwoColumns(object):
             colName = self._csvTable.item(0, c).text()
             self._csvcb.addItem(colName, c)
 
-    def onChangeCol1Header(self, index):
-        if index == -1:
+        self.refreshCol1()
+
+    def refreshCol1(self, index=0):
+        if index == -1 or self._csvcb.count() < 1:
             return
 
         # Column to display (col)
