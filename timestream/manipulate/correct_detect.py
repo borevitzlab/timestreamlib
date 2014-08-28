@@ -611,7 +611,6 @@ def createImagePyramid(Image, NoLevels=5):
 def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
                          EstimatedLocation=None, SearchRange=None, NoLevels=4,
                          FinalLevel=1):
-    # TODO: KDM - I'm not so 
     for i in range(NoLevels - 1, -1, -1):
         if i == NoLevels - 1:
             if EstimatedLocation is None:
