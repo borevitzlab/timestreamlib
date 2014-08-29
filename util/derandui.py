@@ -206,6 +206,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._scene.addItem(L)
 
 class FirstTwoColumns(object):
+    E = "--empty--"
     def __init__(self, csvTable, parent):
         """Class in charge of the first two columns in self._ui.csv
 
@@ -215,10 +216,12 @@ class FirstTwoColumns(object):
             FirstTwoColumns
           _tscb(QComboBox): Combo box containing timestream data
           _csvcb(QComboBox): Combo box containing csv data
+          _num0Rows(int): Number of rows in Column zero.
         """
         self._csvTable = csvTable
         # Setup the csv table, item(0,0) of _ui.csv will be a combobox
         self._tst = None
+        self._num0Rows = 0
         self._tscb = QtGui.QComboBox(parent)
         self._csvTable.setCellWidget(0,0,self._tscb)
         self._tscb.setEditText("Select TS MetaID")
@@ -246,7 +249,7 @@ class FirstTwoColumns(object):
             for mid in mids:
                 self._tscb.addItem(str(mid), QtCore.QVariant(mid))
 
-        self.refreshCol0()
+        self._tscb.setCurrentIndex(0) # calls refreshCol0
 
     def refreshCol0(self, index=0):
         if index == -1:
@@ -257,6 +260,7 @@ class FirstTwoColumns(object):
                 item = QtGui.QTableWidgetItem(" ")
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
                 self._csvTable.setItem(r, 0, item)
+            self._num0Rows = 0
             return
 
         img = self._tst.curr()
@@ -266,12 +270,14 @@ class FirstTwoColumns(object):
             self._csvTable.setRowCount( img.ipm.numPots + 1)
 
         # Fill first Column with active action mid
+        self._num0Rows = 0
         mid = str(self._tscb.itemData(index).toPyObject())
         potIds = img.ipm.potIds
 
         for r in range(1, self._csvTable.rowCount()):
             item = QtGui.QTableWidgetItem(" ")
             if len(potIds) > 0:
+                self._num0Rows += 1
                 pot = img.ipm.getPot(potIds.pop(0))
                 metaval = pot.id
                 if mid != "potid":
@@ -281,14 +287,15 @@ class FirstTwoColumns(object):
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
 
+        self.colsRebind()
+
     def refreshCol1Header(self):
         """Menu widget at position self._csvTable(0,1)"""
         self._csvcb.clear()
         for c in range(2, self._csvTable.columnCount()):
             colName = self._csvTable.item(0, c).text()
             self._csvcb.addItem(colName, c)
-
-        self.refreshCol1()
+        self._csvcb.setCurrentIndex(0) # calls refreshCol1
 
     def refreshCol1(self, index=0):
         if index == -1 or self._csvcb.count() < 1:
@@ -298,8 +305,61 @@ class FirstTwoColumns(object):
         col = self._csvcb.itemData(index).toPyObject()
 
         for r in range(1, self._csvTable.rowCount()):
+            # Don't copy for empty rows.
+            item = self._csvTable.item(r,1)
+            if item is not None \
+                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
+                        == FirstTwoColumns.E:
+                continue
             item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
             self._csvTable.setItem(r,1, item)
+
+        self.colsRebind()
+
+    def colsRebind(self):
+        """Method to sort col1 with respect to col0 """
+        if self._tst is None or self._num0Rows < 1:
+            return
+
+        # key is cell element, value is row number
+        c1dict = {}
+        for c1r in range(1, self._csvTable.rowCount()):
+            item = self._csvTable.item(c1r,1)
+            if str(item.data(QtCore.Qt.UserRole).toPyObject()) \
+                    == FirstTwoColumns.E:
+                continue
+            c1dict[item.text()] = c1r
+
+        for c0r in range(1, self._csvTable.rowCount()):
+            if c0r > self._num0Rows:
+                break # this is the end of column 0
+
+            c0item = self._csvTable.item(c0r,0)
+            try:
+                c1r = c1dict[c0item.text()]
+            except KeyError:
+                # c0item not in c1
+                c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
+                if c0data != FirstTwoColumns.E:
+                    # Not a empty row: Add null row and swap
+                    self._csvTable.insertRow(self._csvTable.rowCount())
+                    item = QtGui.QTableWidgetItem(" ")
+                    item.setData(QtCore.Qt.UserRole, FirstTwoColumns.E)
+                    self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
+                    self.swapRow(c0r, self._csvTable.rowCount()-1)
+                continue
+
+            # c0item in c1
+            self.swapRow(c0r, c1r)
+            c1dict[c0item.text()]
+            del c1dict[c0item.text()]
+
+        # Remove empty rows. In reverse to allow removal.
+        for c1r in range(self._num0Rows,self._csvTable.rowCount())[::-1]:
+            c1item = self._csvTable.item(c1r,1)
+            c1data = str(c1item.data(QtCore.Qt.UserRole).toPyObject())
+            if c1data == FirstTwoColumns.E:
+                self._csvTable.removeRow(c1r)
 
     def swapRow(self, r1, r2):
         """Swap all columns except 0
@@ -309,19 +369,23 @@ class FirstTwoColumns(object):
         if r1 < 0 or r2 < 0 \
                 or r1 > self._csvTable.rowCount() \
                 or r2 > self._csvTable.rowCount():
-
             msg = "Row number swap error"
             raise IndexError(msg)
 
-        # We have to use two temps because QTableWidget does not allow assigning
-        # the same objec to two cells
         for c in range(1, self._csvTable.columnCount()):
-            tmpr1 = self._csvTable.item(r1,c)
+            try:
+                tmpr1 = QtGui.QTableWidgetItem(self._csvTable.item(r1,c))
+            except:
+                tmpr1 = QtGui.QTableWidgetItem(" ")
             self._csvTable.removeCellWidget(r1,c)
-            tmpr2 = self._csvTable.item(r2,c)
+            try:
+                tmpr2 = QtGui.QTableWidgetItem(self._csvTable.item(r2,c))
+            except:
+                tmpr2 = QtGui.QTableWidgetItem(" ")
             self._csvTable.removeCellWidget(r2,c)
-            self._csvTable.setItem(tmpr1, r2, c)
-            self._csvTable.setItem(tmpr2, r1, c)
+
+            self._csvTable.setItem(r2, c, tmpr1)
+            self._csvTable.setItem(r1, c, tmpr2)
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
