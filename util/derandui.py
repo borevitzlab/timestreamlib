@@ -60,7 +60,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
         # Setup first two columns
-        self._ftc = FirstTwoColumns(self._ui.csv, self)
+        self._ftc = BindingTable(self._ui.csv, self)
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self.selectCsv)
@@ -205,7 +205,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         L.setZValue(100)
         self._scene.addItem(L)
 
-class FirstTwoColumns(object):
+class BindingTable(object):
     E = "--empty--"
     def __init__(self, csvTable, parent):
         """Class in charge of the first two columns in self._ui.csv
@@ -213,7 +213,7 @@ class FirstTwoColumns(object):
         Attribures:
           _csvTable(QTableWidget): The table widget where everything is.
           _tst(TimeStreamTraverser): Current time stream traverser related to
-            FirstTwoColumns
+            BindingTable
           _tscb(QComboBox): Combo box containing timestream data
           _csvcb(QComboBox): Combo box containing csv data
           _num0Rows(int): Number of rows in Column zero.
@@ -267,7 +267,7 @@ class FirstTwoColumns(object):
         img = self._tst.curr()
 
         # Append sufficient rows. first row is menu (+1)
-        if img.ipm.numPots+1 > self._csvTable.rowCount():
+        if img.ipm.numPots > self._csvTable.rowCount()-1:
             self._csvTable.setRowCount( img.ipm.numPots + 1)
 
         # Fill first Column with active action mid
@@ -310,7 +310,7 @@ class FirstTwoColumns(object):
             item = self._csvTable.item(r,1)
             if item is not None \
                     and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                        == FirstTwoColumns.E:
+                        == BindingTable.E:
                 continue
             item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
             self._csvTable.setItem(r,1, item)
@@ -328,7 +328,7 @@ class FirstTwoColumns(object):
         for c1r in range(1, self._csvTable.rowCount()):
             item = self._csvTable.item(c1r,1)
             if str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                    == FirstTwoColumns.E:
+                    == BindingTable.E:
                 continue
             c1dict[item.text()] = c1r
 
@@ -339,11 +339,11 @@ class FirstTwoColumns(object):
             except KeyError:
                 # c0item not in c1
                 c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
-                if c0data != FirstTwoColumns.E:
+                if c0data != BindingTable.E:
                     # Not a empty row: Add null row and swap
                     self._csvTable.insertRow(self._csvTable.rowCount())
                     item = QtGui.QTableWidgetItem(" ")
-                    item.setData(QtCore.Qt.UserRole, FirstTwoColumns.E)
+                    item.setData(QtCore.Qt.UserRole, BindingTable.E)
                     self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
 
                     self.swapRow(c0r, self._csvTable.rowCount()-1)
@@ -358,7 +358,7 @@ class FirstTwoColumns(object):
         for c1r in range(self._num0Rows+1,self._csvTable.rowCount())[::-1]:
             c1item = self._csvTable.item(c1r,1)
             c1data = str(c1item.data(QtCore.Qt.UserRole).toPyObject())
-            if c1data == FirstTwoColumns.E:
+            if c1data == BindingTable.E:
                 self._csvTable.removeRow(c1r)
 
     def swapRow(self, r1, r2):
