@@ -318,7 +318,8 @@ class FirstTwoColumns(object):
 
     def colsRebind(self):
         """Method to sort col1 with respect to col0 """
-        if self._tst is None or self._num0Rows < 1:
+        if self._tst is None or self._num0Rows < 1 \
+                or self._csvcb.count() < 1 or self._tscb.count() < 1:
             return
 
         # key is cell element, value is row number
