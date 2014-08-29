@@ -331,10 +331,7 @@ class FirstTwoColumns(object):
                 continue
             c1dict[item.text()] = c1r
 
-        for c0r in range(1, self._csvTable.rowCount()):
-            if c0r > self._num0Rows:
-                break # this is the end of column 0
-
+        for c0r in range(1, self._num0Rows+1):
             c0item = self._csvTable.item(c0r,0)
             try:
                 c1r = c1dict[c0item.text()]
@@ -347,6 +344,7 @@ class FirstTwoColumns(object):
                     item = QtGui.QTableWidgetItem(" ")
                     item.setData(QtCore.Qt.UserRole, FirstTwoColumns.E)
                     self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
+
                     self.swapRow(c0r, self._csvTable.rowCount()-1)
                 continue
 
@@ -356,7 +354,7 @@ class FirstTwoColumns(object):
             del c1dict[c0item.text()]
 
         # Remove empty rows. In reverse to allow removal.
-        for c1r in range(self._num0Rows,self._csvTable.rowCount())[::-1]:
+        for c1r in range(self._num0Rows+1,self._csvTable.rowCount())[::-1]:
             c1item = self._csvTable.item(c1r,1)
             c1data = str(c1item.data(QtCore.Qt.UserRole).toPyObject())
             if c1data == FirstTwoColumns.E:
