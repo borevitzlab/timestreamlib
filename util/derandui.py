@@ -166,6 +166,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
     def selectCsv(self):
         self._csvfilename = QtGui.QFileDialog.getOpenFileName(self,
                 "Select CSV", "", "CSV (*.csv)")
+
+        if self._csvfilename == "":
+            return
+
         f = file(self._csvfilename, "r")
         csvreader = csv.reader(f, delimiter=",")
         csvFile = []
@@ -236,7 +240,6 @@ class BindingTable(object):
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
         # FIXME: We need to put the metaids in the TimeStream!!!!
-
         self._tscb.clear()
         self._tst = tst
 
