@@ -164,13 +164,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
 
     def selectCsv(self):
-        self._csvfilename = QtGui.QFileDialog.getOpenFileName(self,
+        fname = QtGui.QFileDialog.getOpenFileName(self,
                 "Select CSV", "", "CSV (*.csv)")
 
-        if self._csvfilename == "":
+        if fname == "":
             return
 
-        f = file(self._csvfilename, "r")
+        f = file(fname, "r")
         csvreader = csv.reader(f, delimiter=",")
         csvFile = []
         maxCols = 0
