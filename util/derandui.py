@@ -184,7 +184,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         for r in range(self._ui.csv.rowCount()):
             for c in range(2, self._ui.csv.columnCount()):
                 try:
-                    item = QtGui.QTableWidgetItem(csvFile[r][c])
+                    item = QtGui.QTableWidgetItem(csvFile[r][c-2])
                 except:
                     item = QtGui.QTableWidgetItem(" ")
                 self._ui.csv.setItem(r,c,item)
