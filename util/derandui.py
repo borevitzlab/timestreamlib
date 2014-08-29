@@ -235,7 +235,6 @@ class FirstTwoColumns(object):
 
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
-        # FIXME: Add column reorder logic
         # FIXME: We need to put the metaids in the TimeStream!!!!
 
         self._tscb.clear()
@@ -249,7 +248,9 @@ class FirstTwoColumns(object):
             for mid in mids:
                 self._tscb.addItem(str(mid), QtCore.QVariant(mid))
 
-        self._tscb.setCurrentIndex(0) # calls refreshCol0
+            self._tscb.setCurrentIndex(0) # calls refreshCol0
+        else:
+            self.refreshCol0()
 
     def refreshCol0(self, index=0):
         if index == -1:
