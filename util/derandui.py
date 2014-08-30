@@ -265,6 +265,7 @@ class BindingTable(object):
                 item.setTextAlignment(QtCore.Qt.AlignCenter)
                 self._csvTable.setItem(r, 0, item)
             self._num0Rows = 0
+            self.colsRebind()
             return
 
         img = self._tst.curr()
@@ -320,10 +321,27 @@ class BindingTable(object):
 
         self.colsRebind()
 
+    def _removeEmpties(self, f, t):
+        for r in range (f,t)[::-1]:
+            item = self._csvTable.item(r,1)
+            if item is None:
+                continue
+            data = str(item.data(QtCore.Qt.UserRole).toPyObject())
+            if data ==  BindingTable.E:
+                self._csvTable.removeRow(r)
+
     def colsRebind(self):
         """Method to sort col1 with respect to col0 """
-        if self._tst is None or self._num0Rows < 1 \
-                or self._csvcb.count() < 1 or self._tscb.count() < 1:
+        col0empty = self._num0Rows < 1 or self._tscb.count() < 1 \
+                or self._tst is None
+        col1empty = self._csvcb.count() < 1
+
+        if (col0empty and col1empty) or (not col0empty and col1empty):
+            return
+
+        if col0empty and not col1empty:
+            # Make sure we remove all "--empty--" rows.
+            self._removeEmpties(1,self._csvTable.rowCount())
             return
 
         # key is cell element, value is row number
@@ -358,11 +376,7 @@ class BindingTable(object):
             del c1dict[c0item.text()]
 
         # Remove empty rows. In reverse to allow removal.
-        for c1r in range(self._num0Rows+1,self._csvTable.rowCount())[::-1]:
-            c1item = self._csvTable.item(c1r,1)
-            c1data = str(c1item.data(QtCore.Qt.UserRole).toPyObject())
-            if c1data == BindingTable.E:
-                self._csvTable.removeRow(c1r)
+        self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
 
     def swapRow(self, r1, r2):
         """Swap all columns except 0
