@@ -57,13 +57,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.tslist.horizontalHeader().resizeSection(0,20)
         self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
         self.addTsItem = self._ui.tslist.item(0,0)
-        self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
 
         # Setup first two columns
         self._ftc = BindingTable(self._ui.csv, self)
 
         # Button connection
-        self._ui.bOpenCsv.clicked.connect(self.selectCsv)
+        self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
 
         self._ui.show()
 
@@ -162,40 +161,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pixItem = self._scene.addPixmap(pixmap)
         pixItem.setZValue(-100)
 
-
-    def selectCsv(self):
-        fname = QtGui.QFileDialog.getOpenFileName(self,
-                "Select CSV", "", "CSV (*.csv)")
-
-        if fname == "":
-            return
-
-        f = file(fname, "r")
-        csvreader = csv.reader(f, delimiter=",")
-        csvFile = []
-        maxCols = 0
-        for row in csvreader:
-            csvFile.append(row)
-            if maxCols < len(row):
-                maxCols = len(row)
-        maxRows = len(csvFile)
-        f.close()
-
-        if self._ui.csv.rowCount() < maxRows:
-            self._ui.csv.setRowCount(maxRows)
-        if self._ui.csv.columnCount() < maxCols + 2:
-            self._ui.csv.setColumnCount(maxCols + 2)
-        for r in range(self._ui.csv.rowCount()):
-            for c in range(2, self._ui.csv.columnCount()):
-                try:
-                    item = QtGui.QTableWidgetItem(csvFile[r][c-2])
-                except:
-                    item = QtGui.QTableWidgetItem(" ")
-                self._ui.csv.setItem(r,c,item)
-
-        # Fill the csv combobox
-        self._ftc.refreshCol1Header()
-
     def writeOnImage(self):
         L = QtGui.QGraphicsTextItem('joel')
         font=QtGui.QFont('White Rabbit')
@@ -222,6 +187,7 @@ class BindingTable(object):
           _csvcb(QComboBox): Combo box containing csv data
           _num0Rows(int): Number of rows in Column zero.
         """
+        self._parent = parent
         self._csvTable = csvTable
         # Setup the csv table, item(0,0) of _ui.csv will be a combobox
         self._tst = None
@@ -236,6 +202,39 @@ class BindingTable(object):
         self._csvTable.setCellWidget(0,1, self._csvcb)
         self._csvcb.setEditText("Select CSV Column")
         self._csvcb.currentIndexChanged.connect(self.refreshCol1)
+
+    def selectCsv(self):
+        fname = QtGui.QFileDialog.getOpenFileName(self._parent,
+                "Select CSV", "", "CSV (*.csv)")
+
+        if fname == "":
+            return
+
+        f = file(fname, "r")
+        csvreader = csv.reader(f, delimiter=",")
+        csvFile = []
+        maxCols = 0
+        for row in csvreader:
+            csvFile.append(row)
+            if maxCols < len(row):
+                maxCols = len(row)
+        maxRows = len(csvFile)
+        f.close()
+
+        if self._csvTable.rowCount() < maxRows:
+            self._csvTable.setRowCount(maxRows)
+        if self._csvTable.columnCount() < maxCols + 2:
+            self._csvTable.setColumnCount(maxCols + 2)
+        for r in range(self._csvTable.rowCount()):
+            for c in range(2, self._csvTable.columnCount()):
+                try:
+                    item = QtGui.QTableWidgetItem(csvFile[r][c-2])
+                except:
+                    item = QtGui.QTableWidgetItem(" ")
+                self._csvTable.setItem(r,c,item)
+
+        # Fill the csv combobox
+        self.refreshCol1Header()
 
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
