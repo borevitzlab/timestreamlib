@@ -176,7 +176,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
 class BindingTable(object):
     E = "--empty--"
-    RICN = 2 # Reserved Initial Column Number (RICN)
+    RICN = 3 # Reserved Initial Column Number (RICN)
     RIRN = 1 # Reserved Initial Row Number (RIRN)
     def __init__(self, csvTable, parent):
         """Class in charge of the first two columns in self._ui.csv
@@ -192,19 +192,26 @@ class BindingTable(object):
         """
         self._parent = parent
         self._csvTable = csvTable
-        # Setup the csv table, item(0,0) of _ui.csv will be a combobox
+
+        # item(0,0) TimeStream pot id combobox
         self._tst = None
         self._num0Rows = 0
-        self._tscb = QtGui.QComboBox(parent)
+        self._tscb = QtGui.QComboBox(self._parent)
         self._csvTable.setCellWidget(0,0,self._tscb)
         self._tscb.setEditText("Select TS MetaID")
         self._tscb.currentIndexChanged.connect(self.refreshCol0)
 
-        # item(0,1) of _ui.csv will be a combobox
-        self._csvcb = QtGui.QComboBox(parent)
+        # item(0,1) TimeStream to CSV binding combobox
+        self._csvcb = QtGui.QComboBox(self._parent)
         self._csvTable.setCellWidget(0,1, self._csvcb)
         self._csvcb.setEditText("Select CSV Column")
         self._csvcb.currentIndexChanged.connect(self.refreshCol1)
+
+        # item(0.2) Derandomization parameter
+        self._derandcb = QtGui.QComboBox(self._parent)
+        self._csvTable.setCellWidget(0,2, self._derandcb)
+        self._derandcb.setEditText("Select Derandomization Param")
+        self._derandcb.currentIndexChanged.connect(self.refreshCol2)
 
     def selectCsv(self):
         fname = QtGui.QFileDialog.getOpenFileName(self._parent,
@@ -239,6 +246,7 @@ class BindingTable(object):
 
         # Fill the csv combobox
         self.refreshCol1Header()
+        self.refreshCol2Header()
 
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
@@ -312,7 +320,7 @@ class BindingTable(object):
         # Column to display (col)
         col = self._csvcb.itemData(index).toPyObject()
 
-        for r in range(1, self._csvTable.rowCount()):
+        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
             # Don't copy for empty rows.
             item = self._csvTable.item(r,1)
             if item is not None \
@@ -323,6 +331,30 @@ class BindingTable(object):
             self._csvTable.setItem(r,1, item)
 
         self.colsRebind()
+
+    def refreshCol2Header(self):
+        self._derandcb.clear()
+        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
+            colName = self._csvTable.item(0,c).text()
+            self._derandcb.addItem(colName, c)
+        self._derandcb.setCurrentIndex(0)
+
+    def refreshCol2(self, index=0):
+        if index == -1 or self._derandcb.count() < 1 or self._csvcb.count() < 1:
+            return
+
+        # Column to display
+        col = self._derandcb.itemData(index).toPyObject()
+
+        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
+            # Don't copy for empty rows.
+            item = self._csvTable.item(r,1)
+            if item is not None \
+                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
+                        == BindingTable.E:
+                continue
+            item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
+            self._csvTable.setItem(r,2,item)
 
     def _removeEmpties(self, f, t):
         for r in range (f,t)[::-1]:

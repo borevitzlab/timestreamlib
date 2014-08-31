@@ -196,7 +196,7 @@
             <number>1</number>
            </property>
            <property name="columnCount">
-            <number>2</number>
+            <number>3</number>
            </property>
            <attribute name="horizontalHeaderVisible">
             <bool>false</bool>
@@ -208,6 +208,7 @@
             <bool>false</bool>
            </attribute>
            <row/>
+           <column/>
            <column/>
            <column/>
           </widget>
