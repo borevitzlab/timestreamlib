@@ -176,10 +176,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
 class BindingTable(object):
     E = "--empty--"
+    RICN = 2 # Reserved Initial Column Number (RICN)
+    RIRN = 1 # Reserved Initial Row Number (RIRN)
     def __init__(self, csvTable, parent):
         """Class in charge of the first two columns in self._ui.csv
 
         Attribures:
+          _parent(QMainWindow): The parent window.
           _csvTable(QTableWidget): The table widget where everything is.
           _tst(TimeStreamTraverser): Current time stream traverser related to
             BindingTable
@@ -223,12 +226,13 @@ class BindingTable(object):
 
         if self._csvTable.rowCount() < maxRows:
             self._csvTable.setRowCount(maxRows)
-        if self._csvTable.columnCount() < maxCols + 2:
-            self._csvTable.setColumnCount(maxCols + 2)
+        if self._csvTable.columnCount() - BindingTable.RICN < maxCols:
+            self._csvTable.setColumnCount(maxCols + BindingTable.RICN)
         for r in range(self._csvTable.rowCount()):
-            for c in range(2, self._csvTable.columnCount()):
+            for c in range(BindingTable.RICN, self._csvTable.columnCount()):
                 try:
-                    item = QtGui.QTableWidgetItem(csvFile[r][c-2])
+                    csvelem = csvFile[r][c-BindingTable.RICN]
+                    item = QtGui.QTableWidgetItem(csvelem)
                 except:
                     item = QtGui.QTableWidgetItem(" ")
                 self._csvTable.setItem(r,c,item)
@@ -296,7 +300,7 @@ class BindingTable(object):
     def refreshCol1Header(self):
         """Menu widget at position self._csvTable(0,1)"""
         self._csvcb.clear()
-        for c in range(2, self._csvTable.columnCount()):
+        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
             colName = self._csvTable.item(0, c).text()
             self._csvcb.addItem(colName, c)
         self._csvcb.setCurrentIndex(0) # calls refreshCol1
