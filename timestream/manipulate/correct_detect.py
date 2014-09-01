@@ -5,21 +5,20 @@ Created on Mon Jun 16 15:45:22 2014
 @author: Chuong Nguyen, chuong.v.nguyen@gmail.com
 """
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, division
 
-import numpy as np
 import cv2
-from scipy import optimize
+import logging
 import matplotlib.pylab as plt
+import numpy as np
+from scipy import optimize
 
+
+LOG = logging.getLogger("CONSOLE")
 
 """REVIEW COMMENTARY:
 
 KDM says:
-    - Please use a module-level logging object to replace all print statements.
-      Most prints should be at the 'INFO' logging level, unless they're
-      warnings or errors. This makes it easier to silence warnings from the
-      UI/CLI.
     - Use regex where appropriate, don't directly use string manipulation to
       find numbers in strings.
     - Let's move all the YML reading stuff to a new module at
@@ -152,7 +151,7 @@ def findCorner(Image, Corner, CornerType='topleft', WindowSize=100,
     elif CornerType.lower() == 'topright' and foundRightEdgeX and foundTopEdgeY:
         return [xRightNew, yTopNew]
     else:
-        print('Cannot detect corner ' + CornerType)
+        LOG.warn('Cannot detect corner ' + CornerType)
         return [x, y]
 
 
@@ -183,8 +182,7 @@ def findRoundedCorner(Image, InitRect, searchDistance=20, Threshold=20):
             yBottomNew = bottomRight[1] - i
             foundBottomEdgeY = True
     if foundLeftEdgeX and foundRightEdgeX and foundTopEdgeY and foundBottomEdgeY:
-        # TODO: Please use logger for this print
-        print('Found pot edges')
+        LOG.info('Found pot edges')
         Rect = [[xLeftNew, yTopNew], [xLeftNew, yBottomNew],
                 [xRightNew, yBottomNew], [xRightNew, yTopNew]]
         return Rect
@@ -214,8 +212,7 @@ def correctPointOrder(Rect, tolerance=40):
             else:
                 bottomRight = [Rect[i][0], Rect[i][1]]
     if len(topLeft) * len(bottomLeft) * len(topRight) * len(bottomRight) == 0:
-        # TODO: Please use logger for this print
-        print('Cannot find corRect corner order. Change tolerance value.')
+        LOG.warn('Cannot find corRect corner order. Change tolerance value.')
         return Rect
     else:
         Rect = [topLeft, bottomLeft, bottomRight, topRight]
@@ -273,9 +270,9 @@ def readOpenCVArrayFromYML(myfile):
     dname, data = readValueFromLineYML(line)
     if rname != 'rows' and cname != 'cols' and dtname != 'dt' \
             and dname != 'data' and '[' in data:
-        print('Error reading YML file')
+        LOG.error('Error reading YML file')
     elif dtype != 'd':
-        print('Unsupported data type: dt = ' + dtype)
+        LOG.error('Unsupported data type: dt = ' + dtype)
     else:
         if ']' not in data:
             while True:
@@ -339,7 +336,7 @@ def dic2yml(filename, dicdata):
             elif isinstance(data, float):
                 myfile.write(key + ': %f\n' % data)
             else:
-                print('Unsupported data: ', data)
+                LOG.error('Unsupported data: ', data)
 
 
 def readCalibration(CalibFile):
@@ -407,11 +404,6 @@ def getColorcardColors(ccdCapt, GridSize, Show=False):
         Captured_B = Captured_B.astype(np.float)
         STD_Colors[i] = np.std(Captured_R) + \
             np.std(Captured_G) + np.std(Captured_B)
-        # FIXME: Remove these commented lines or uncomment them. This is what
-        # git is for.
-#        Captured_R = np.sum(Captured_R)/Captured_R.size
-#        Captured_G = np.sum(Captured_G)/Captured_G.size
-#        Captured_B = np.sum(Captured_B)/Captured_B.size
         Captured_R = np.median(Captured_R)
         Captured_G = np.median(Captured_G)
         Captured_B = np.median(Captured_B)
@@ -428,10 +420,10 @@ def getColorcardColors(ccdCapt, GridSize, Show=False):
 
 # FIXME: can this comment go somewhere more logical. Either inside the function
 # it referrs to, or at the top if it referrs to the module
+
 # Using modified Gamma Correction Algorithm by
 # Constantinou2013 - A comparison of color correction algorithms for
 # endoscopic cameras
-
 
 def getColorMatchingError(Arg, Colors, Captured_Colors):
     ColorMatrix = Arg[:9].reshape([3, 3])
@@ -636,10 +628,7 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
                                               PyramidTemplates[i],
                                               maxLocEst, SearchRange)
                 if maxVal < 0.3 and maxVal180 < 0.3:
-                    # FIXME: use logging module not print
-                    print('#### Warning: low matching score ####')
-# FIXME: remove this comment and those below or reinstate them.
-#                    return None, None, None
+                    LOG.warn('Low matching score')
                 if maxVal < maxVal180:
                     PyramidImages = [np.rot90(Img, 2) for Img in PyramidImages]
                     matchedLocImage, matchedLocImage180 = matchedLocImage180, matchedLocImage
@@ -663,24 +652,7 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
             # rescale to location in level-0 image
             matchedLocImage0 = (matchedLocImage[0] * 2 ** i,
                                 matchedLocImage[1] * 2 ** i)
-#        plt.figure()
-#        plt.imshow(PyramidTemplates[i])
-#
-#        plt.figure()
-#        plt.imshow(corrMap)
-#        plt.hold(True)
-#        plt.plot([maxLoc[0]], [maxLoc[1]], 'o')
-#        plt.title('maxVal = %f' %maxVal)
-#
-#        plt.figure()
-#        plt.imshow(PyramidImages[i])
-#        plt.hold(True)
-#        plt.plot([matchedLocImage[0]], [matchedLocImage[1]], 'o')
-#        plt.plot([maxLocEst[0]], [maxLocEst[1]], 'x')
-#        plt.title('Level = %d, RotationAngle = %f' %(i, RotationAngle))
-#        plt.show()
         if i == FinalLevel:
             # Skip early to save time
             break
-#    print('maxVal, maxLocImage, RotationAngle =', maxVal, matchedLocImage0, RotationAngle)
     return maxVal, matchedLocImage0, RotationAngle

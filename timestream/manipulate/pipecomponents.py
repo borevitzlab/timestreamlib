@@ -18,21 +18,24 @@
 
 from __future__ import absolute_import, division, print_function
 
+import cPickle
+import cv2
+from itertools import chain
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2
+import os
+from scipy import spatial
+import sys
+import time
+
 from timestream import TimeStreamImage, parse, TimeStream
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
 import timestream
-from itertools import chain
-from scipy import spatial
-import os
-import os.path
-import time
-import sys
-import cPickle
+
+LOG = logging.getLogger("CONSOLE")
 
 
 class PipeComponent (object):
@@ -146,7 +149,7 @@ class ImageUndistorter (PipeComponent):
             None, np.asarray(self.cameraMatrix), tuple(self.imageSize), cv2.CV_32FC1)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
         if self.UndistMapX is not None and self.UndistMapY is not None:
@@ -210,15 +213,13 @@ class ColorCardDetector (PipeComponent):
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
             # FIXME: this should be handled with an error.
-            print(
-                'Image is too dark, mean(I) = %f < %f. Skip colorcard detection!' %
-                (meanIntensity, self.minIntensity))
+            LOG.warn('Image is too dark, skiping colorcard detection!')
             return([self.image, [None, None, None]])
 
         if not self.useWhiteBackground:
@@ -247,7 +248,8 @@ class ColorCardDetector (PipeComponent):
                 # for displaying
                 self.loc = loc
             else:
-                print('Cannot find color card')
+                # FIXME: this should be handled with an error.
+                LOG.warn('Cannot find color card')
                 self.colorcardParams = [None, None, None]
         else:
             self.colorcardParams = cd.estimateColorParametersFromWhiteBackground(
@@ -313,7 +315,7 @@ class ImageColorCorrector (PipeComponent):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi, colorcardParam = args
         image = tsi.pixels
 
@@ -330,7 +332,7 @@ class ImageColorCorrector (PipeComponent):
             self.imageCorrected = self.imageCorrected.astype(np.uint8)
         else:
             # FIXME: This should be handled with an exception.
-            print('Skip color correction')
+            LOG.warn('Skip color correction')
             self.imageCorrected = image
         self.image = image  # display
 
@@ -366,7 +368,7 @@ class TrayDetector (PipeComponent):
         super(TrayDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
         temp = np.zeros_like(self.image)
@@ -384,7 +386,7 @@ class TrayDetector (PipeComponent):
                 i)
             trayImage = cv2.imread(trayFile)[:, :, ::-1]
             if trayImage is None:
-                print("Fail to read", trayFile)
+                LOG.error("Fail to read", trayFile)
             trayImage[:, :, 1] = 0 # suppress green channel
             trayPyramid = cd.createImagePyramid(trayImage)
             self.trayPyramids.append(trayPyramid)
@@ -441,7 +443,7 @@ class PotDetector (PipeComponent):
         super(PotDetector, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
         self.image = tsi.pixels
         # read pot template image and scale to the pot size
@@ -597,7 +599,7 @@ class PlantExtractor (PipeComponent):
         self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         tsi = args[0]
         img = tsi.pixels
         self.ipm = tsi.ipm
@@ -670,7 +672,7 @@ class FeatureExtractor (PipeComponent):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
             iph.calcFeatures(self.features)
@@ -699,7 +701,7 @@ class ResultingFeatureWriter_ndarray (PipeComponent):
             raise Exception("File %s already exists" % self.outputfile)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         ipm = args[0].ipm
 
         # Get timestamp of current image.
@@ -773,7 +775,7 @@ class ResultingFeatureWriter_csv (PipeComponent):
                                     % outputfile)
 
     def __call__(self, context, *args):
-        print(self.mess)
+        LOG.info(self.mess)
         ipm = args[0].ipm
         ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 

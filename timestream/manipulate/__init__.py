@@ -1,9 +1,5 @@
-from itertools import (
-    cycle,
-    izip,
-)
 import logging
-import multiprocessing
+from sys import stderr
 
 
 NOEOL = logging.INFO + 1
@@ -11,6 +7,7 @@ logging.addLevelName(NOEOL, 'NOEOL')
 
 
 class NoEOLStreamHandler(logging.StreamHandler):
+    """A StreamHandler subclass that optionally doesn't print an EOL."""
 
     def __init__(self, stream=None):
         super(NoEOLStreamHandler, self).__init__(stream)
@@ -58,12 +55,15 @@ class NoEOLStreamHandler(logging.StreamHandler):
             self.handleError(record)
 
 
-def setup_console_logger():
-    """Set up manipulation module CLI logging"""
+def setup_console_logger(level=logging.DEBUG, handler=logging.StreamHandler,
+                         stream=stderr):
+    """Set up CLI logging"""
     log = logging.getLogger("CONSOLE")
     fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
-    ch = NoEOLStreamHandler()
-    ch.setLevel(logging.INFO)
-    ch.setFormatter(fmt)
-    log.addHandler(ch)
-    log.setLevel(logging.INFO)
+    if stream is None:
+        stream = open("/dev/null", "w")
+    cons = NoEOLStreamHandler(stream=stream)
+    cons.setLevel(level)
+    cons.setFormatter(fmt)
+    log.addHandler(cons)
+    log.setLevel(level)
