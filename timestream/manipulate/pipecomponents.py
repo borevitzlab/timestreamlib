@@ -29,7 +29,7 @@ from scipy import spatial
 import sys
 import time
 
-from timestream import TimeStreamImage, TimeStream
+from timestream import TimeStreamImage
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
@@ -49,7 +49,7 @@ class PipeComponent (object):
     # default: Default value. Relevant only for required args
     argNames = {}
 
-    # These two should be lists of types. order matters
+    # These two should be lists of ty
     runExpects = []
     runReturns = []
 
@@ -144,8 +144,12 @@ class ImageUndistorter (PipeComponent):
     def __init__(self, context, **kwargs):
         super(ImageUndistorter, self).__init__(**kwargs)
         self.UndistMapX, self.UndistMapY = cv2.initUndistortRectifyMap(
-            np.asarray(self.cameraMatrix), np.asarray(self.distortCoefs),
-            None, np.asarray(self.cameraMatrix), tuple(self.imageSize), cv2.CV_32FC1)
+            np.asarray(self.cameraMatrix),
+            np.asarray(self.distortCoefs),
+            None,
+            np.asarray(self.cameraMatrix),
+            tuple(self.imageSize),
+            cv2.CV_32FC1)
 
     def __call__(self, context, *args):
         LOG.info(self.mess)
@@ -153,7 +157,8 @@ class ImageUndistorter (PipeComponent):
         self.image = tsi.pixels
         if self.UndistMapX is not None and self.UndistMapY is not None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8),
-                                              self.UndistMapX, self.UndistMapY, cv2.INTER_CUBIC)
+                                              self.UndistMapX, self.UndistMapY,
+                                              cv2.INTER_CUBIC)
         else:
             self.imageUndistorted = self.image
 
@@ -194,7 +199,7 @@ class ColorCardDetector (PipeComponent):
                  []],
                 "maxIntensity": [
                     False,
-                    "Max intensity when applying color correction using white background",
+                    "Max intensity when correcting using white background",
                     255]
                 }
 
@@ -223,38 +228,39 @@ class ColorCardDetector (PipeComponent):
 
         if not self.useWhiteBackground:
             self.imagePyramid = cd.createImagePyramid(self.image)
-            self.colorcardImage = cv2.imread(self.ccf)[:, :, ::-1]
-            if self.colorcardImage is None:
+            ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
+            if ccdImg is None:
                 raise ValueError("Failed to read %s" % self.ccf)
-            self.colorcardPyramid = cd.createImagePyramid(self.colorcardImage)
+            self.ccdPyramid = cd.createImagePyramid(ccdImg)
 
             # create image pyramid for multiscale matching
-            SearchRange = [self.colorcardPyramid[0].shape[1],
-                           self.colorcardPyramid[0].shape[0]]
+            SearchRange = [self.ccdPyramid[0].shape[1],
+                           self.ccdPyramid[0].shape[0]]
             score, loc, angle = cd.matchTemplatePyramid(
-                self.imagePyramid, self.colorcardPyramid,
-                0, EstimatedLocation=self.colorcardPosition, SearchRange=SearchRange)
+                self.imagePyramid, self.ccdPyramid,
+                0, EstimatedLocation=self.ccdPosition, SearchRange=SearchRange)
             if score > 0.3:
                 # extract color information
                 self.foundCard = self.image[
-                    loc[1] - self.colorcardImage.shape[0] // 2:loc[1] + self.colorcardImage.shape[0] // 2,
-                    loc[0] - self.colorcardImage.shape[1] // 2:loc[0] + self.colorcardImage.shape[1] // 2]
-                self.colorcardColors, _ = cd.getColorcardColors(
-                    self.foundCard, GridSize=[6, 4])
-                self.colorcardParams = cd.estimateColorParameters(
-                    self.colorcardTrueColors,
-                    self.colorcardColors)
+                    loc[1] - ccdImg.shape[0] // 2:loc[1] + ccdImg.shape[0] // 2,
+                    loc[0] - ccdImg.shape[1] // 2:loc[0] + ccdImg.shape[1] // 2]
+                self.ccdColors, _ = cd.getColorcardColors(self.foundCard,
+                                                          GridSize=[6, 4])
+                self.ccdParams = cd.estimateColorParameters(self.ccdTrueColors,
+                                                            self.ccdColors)
+                # Save colourcard image to instance
+                self.colorcardImage = ccdImg
                 # for displaying
                 self.loc = loc
             else:
                 # FIXME: this should be handled with an error.
                 LOG.warn('Cannot find color card')
-                self.colorcardParams = [None, None, None]
+                self.ccdParams = [None, None, None]
         else:
-            self.colorcardParams = cd.estimateColorParametersFromWhiteBackground(
+            self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
 
-        return([tsi, self.colorcardParams])
+        return([tsi, self.ccdParams])
 
     def show(self):
         plt.figure()
@@ -371,22 +377,20 @@ class TrayDetector (PipeComponent):
         tsi = args[0]
         self.image = tsi.pixels
         temp = np.zeros_like(self.image)
-        temp[:, :,:] = self.image[:,:,:]
-        temp[:, :, 1] = 0 # suppress green channel
+        temp[:, :, :] = self.image[:, :, :]
+        temp[:, :, 1] = 0  # suppress green channel
         self.imagePyramid = cd.createImagePyramid(temp)
         self.trayPyramids = []
         for i in range(self.trayNumber):
             # fixed tray image so that perspective postions of the trays are
             # fixed
-            trayFile = os.path.join(
-                context.ints.path,
-                self.settingPath,
-                self.trayFiles %
-                i)
+            trayFile = os.path.join(context.ints.path,
+                                    self.settingPath,
+                                    self.trayFiles % i)
             trayImage = cv2.imread(trayFile)[:, :, ::-1]
             if trayImage is None:
                 LOG.error("Fail to read", trayFile)
-            trayImage[:, :, 1] = 0 # suppress green channel
+            trayImage[:, :, 1] = 0  # suppress green channel
             trayPyramid = cd.createImagePyramid(trayImage)
             self.trayPyramids.append(trayPyramid)
 
@@ -395,12 +399,16 @@ class TrayDetector (PipeComponent):
             SearchRange = [trayPyramid[0].shape[1] // 6,
                            trayPyramid[0].shape[0] // 6]
             score, loc, angle = cd.matchTemplatePyramid(
-                self.imagePyramid, trayPyramid,
-                RotationAngle=0, EstimatedLocation=self.trayPositions[i], SearchRange=SearchRange)
+                self.imagePyramid,
+                trayPyramid,
+                RotationAngle=0,
+                EstimatedLocation=self.trayPositions[i],
+                SearchRange=SearchRange)
             if score < 0.3:
                 # FIXME: For now we don't handle missing trays.
-                raise PCExBrakeInPipeline(self.actName,
-                                          "Low tray matching score. Likely tray %d is missing." % i)
+                raise PCExBrakeInPipeline(
+                    self.actName,
+                    "Low tray matching score. Likely tray %d is missing." % i)
 
             self.trayLocs.append(loc)
 
@@ -456,7 +464,7 @@ class PotDetector (PipeComponent):
             self.settingPath,
             self.potTemplateFile)
         potTemplateImage = cv2.imread(potTemplateFile)[:, :, ::-1]
-        potTemplateImage[:, :, 1] = 0 # suppress green channel
+        potTemplateImage[:, :, 1] = 0  # suppress green channel
         potTemplateImage = cv2.resize(
             potTemplateImage.astype(np.uint8),
             (potImage.shape[1],
@@ -487,16 +495,19 @@ class PotDetector (PipeComponent):
                     estimateLoc = [StartX + StepX * k, StartY - StepY * l]
                     score, loc, angle = cd.matchTemplatePyramid(
                         self.imagePyramid,
-                        self.potPyramid, RotationAngle=0,
-                        EstimatedLocation=estimateLoc, NoLevels=3, SearchRange=SearchRange)
+                        self.potPyramid,
+                        RotationAngle=0,
+                        EstimatedLocation=estimateLoc,
+                        NoLevels=3,
+                        SearchRange=SearchRange)
                     locX[k, l], locY[k, l] = loc
 
             # correct for detection error
             potLocs = []
             potLocs_ = []
-            diffXX = locX[1:, :] - locX[:-1,:]
+            diffXX = locX[1:, :] - locX[:-1, :]
             diffXY = locX[:, 1:] - locX[:, :-1]
-            diffYX = locY[1:, :] - locY[:-1,:]
+            diffYX = locY[1:, :] - locY[:-1, :]
             diffYY = locY[:, 1:] - locY[:, :-1]
             diffXXMedian = np.median(diffXX)
             diffXYMedian = np.median(diffXY)
@@ -623,6 +634,8 @@ class PlantExtractor (PipeComponent):
 
         # Parallel from here: We create a child process for each pot and pipe
         # the pickled result back to the parent.
+        # FIXME: Joel: This should be done using the multiprocessing module if
+        # possible.
         childPids = []
         for key, iph in self.ipm.iter_through_pots():
             In, Out = os.pipe()
@@ -632,18 +645,19 @@ class PlantExtractor (PipeComponent):
                 childPids.append([iph, pid, In])
                 continue
 
-            ## ---- Child Section ---- ##
+            # Child Section
             try:
                 os.close(In)
                 msk = cPickle.dumps(iph.getSegmented())
                 cOut = os.fdopen(Out, "wb", sys.getsizeof(msk))
                 cOut.write(msk)
                 cOut.close()
-            except e:
-                raise RuntimeError("Unknown error segmenting %s %e" % iph.id)
+            except Exception as exc:
+                raise RuntimeError("Unknown error segmenting %s %s" %
+                                   (iph.id, str(exc)))
             finally:
                 os._exit(0)
-            ## ---- Child Section ---- ##
+            # Child Section
 
         for iph, pid, In in childPids:
             pIn = os.fdopen(In, "rb")

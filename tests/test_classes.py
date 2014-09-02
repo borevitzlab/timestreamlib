@@ -17,12 +17,10 @@ import datetime as dt
 from inspect import (
     isgenerator,
 )
-import json
 import numpy as np
-import os
 from os import path
 import shutil
-from unittest import TestCase, skip, skipIf, skipUnless
+from unittest import TestCase
 
 from tests import helpers
 from timestream import (
@@ -30,14 +28,6 @@ from timestream import (
     TimeStreamImage,
 )
 from timestream.parse import (
-    _ts_has_manifest,
-    ts_guess_manifest,
-    all_files_with_ext,
-    all_files_with_exts,
-    ts_iter_images,
-    ts_get_image,
-    ts_parse_date,
-    ts_parse_date_path,
     ts_format_date,
 )
 from timestream.parse.validate import (
@@ -132,9 +122,9 @@ class TestTimeStreamInit(TestCase):
     def test_timestream_init_bad_params(self):
         """Test TimeStream initialisation with invalid parameters"""
         with self.assertRaises(ValueError):
-            inst = TimeStream("asdf")
+            TimeStream("asdf")
         with self.assertRaises(ValueError):
-            inst = TimeStream(version=3)
+            TimeStream(version=3)
 
 
 class TestTimeStreamImageInit(TestCase):

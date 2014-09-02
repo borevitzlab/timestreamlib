@@ -26,7 +26,6 @@ from voluptuous import Schema, Required, Range, All, Length, Any
 
 from timestream.util.validation import (
     v_datetime,
-    v_date,
     v_num_str,
 )
 

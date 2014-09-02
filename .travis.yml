@@ -17,8 +17,8 @@ before_install:
  - sudo apt-get install -y python-scipy python-matplotlib python-opencv python-dateutil python-pyparsing
  - pip install -q nose coverage
  - pip install -q coveralls six
- - pip install -q numpy
- - pip install -q cython
+ - pip install -q numpy==1.8.1
+ - pip install -q cython==0.20.2
  - pip install -q pytz
  - pip install -q flake8
  - cp /usr/share/pyshared/cv.py /usr/lib/pyshared/python2.7/cv2.so $VIRTUAL_ENV/lib/python2.7/site-packages/
@@ -33,9 +33,7 @@ install:
 
 script:
  - ./run_tests
-# Eventually, we want to remove --exit-zero below, and only pass tests if no
-# flake8 errors exist
- - flake8 --exit-zero tests timestream
+ - flake8 --max-line-length=85 timestream tests/ --exclude tests/helpers.py
 
 after_script:
  - coveralls

@@ -13,13 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from copy import deepcopy
 import logging
 from sys import stderr
-from unittest import TestCase, skip, skipIf, skipUnless
+from unittest import TestCase
 
-from tests import helpers
 from timestream import (
     setup_module_logging,
 )

@@ -18,9 +18,19 @@
 
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
-
-from timestream.manipulate.pipecomponents import *
+from timestream.manipulate.pipecomponents import (
+    ImageUndistorter,
+    ColorCardDetector,
+    ImageColorCorrector,
+    TrayDetector,
+    PotDetector,
+    PlantExtractor,
+    FeatureExtractor,
+    ResultingFeatureWriter_ndarray,
+    ResultingFeatureWriter_csv,
+    ResultingImageWriter,
+    PopulatePotMetaIds,
+)
 
 
 class ImagePipeline (object):

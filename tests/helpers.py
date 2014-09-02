@@ -4,7 +4,6 @@ import numpy as np
 import os
 from os import path
 import shutil
-import tempfile
 
 
 LOG = logging.getLogger("timestreamlib")
@@ -98,9 +97,7 @@ TS_STR = """TimeStream called good-timestream
 	interval: 1800
 """.format(FILES["timestream"])
 
-TS_FILES_JPG = [
-    path.join(TESTS_DIR, "data", x) for x in TS_FILES_JPG
-]
+TS_FILES_JPG = [path.join(TESTS_DIR, "data", x) for x in TS_FILES_JPG]
 
 TS_FILES = TS_FILES_JPG
 TS_DATES = [

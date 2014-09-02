@@ -46,8 +46,6 @@ from timestream.parse import (
     ts_parse_date,
     ts_format_date,
     iter_date_range,
-    ts_get_image,
-    ts_make_dirs,
 )
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,

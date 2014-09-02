@@ -317,7 +317,7 @@ class ImagePotHandler(object):
     def _image(self):
         # No need to return copy. For internal use only
         return (self._ipm.image.pixels[self._rect[1]:self._rect[3],
-                                        self._rect[0]:self._rect[2], :] )
+                                       self._rect[0]:self._rect[2], :])
 
     @property
     def fc(self):
@@ -341,13 +341,13 @@ class ImagePotHandler(object):
         retVal = np.reshape(retVal, (height * width, dims), order="F")
 
         Ind = np.where(msk)[0]
-        retVal[Ind, :] = img[Ind,:]
+        retVal[Ind, :] = img[Ind, :]
         retVal = np.reshape(retVal, (height, width, dims), order="F")
 
         if inSuper:
             superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3],
-                       self._rect[0]:self._rect[2], :] = retVal
+                   self._rect[0]:self._rect[2], :] = retVal
             retVal = superI
 
         return (retVal)
@@ -377,7 +377,7 @@ class ImagePotHandler(object):
         fc = self.fc
         for featName in feats:
             # calc not-indexed feats
-            if not featName in self._features.keys():
+            if featName not in self._features.keys():
                 featFunc = getattr(fc, featName)
                 self._features[featName] = featFunc(msk)
 
@@ -385,7 +385,7 @@ class ImagePotHandler(object):
         return self._features
 
     def getFeature(self, fKey):
-        if not fKey in self._features.keys():
+        if fKey not in self._features.keys():
             raise KeyError("%s is not a valid feature key" % fKey)
 
         return self._features[fKey]
@@ -460,8 +460,7 @@ class ImagePotMatrix(object):
                 self._pots[p.id] = p
 
             elif isinstance(p, list) and (len(p) == 2 or len(p) == 4):
-                r = ImagePotRectangle(pot, self._image.pixels.shape,
-                                      growM=growM)
+                r = ImagePotRectangle(p, self._image.pixels.shape, growM=growM)
                 self._pots[potIndex] = ImagePotHandler(potIndex, r, self)
                 potIndex -= 1
 
@@ -510,7 +509,7 @@ class ImagePotMatrix(object):
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
-            raise IndexError("No pot id %d found" % potNum)
+            raise IndexError("No pot id %d found" % potId)
 
         return self._pots[potId]
 

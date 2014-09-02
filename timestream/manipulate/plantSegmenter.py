@@ -22,8 +22,6 @@ from skimage.measure import regionprops
 from skimage.measure import label
 import cv2
 import inspect
-import matplotlib.pyplot as plt
-import skimage
 
 
 class StatParamCalculator(object):
@@ -200,7 +198,7 @@ class FeatureCalculator(object):
 
     def G4mB3mR1(self, norm):
         # We ignore the norm here becase we always FULL_NORM
-        F = 4 * self.normRange(self._imgRGB[:, :, 1], rangeVal=(0, 255) ) \
+        F = 4 * self.normRange(self._imgRGB[:, :, 1], rangeVal=(0, 255)) \
             - 3 * self.normRange(self._imgRGB[:, :, 2], rangeVal=(0, 255)) \
             - 1 * self.normRange(self._imgRGB[:, :, 0], rangeVal=(0, 255))
         F = np.reshape(F, (F.shape[0], F.shape[0], 1))
@@ -349,10 +347,13 @@ class PotSegmenter_KmeansSquare(PotSegmenter):
         img = np.reshape(img, (oShape[0] * oShape[1], oShape[2]), order="F")
 
         # k-means. max 10 iters. Stop if diff < 1. Init centers at random
-        compactness, labels, centers = cv2.kmeans(img, 2,
-                                                  (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
-                                                   self.maxIter, self.epsilon),
-                                                  self.attempts, cv2.KMEANS_RANDOM_CENTERS)
+        compactness, labels, centers = cv2.kmeans(
+            img,
+            2,
+            (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, self.maxIter,
+                self.epsilon),
+            self.attempts,
+            cv2.KMEANS_RANDOM_CENTERS)
 
         labels = np.reshape(labels, (oShape[0], oShape[1]), order="F")
 
