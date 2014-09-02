@@ -113,43 +113,47 @@ def findCorner(Image, Corner, CornerType='topleft', WindowSize=100,
     yStart = max(0, y - half_winsz)
     yEnd = min(Image.shape[1], y + half_winsz + 1)
     window = Image[yStart:yEnd, xStart:xEnd, :].astype(np.float)
-    foundLeftEdgeX = False
-    foundRightEdgeX = False
-    foundTopEdgeY = False
-    foundBottomEdgeY = False
+    foundLfEdgeX = False
+    foundRtEdgeX = False
+    foundTpEdgeY = False
+    foundBtEdgeY = False
 
     # Horizontal window size
     hwinsz = window.shape[1] // 2
     for i in range(hwinsz):
-        diff0 = np.sum(np.abs(window[hwinsz, hwinsz-i, :] - window[hwinsz, hwinsz,:]))
-        diff1 = np.sum(np.abs(window[hwinsz, hwinsz+i, :] - window[hwinsz, hwinsz,:]))
-        if diff0 > Threshold and not foundLeftEdgeX:
-            xLeftNew = x - i
-            foundLeftEdgeX = True
-        elif diff1 > Threshold and not foundRightEdgeX:
-            xRightNew = x + i
-            foundRightEdgeX = True
+        diff0 = np.sum(np.abs(window[hwinsz, hwinsz-i, :] -
+                              window[hwinsz, hwinsz, :]))
+        diff1 = np.sum(np.abs(window[hwinsz, hwinsz+i, :] -
+                              window[hwinsz, hwinsz, :]))
+        if diff0 > Threshold and not foundLfEdgeX:
+            xLfNew = x - i
+            foundLfEdgeX = True
+        elif diff1 > Threshold and not foundRtEdgeX:
+            xRtNew = x + i
+            foundRtEdgeX = True
 
     # Vertical window size
     vwinsz = window.shape[0] // 2
     for i in range(vwinsz):
-        diff2 = np.sum(np.abs(window[vwinsz-i, vwinsz, :] - window[vwinsz, vwinsz,:]))
-        diff3 = np.sum(np.abs(window[vwinsz+i, vwinsz, :] - window[vwinsz, vwinsz,:]))
-        if diff2 > Threshold and not foundTopEdgeY:
-            yTopNew = y - i
-            foundTopEdgeY = True
-        elif diff3 > Threshold and not foundBottomEdgeY:
-            yBottomNew = y + i
-            foundBottomEdgeY = True
+        diff2 = np.sum(np.abs(window[vwinsz-i, vwinsz, :] -
+                              window[vwinsz, vwinsz, :]))
+        diff3 = np.sum(np.abs(window[vwinsz+i, vwinsz, :] -
+                              window[vwinsz, vwinsz, :]))
+        if diff2 > Threshold and not foundTpEdgeY:
+            yTpNew = y - i
+            foundTpEdgeY = True
+        elif diff3 > Threshold and not foundBtEdgeY:
+            yBtNew = y + i
+            foundBtEdgeY = True
 
-    if CornerType.lower() == 'topleft' and foundLeftEdgeX and foundTopEdgeY:
-        return [xLeftNew, yTopNew]
-    elif CornerType.lower() == 'bottomleft' and foundLeftEdgeX and foundBottomEdgeY:
-        return [xLeftNew, yBottomNew]
-    elif CornerType.lower() == 'bottomright' and foundRightEdgeX and foundBottomEdgeY:
-        return [xRightNew, yBottomNew]
-    elif CornerType.lower() == 'topright' and foundRightEdgeX and foundTopEdgeY:
-        return [xRightNew, yTopNew]
+    if CornerType.lower() == 'topleft' and foundLfEdgeX and foundTpEdgeY:
+        return [xLfNew, yTpNew]
+    elif CornerType.lower() == 'bottomleft' and foundLfEdgeX and foundBtEdgeY:
+        return [xLfNew, yBtNew]
+    elif CornerType.lower() == 'bottomright' and foundRtEdgeX and foundBtEdgeY:
+        return [xRtNew, yBtNew]
+    elif CornerType.lower() == 'topright' and foundRtEdgeX and foundTpEdgeY:
+        return [xRtNew, yTpNew]
     else:
         LOG.warn('Cannot detect corner ' + CornerType)
         return [x, y]
@@ -165,10 +169,10 @@ def findRoundedCorner(Image, InitRect, searchDistance=20, Threshold=20):
     foundTopEdgeY = False
     foundBottomEdgeY = False
     for i in range(searchDistance):
-        diff0 = np.mean(np.abs(initPot[:, 0, :]  - initPot[:, i,:]))
-        diff1 = np.mean(np.abs(initPot[:, -1, :] - initPot[:, -i-1,:]))
-        diff2 = np.mean(np.abs(initPot[0, :,:]  - initPot[i,:,:]))
-        diff3 = np.mean(np.abs(initPot[-1, :,:] - initPot[-i-1,:,:]))
+        diff0 = np.mean(np.abs(initPot[:, 0, :] - initPot[:, i, :]))
+        diff1 = np.mean(np.abs(initPot[:, -1, :] - initPot[:, -i-1, :]))
+        diff2 = np.mean(np.abs(initPot[0, :, :] - initPot[i, :, :]))
+        diff3 = np.mean(np.abs(initPot[-1, :, :] - initPot[-i-1, :, :]))
         if diff0 > Threshold and not foundLeftEdgeX:
             xLeftNew = topLeft[0] + i
             foundLeftEdgeX = True
@@ -425,6 +429,7 @@ def getColorcardColors(ccdCapt, GridSize, Show=False):
 # Constantinou2013 - A comparison of color correction algorithms for
 # endoscopic cameras
 
+
 def getColorMatchingError(Arg, Colors, Captured_Colors):
     ColorMatrix = Arg[:9].reshape([3, 3])
     ColorConstant = Arg[9:12]
@@ -460,9 +465,9 @@ def getColorMatchingErrorVectorised(Arg, Colors, Captured_Colors):
 
     TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
     Corrected_Colors = np.zeros_like(TempRGB)
-    Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
-    Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
-    Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
+    Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
+    Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
+    Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
 
     Diff = Colors - Corrected_Colors
     ErrorList = np.sqrt(np.sum(Diff * Diff, axis=0)).tolist()
@@ -516,9 +521,9 @@ def correctColorVectorised(Image, ColorMatrix, ColorConstant, ColorGamma):
     CapturedRGB = np.concatenate((CapturedR, CapturedG, CapturedB), axis=0)
     TempRGB = np.dot(ColorMatrix, CapturedRGB) + ColorConstant
     CorrectedRGB = np.zeros_like(TempRGB)
-    CorrectedRGB[0, :] = 255.0*np.power(TempRGB[0,:]/255.0, ColorGamma[0])
-    CorrectedRGB[1, :] = 255.0*np.power(TempRGB[1,:]/255.0, ColorGamma[1])
-    CorrectedRGB[2, :] = 255.0*np.power(TempRGB[2,:]/255.0, ColorGamma[2])
+    CorrectedRGB[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
+    CorrectedRGB[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
+    CorrectedRGB[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
     CorrectedR = CorrectedRGB[0, :].reshape([Height, Width])
     CorrectedG = CorrectedRGB[1, :].reshape([Height, Width])
     CorrectedB = CorrectedRGB[2, :].reshape([Height, Width])
@@ -618,20 +623,22 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
             else:
                 SearchRange2 = SearchRange
             matchedLocImage, maxVal, maxLoc, corrMap = \
-                    matchTemplateLocation(PyramidImages[i],
-                                          PyramidTemplates[i],
-                                          maxLocEst,
-                                          SearchRange=SearchRange2)
+                matchTemplateLocation(PyramidImages[i],
+                                      PyramidTemplates[i],
+                                      maxLocEst,
+                                      SearchRange=SearchRange2)
             if RotationAngle is None:
+                pyr_img_rot_uint8 = np.rot90(PyramidImages[i], 2).astype(np.uint8)
                 matchedLocImage180, maxVal180, maxLoc180, corrMap180 = \
-                        matchTemplateLocation(np.rot90(PyramidImages[i], 2).astype(np.uint8),
-                                              PyramidTemplates[i],
-                                              maxLocEst, SearchRange)
+                    matchTemplateLocation(pyr_img_rot_uint8,
+                                          PyramidTemplates[i],
+                                          maxLocEst, SearchRange)
                 if maxVal < 0.3 and maxVal180 < 0.3:
                     LOG.warn('Low matching score')
                 if maxVal < maxVal180:
                     PyramidImages = [np.rot90(Img, 2) for Img in PyramidImages]
-                    matchedLocImage, matchedLocImage180 = matchedLocImage180, matchedLocImage
+                    matchedLocImage, matchedLocImage180 = \
+                        matchedLocImage180, matchedLocImage
                     maxVal, maxVal180 = maxVal180, maxVal
                     maxLoc, maxLoc180 = maxLoc180, maxLoc
                     corrMap, corrMap180 = corrMap180, corrMap
@@ -646,9 +653,9 @@ def matchTemplatePyramid(PyramidImages, PyramidTemplates, RotationAngle=None,
                          matchedLocImage0[1] // 2 ** i)
             searchRange = [6, 6]
             matchedLocImage, maxVal, maxLoc, corrMap = \
-                    matchTemplateLocation(PyramidImages[i],
-                                          PyramidTemplates[i],
-                                          maxLocEst, searchRange)
+                matchTemplateLocation(PyramidImages[i],
+                                      PyramidTemplates[i],
+                                      maxLocEst, searchRange)
             # rescale to location in level-0 image
             matchedLocImage0 = (matchedLocImage[0] * 2 ** i,
                                 matchedLocImage[1] * 2 ** i)

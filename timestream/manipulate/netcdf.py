@@ -1,6 +1,6 @@
 import logging
 import netCDF4 as ncdf
-from netCDF4 import num2date, date2num, date2index
+from netCDF4 import date2num
 
 from timestream.manipulate import (
     NOEOL,
@@ -19,21 +19,21 @@ def ts_to_tsnc(ts_path, tsnc_path):
     mats = ts_iter_numpy(imgs)
     # Make netcdf4 file
     root = ncdf.Dataset(tsnc_path, 'w', format="NETCDF4")
-    ts = root.createGroup('timestream')
+    root.createGroup('timestream')
     # Make dimensions
     # Kludge time!!!
     mat0 = next(ts_iter_numpy([imgs[0], ]))[1]
-    dimy = root.createDimension('y', mat0.shape[0])
-    dimx = root.createDimension('x', mat0.shape[1])
-    dimz = root.createDimension('z', mat0.shape[2])
-    dimt = root.createDimension('t', None)
+    root.createDimension('y', mat0.shape[0])
+    root.createDimension('x', mat0.shape[1])
+    root.createDimension('z', mat0.shape[2])
+    root.createDimension('t', None)
     # setup variables
     times = root.createVariable("time", 'f8', ('t',))
     times.units = "seconds since 1970-01-01 00:00:00.0"
     times.calendar = "standard"
-    zs = root.createVariable("z", 'u1', ('z',))
-    ys = root.createVariable("y", 'u4', ('y',))
-    xs = root.createVariable("x", 'u4', ('x',))
+    root.createVariable("z", 'u1', ('z',))
+    root.createVariable("y", 'u4', ('y',))
+    root.createVariable("x", 'u4', ('x',))
     # create actual pixel array
     px_type = 'u{d}'.format(mat0.dtype.itemsize)
     pixels = root.createVariable("pixel", px_type, ('t', 'y', 'x', 'z'),
@@ -47,7 +47,7 @@ def ts_to_tsnc(ts_path, tsnc_path):
         time = ts_parse_date_path(img)
         times[n_dates] = date2num([time, ], units=times.units,
                                   calendar=times.calendar)
-        pixels[n_dates, :,:,:] = mat
+        pixels[n_dates, :, :, :] = mat
         count += 1
         log.debug("Processed {}. Matrix shape is {!r}".format(img,
                                                               pixels.shape))

@@ -141,8 +141,9 @@ class PCFGSection(object):
 
             if isinstance(self.__dict__["__subsections"][index[0]],
                           PCFGSection):
-                raise PCFGExInvalidType("non PCFGSection",
-                                        type(self.__dict__["__subsections"][index[0]]))
+                raise PCFGExInvalidType(
+                    "non PCFGSection",
+                    type(self.__dict__["__subsections"][index[0]]))
             else:
                 self.__dict__["__subsections"][index[0]] = value
 

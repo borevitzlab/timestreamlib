@@ -29,11 +29,10 @@ from scipy import spatial
 import sys
 import time
 
-from timestream import TimeStreamImage, parse, TimeStream
+from timestream import TimeStreamImage, TimeStream
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
-import timestream
 
 LOG = logging.getLogger("CONSOLE")
 
