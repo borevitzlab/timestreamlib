@@ -4,8 +4,8 @@ from voluptuous import MultipleInvalid
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
-    v_date,
 )
+from timestream.util.validation import v_date
 
 
 class TestValidateTimestreamManfiest(TestCase):
