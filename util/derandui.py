@@ -67,9 +67,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         self._ui.show()
 
-    def imgRefresh(self):
-        pass
-
     def onClickTimeStreamList(self, row, column):
         # Adding
         if self._ui.tslist.item(row,column) is self.addTsItem:
@@ -165,7 +162,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pixItem = self._scene.addPixmap(pixmap)
         pixItem.setZValue(-100)
 
-    def writeOnImage(self):
+    def imgRefresh(self):
         L = QtGui.QGraphicsTextItem('joel')
         font=QtGui.QFont('White Rabbit')
         font.setPointSize(30)
@@ -340,6 +337,14 @@ class BindingTable(QtCore.QObject):
                             self._csvcb.currentIndex(),
                             self._derandcb.currentIndex()]
 
+        # Emit col{0,2} signal if both not empty
+        col0empty = self._tst is None or self._tscb.count() < 1 \
+                or self._tscb.currentIndex() < 0
+        col2empty = self._derandcb.count() < 1 \
+                or self._derandcb.currentIndex() < 0
+        if not col0empty and not col2empty:
+            self.c02RelationChange.emit()
+
     def _refreshCol0(self):
         index = self._tscb.currentIndex()
         if self._tst is None or self._tscb.count() < 1 or index < 0:
@@ -426,7 +431,6 @@ class BindingTable(QtCore.QObject):
 
         col = self._derandcb.itemData(index).toPyObject()
         self._copyCol(col, 2)
-        self.c02RelationChange.emit()
 
     def _blankCol(self, c):
             for r in range(1, self._csvTable.rowCount()):
