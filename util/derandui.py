@@ -163,6 +163,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pixItem.setZValue(-100)
 
     def imgRefresh(self):
+        print("herej")
         L = QtGui.QGraphicsTextItem('joel')
         font=QtGui.QFont('White Rabbit')
         font.setPointSize(30)
@@ -424,9 +425,15 @@ class BindingTable(QtCore.QObject):
 
         self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
 
-    def _refreshCol2(self, index=0):
+    def _refreshCol2(self):
+        index = self._derandcb.currentIndex()
         if index == -1 or self._derandcb.count() < 1 or self._csvcb.count() < 1:
             self._blankCol(2)
+            return
+
+        # If Column 0 is empty
+        if self._num0Rows < 1 or self._tscb.count() < 1 \
+                or self._tst is None:
             return
 
         col = self._derandcb.itemData(index).toPyObject()
