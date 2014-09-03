@@ -163,18 +163,37 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pixItem.setZValue(-100)
 
     def imgRefresh(self):
-        print("herej")
-        L = QtGui.QGraphicsTextItem('joel')
+        # FIXME: check to see if col{0,2} have elements.
         font=QtGui.QFont('White Rabbit')
         font.setPointSize(30)
         C = QtGui.QColor("red")
-        L.setFont(font)
-        L.setZValue(-100)
-        L.setPos(500,500)
-        L.setOpacity(1)
-        L.setDefaultTextColor(C)
-        L.setZValue(100)
-        self._scene.addItem(L)
+
+        # Remove all text items before rereshing
+        for item in self._scene.items():
+            if isinstance(item, QtGui.QGraphicsTextItem):
+                self._scene.removeItem(item)
+
+        for c0, c1, c2 in self._ftc.iter_active_rows():
+            pot = c0.data(QtCore.Qt.UserRole).toPyObject()
+            pRectList = pot.rect.asList()
+            x = pRectList[0]
+            y = pRectList[1]
+
+            c0text = QtGui.QGraphicsTextItem(c0.text())
+            c0text.setFont(font)
+            c0text.setZValue(100)
+            c0text.setOpacity(1)
+            c0text.setDefaultTextColor(C)
+            c0text.setPos(x,y)
+            self._scene.addItem(c0text)
+
+            c2text = QtGui.QGraphicsTextItem(c2.text())
+            c2text.setFont(font)
+            c2text.setZValue(100)
+            c2text.setOpacity(1)
+            c2text.setDefaultTextColor(C)
+            c2text.setPos(x,y+50)
+            self._scene.addItem(c2text)
 
 class BindingTable(QtCore.QObject):
     E = "--empty--"
@@ -346,6 +365,8 @@ class BindingTable(QtCore.QObject):
         if not col0empty and not col2empty:
             self.c02RelationChange.emit()
 
+    # FIXME: We don't differentiate creating and uptating col0. When we update
+    # we should be able to leave the data in each cell and just change the text.
     def _refreshCol0(self):
         index = self._tscb.currentIndex()
         if self._tst is None or self._tscb.count() < 1 or index < 0:
@@ -373,6 +394,7 @@ class BindingTable(QtCore.QObject):
                 if mid != "potid":
                     metaval = pot.getMetaId(mid)
                 item.setText(str(metaval))
+                item.setData(QtCore.Qt.UserRole, QtCore.QVariant(pot))
 
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
@@ -491,6 +513,13 @@ class BindingTable(QtCore.QObject):
 
             self._csvTable.setItem(r2, c, tmpr1)
             self._csvTable.setItem(r1, c, tmpr2)
+
+    def iter_active_rows(self):
+        for r in range(1,self._num0Rows+BindingTable.RIRN):
+            yield self._csvTable.item(r,0), \
+                    self._csvTable.item(r,1), \
+                    self._csvTable.item(r,2)
+
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
