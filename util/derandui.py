@@ -60,11 +60,15 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # Setup first two columns
         self._ftc = BindingTable(self._ui.csv, self)
+        self._ftc.c02RelationChange.connect(self.imgRefresh)
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
 
         self._ui.show()
+
+    def imgRefresh(self):
+        print("sdf")
 
     def onClickTimeStreamList(self, row, column):
         # Adding
@@ -174,10 +178,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
         L.setZValue(100)
         self._scene.addItem(L)
 
-class BindingTable(object):
+class BindingTable(QtCore.QObject):
     E = "--empty--"
     RICN = 3 # Reserved Initial Column Number (RICN)
     RIRN = 1 # Reserved Initial Row Number (RIRN)
+    c02RelationChange = QtCore.pyqtSignal() # Emit when col0 & col2 changes
+
     def __init__(self, csvTable, parent):
         """Class in charge of the first two columns in self._ui.csv
 
@@ -190,6 +196,7 @@ class BindingTable(object):
           _csvcb(QComboBox): Combo box containing csv data
           _num0Rows(int): Number of rows in Column zero.
         """
+        super(BindingTable, self).__init__(parent)
         self._parent = parent
         self._csvTable = csvTable
 
@@ -355,8 +362,10 @@ class BindingTable(object):
                 continue
             item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
             self._csvTable.setItem(r,2,item)
+        self.c02RelationChange.emit()
 
     def _removeEmpties(self, f, t):
+        # Remove empty rows. In reverse to allow removal.
         for r in range (f,t)[::-1]:
             item = self._csvTable.item(r,1)
             if item is None:
@@ -410,8 +419,8 @@ class BindingTable(object):
             c1dict[c0item.text()]
             del c1dict[c0item.text()]
 
-        # Remove empty rows. In reverse to allow removal.
         self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
+        self.c02RelationChange.emit()
 
     def swapRow(self, r1, r2):
         """Swap all columns except 0
