@@ -68,7 +68,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.show()
 
     def imgRefresh(self):
-        print("sdf")
+        pass
 
     def onClickTimeStreamList(self, row, column):
         # Adding
@@ -185,8 +185,9 @@ class BindingTable(QtCore.QObject):
     c02RelationChange = QtCore.pyqtSignal() # Emit when col0 & col2 changes
 
     def __init__(self, csvTable, parent):
-        """Class in charge of the first two columns in self._ui.csv
+        """Class in charge of the first three columns in self._ui.csv
 
+        The object gives access to selectCsv and refreshCol{0,1,2}Header.
         Attribures:
           _parent(QMainWindow): The parent window.
           _csvTable(QTableWidget): The table widget where everything is.
@@ -206,19 +207,23 @@ class BindingTable(QtCore.QObject):
         self._tscb = QtGui.QComboBox(self._parent)
         self._csvTable.setCellWidget(0,0,self._tscb)
         self._tscb.setEditText("Select TS MetaID")
-        self._tscb.currentIndexChanged.connect(self.refreshCol0)
+        self._tscb.currentIndexChanged.connect(self._colActionDispatcher)
 
         # item(0,1) TimeStream to CSV binding combobox
         self._csvcb = QtGui.QComboBox(self._parent)
         self._csvTable.setCellWidget(0,1, self._csvcb)
         self._csvcb.setEditText("Select CSV Column")
-        self._csvcb.currentIndexChanged.connect(self.refreshCol1)
+        self._csvcb.currentIndexChanged.connect(self._colActionDispatcher)
 
         # item(0.2) Derandomization parameter
         self._derandcb = QtGui.QComboBox(self._parent)
         self._csvTable.setCellWidget(0,2, self._derandcb)
         self._derandcb.setEditText("Select Derandomization Param")
-        self._derandcb.currentIndexChanged.connect(self.refreshCol2)
+        self._derandcb.currentIndexChanged.connect(self._colActionDispatcher)
+
+        self._indSelect = [self._tscb.currentIndex(),
+                           self._csvcb.currentIndex(),
+                           self._derandcb.currentIndex()]
 
     def selectCsv(self):
         fname = QtGui.QFileDialog.getOpenFileName(self._parent,
@@ -258,39 +263,95 @@ class BindingTable(QtCore.QObject):
     def refreshCol0Header(self, tst):
         """Menu widget at position self._csvTable(0,0)"""
         # FIXME: We need to put the metaids in the TimeStream!!!!
-        self._tscb.clear()
         self._tst = tst
 
         if self._tst is not None:
             # Create an action per every metaid in TimeStream
+            self._tscb.blockSignals(True)
+            self._tscb.clear()
             img = self._tst.curr()
             mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
             mids.append("potid") # The default is original pot ids.
             for mid in mids:
                 self._tscb.addItem(str(mid), QtCore.QVariant(mid))
 
-            self._tscb.setCurrentIndex(0) # calls refreshCol0
+            self._tscb.setCurrentIndex(0)
+            self._indSelect[0] = -1
+            self._tscb.blockSignals(False)
+            self._colActionDispatcher()
         else:
-            self.refreshCol0()
+            self._tscb.clear()
 
-    def refreshCol0(self, index=0):
-        if index == -1:
+    def refreshCol1Header(self):
+        """Menu widget at position self._csvTable(0,1)"""
+        self._csvcb.blockSignals(True)
+        self._csvcb.clear()
+        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
+            colName = self._csvTable.item(0, c).text()
+            self._csvcb.addItem(colName, c)
+        self._csvcb.setCurrentIndex(0)
+        self._indSelect[1] = -1
+        self._csvcb.blockSignals(False)
+        self._colActionDispatcher()
+
+    def refreshCol2Header(self):
+        self._derandcb.blockSignals(True)
+        self._derandcb.clear()
+        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
+            colName = self._csvTable.item(0,c).text()
+            self._derandcb.addItem(colName, c)
+        self._derandcb.setCurrentIndex(0)
+        self._indSelect[2] = -1
+        self._derandcb.blockSignals(False)
+        self._colActionDispatcher()
+
+
+    def _colActionDispatcher(self):
+        """Will dispatch actions depending on changed column"""
+        currSelect =  [self._tscb.currentIndex(),
+                       self._csvcb.currentIndex(),
+                       self._derandcb.currentIndex()]
+
+        changedCol = [self._indSelect[i] != currSelect[i] for i in range(3)]
+
+        # If there is no change return
+        if True not in changedCol:
             return
+        # We should only receive one change per callback
+        if sum(changedCol) > 1:
+            raise RuntimeError("Too many columns changed")
 
-        if self._tst is None or self._tscb.count() < 1:
-            for r in range(1, self._csvTable.rowCount()):
-                item = QtGui.QTableWidgetItem(" ")
-                item.setTextAlignment(QtCore.Qt.AlignCenter)
-                self._csvTable.setItem(r, 0, item)
+        if changedCol[0]: # Refresh cols{0,1,2}
+            self._refreshCol0()
+            self._refreshCol1()
+            self._refreshCol2()
+
+        elif changedCol[1]: # Refresh cols{1,2}
+            self._refreshCol1()
+            self._refreshCol2()
+
+        elif changedCol[2]: # Refresh col2
+            self._refreshCol2()
+
+        else:
+            raise RuntimeError("Unknown Error")
+
+        self._indSelect =  [self._tscb.currentIndex(),
+                            self._csvcb.currentIndex(),
+                            self._derandcb.currentIndex()]
+
+    def _refreshCol0(self):
+        index = self._tscb.currentIndex()
+        if self._tst is None or self._tscb.count() < 1 or index < 0:
+            self._blankCol(0)
             self._num0Rows = 0
-            self.colsRebind()
             return
 
         img = self._tst.curr()
 
-        # Append sufficient rows. first row is menu (+1)
-        if img.ipm.numPots > self._csvTable.rowCount()-1:
-            self._csvTable.setRowCount( img.ipm.numPots + 1)
+        # Append sufficient rows.
+        if img.ipm.numPots > self._csvTable.rowCount()-BindingTable.RIRN:
+            self._csvTable.setRowCount( img.ipm.numPots + BindingTable.RIRN )
 
         # Fill first Column with active action mid
         self._num0Rows = 0
@@ -310,59 +371,68 @@ class BindingTable(QtCore.QObject):
             item.setTextAlignment(QtCore.Qt.AlignCenter)
             self._csvTable.setItem(r, 0, item)
 
-        self.colsRebind()
-
-    def refreshCol1Header(self):
-        """Menu widget at position self._csvTable(0,1)"""
-        self._csvcb.clear()
-        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
-            colName = self._csvTable.item(0, c).text()
-            self._csvcb.addItem(colName, c)
-        self._csvcb.setCurrentIndex(0) # calls refreshCol1
-
-    def refreshCol1(self, index=0):
-        if index == -1 or self._csvcb.count() < 1:
+    def _refreshCol1(self):
+        index = self._csvcb.currentIndex()
+        if self._csvcb.count() < 1 or index < 0:
+            self._blankCol(1)
             return
 
-        # Column to display (col)
+        # If Column 0 is empty
+        if self._num0Rows < 1 or self._tscb.count() < 1 \
+                or self._tst is None:
+            # Make sure we remove all "--empty--" rows.
+            self._removeEmpties(1,self._csvTable.rowCount())
+            return
+
         col = self._csvcb.itemData(index).toPyObject()
+        self._copyCol(col, 1)
 
-        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
-            # Don't copy for empty rows.
-            item = self._csvTable.item(r,1)
-            if item is not None \
-                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                        == BindingTable.E:
+        # c1dict[element] = row number
+        c1dict = {}
+        for c1r in range(1, self._csvTable.rowCount()):
+            item = self._csvTable.item(c1r,1)
+            if str(item.data(QtCore.Qt.UserRole).toPyObject()) \
+                    == BindingTable.E:
                 continue
-            item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
-            self._csvTable.setItem(r,1, item)
+            c1dict[item.text()] = c1r
 
-        self.colsRebind()
+        for c0r in range(BindingTable.RIRN, self._num0Rows+1):
+            c0item = self._csvTable.item(c0r,0)
+            try:
+                # c0item in c1
+                c1r = c1dict[c0item.text()]
+                self._swapRow(c0r, c1r)
+                del c1dict[c0item.text()]
 
-    def refreshCol2Header(self):
-        self._derandcb.clear()
-        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
-            colName = self._csvTable.item(0,c).text()
-            self._derandcb.addItem(colName, c)
-        self._derandcb.setCurrentIndex(0)
+            except KeyError:
+                # c0item not in c1
+                c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
+                if c0data != BindingTable.E:
+                    # Not a empty row: Add null row and swap
+                    self._csvTable.insertRow(self._csvTable.rowCount())
+                    item = QtGui.QTableWidgetItem(" ")
+                    item.setData(QtCore.Qt.UserRole, BindingTable.E)
+                    self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
 
-    def refreshCol2(self, index=0):
+                    self._swapRow(c0r, self._csvTable.rowCount()-1)
+                continue
+
+        self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
+
+    def _refreshCol2(self, index=0):
         if index == -1 or self._derandcb.count() < 1 or self._csvcb.count() < 1:
+            self._blankCol(2)
             return
 
-        # Column to display
         col = self._derandcb.itemData(index).toPyObject()
-
-        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
-            # Don't copy for empty rows.
-            item = self._csvTable.item(r,1)
-            if item is not None \
-                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                        == BindingTable.E:
-                continue
-            item = QtGui.QTableWidgetItem(self._csvTable.item(r, col))
-            self._csvTable.setItem(r,2,item)
+        self._copyCol(col, 2)
         self.c02RelationChange.emit()
+
+    def _blankCol(self, c):
+            for r in range(1, self._csvTable.rowCount()):
+                item = QtGui.QTableWidgetItem(" ")
+                item.setTextAlignment(QtCore.Qt.AlignCenter)
+                self._csvTable.setItem(r, c, item)
 
     def _removeEmpties(self, f, t):
         # Remove empty rows. In reverse to allow removal.
@@ -374,55 +444,18 @@ class BindingTable(QtCore.QObject):
             if data ==  BindingTable.E:
                 self._csvTable.removeRow(r)
 
-    def colsRebind(self):
-        """Method to sort col1 with respect to col0 """
-        col0empty = self._num0Rows < 1 or self._tscb.count() < 1 \
-                or self._tst is None
-        col1empty = self._csvcb.count() < 1
-
-        if (col0empty and col1empty) or (not col0empty and col1empty):
-            return
-
-        if col0empty and not col1empty:
-            # Make sure we remove all "--empty--" rows.
-            self._removeEmpties(1,self._csvTable.rowCount())
-            return
-
-        # key is cell element, value is row number
-        c1dict = {}
-        for c1r in range(1, self._csvTable.rowCount()):
-            item = self._csvTable.item(c1r,1)
-            if str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                    == BindingTable.E:
+    def _copyCol(self, f, t):
+        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
+            # Don't copy for empty rows.
+            item = self._csvTable.item(r,1)
+            if item is not None \
+                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
+                        == BindingTable.E:
                 continue
-            c1dict[item.text()] = c1r
+            item = QtGui.QTableWidgetItem(self._csvTable.item(r, f))
+            self._csvTable.setItem(r,t, item)
 
-        for c0r in range(1, self._num0Rows+1):
-            c0item = self._csvTable.item(c0r,0)
-            try:
-                c1r = c1dict[c0item.text()]
-            except KeyError:
-                # c0item not in c1
-                c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
-                if c0data != BindingTable.E:
-                    # Not a empty row: Add null row and swap
-                    self._csvTable.insertRow(self._csvTable.rowCount())
-                    item = QtGui.QTableWidgetItem(" ")
-                    item.setData(QtCore.Qt.UserRole, BindingTable.E)
-                    self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
-
-                    self.swapRow(c0r, self._csvTable.rowCount()-1)
-                continue
-
-            # c0item in c1
-            self.swapRow(c0r, c1r)
-            c1dict[c0item.text()]
-            del c1dict[c0item.text()]
-
-        self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
-        self.c02RelationChange.emit()
-
-    def swapRow(self, r1, r2):
+    def _swapRow(self, r1, r2):
         """Swap all columns except 0
 
         In general: Put r1 in temp, copy r2 to r1, copy temp to r2
