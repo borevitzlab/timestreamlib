@@ -386,8 +386,8 @@ class ImagePotHandler(object):
             raise RuntimeError("Cannot calculate feature of None")
         fc = self.fc
         for featName in feats:
-            # calc not-indexed feats
-            if featName not in self._features.keys():
+            # calc the ones we don't have
+            if not featName in self._features.keys():
                 featFunc = getattr(fc, featName)
                 self._features[featName] = featFunc(msk)
 

@@ -729,7 +729,7 @@ class ResultingFeatureWriter_ndarray (PipeComponent):
             for fName, fVal in pot.getCalcedFeatures().iteritems():
                 fOff = np.where(fNames == fName)
                 pOff = np.where(pIds == pId)
-                tmpMat[fOff, pOff, 0] = fVal
+                tmpMat[fOff, pOff, 0] = fVal.value
 
         if "featMat" not in locals():
             featMat = tmpMat
@@ -803,7 +803,8 @@ class ResultingFeatureWriter_csv (PipeComponent):
             fd.write("%f" % ts)
             for potId in potIds:
                 pot = ipm.getPot(potId)
-                fd.write(",%f" % pot.getCalcedFeatures()[fName])
+                fet = pot.getCalcedFeatures()[fName]
+                fd.write(",%f" % fet.value)
             fd.write("\n")
             fd.close()
 

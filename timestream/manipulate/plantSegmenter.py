@@ -24,41 +24,71 @@ import cv2
 import inspect
 
 
+class StatParamValue(object):
+    """Besides the actual value, instance will have range of validity"""
+    def __init__(self, name, value, rMin=0.0, rMax=1.0):
+        self._name = name
+        self._value = value
+        self._min = rMin
+        self._max = rMax
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def range(self):
+        return [self._min, self._max]
+
 class StatParamCalculator(object):
 
     def area(self, mask):
+        retVal = 0.0
         area = regionprops(mask.astype("int8"), ["Area"])
-        if len(area) == 0:
-            return (0.0)
-        return (area[0]["Area"])
+        if len(area) > 0:
+            retVal = area[0]["Area"]
+
+        return StatParamValue("area", retVal, rMax=float("Inf"))
 
     def perimeter(self, mask):
+        retVal = 0.0
         perim = regionprops(mask.astype("int8"), ["Perimeter"])
-        if len(perim) == 0:
-            return (0.0)
-        return (perim[0]["Perimeter"])
+        if len(perim) > 0:
+            retVal = perim[0]["Perimeter"]
+
+        return StatParamValue("perimeter", retVal, rMax=float("Inf"))
 
     def roundness(self, mask):
         # (4 (pi) * AREA) / PERIM^2
-        retVal = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
-        if len(retVal) == 0:
-            return (0.0)
-        area = retVal[0]["Area"]
-        perim = retVal[0]["Perimeter"]
-        return ((4 * np.pi * area) / np.power(perim, 2))
+        retVal = 0.0
+        roundness = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
+        if len(roundness) > 0:
+            area = roundness[0]["Area"]
+            perim = roundness[0]["Perimeter"]
+            retVal = (4 * np.pi * area) / np.power(perim, 2)
+
+        return StatParamValue("roundness", retVal, rMax=float("Inf"))
 
     def compactness(self, mask):
         # In skimage its called solidity
+        retVal = 0.0 # FIXME: is this the best default?
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
-        if len(compactness) == 0:
-            return (0.0)  # FIXME: is this the best default?
-        return (compactness[0]["Solidity"])
+        if len(compactness) > 0:
+            retVal = compactness[0]["Solidity"]
+
+        return StatParamValue("compactness", retVal, rMax=float("Inf"))
 
     def eccentricity(self, mask):
+        retVal = 0.0 # FIXME: is this the best default?
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
-        if len(ecce) == 0:
-            return (0.0)  # FIXME: is this the best default?
-        return (ecce[0]["Eccentricity"])
+        if len(ecce) > 0:
+            retVal = ecce[0]["Eccentricity"]
+
+        return StatParamValue("eccentricity", retVal)
 
     @classmethod
     def statParamMethods(cls):
