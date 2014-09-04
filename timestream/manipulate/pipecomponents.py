@@ -733,7 +733,7 @@ class ResultingFeatureWriter_ndarray (PipeComponent):
                             **{"fNames": fNames, "pIds": pIds,
                                 "featMat": featMat, "tStamps": tStamps})
 
-        return (args[0])
+        return args
 
 
 class ResultingFeatureWriter_csv (PipeComponent):
@@ -800,7 +800,7 @@ class ResultingFeatureWriter_csv (PipeComponent):
             fd.write("\n")
             fd.close()
 
-        return (args[0])
+        return args
 
 
 class ResultingImageWriter (PipeComponent):
@@ -852,4 +852,4 @@ class PopulatePotMetaIds (PipeComponent):
             for potid, mval in self.metas[midName].iteritems():
                 ipm.getPot(potid).setMetaId(midName, mval)
 
-        return [args[0]]
+        return args
