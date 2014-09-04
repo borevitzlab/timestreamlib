@@ -677,15 +677,16 @@ class TimeStreamImage(object):
 
         try:
             import skimage.io
+            self._pixels = skimage.io.imread(fpath, plugin="freeimage")
+        except (RuntimeError, ValueError, ImportError) as exc:
+            LOG.error(str(exc))
+            if isinstance(exc, ImportError):
+                LOG.warn("Couln't load scikit image io module. " +
+                         "Raw images will not be loaded correctly")
             try:
-                self._pixels = skimage.io.imread(fpath, plugin="freeimage")
-            except (RuntimeError, ValueError) as exc:
-                LOG.error(str(exc))
+                self._pixels = cv2.imread(fpath)[:, :, ::-1]
+            except:
                 self._pixels = None
-        except ImportError:
-            LOG.warn("Couln't load scikit image io module. " +
-                     "Raw images will not be loaded correctly")
-            self._pixels = cv2.imread(fpath)[:, :, ::-1]
 
         self.path = fpath
 
@@ -788,10 +789,8 @@ class TimeStreamImage(object):
         The path of the image must be set before the pixels property is
         accessed, or things will error out with RuntimeError.
 
-        The colour dimension maps to:
-            [:,:,RGB]
-        not what OpenCV gives us, which is:
-            [:,:,BGR]
+        The colour dimension maps to: [:,:,RGB]
+        not what OpenCV gives us, which is: [:,:,BGR]
         So we convert OpenCV back to reality and sanity.
         """
         if self._pixels is None:
@@ -801,7 +800,7 @@ class TimeStreamImage(object):
                 LOG.error(msg)
                 raise RuntimeError(msg)
 
-            self.read(self._path)
+            self.read(fpath=self._path)
         return self._pixels
 
     @pixels.setter
