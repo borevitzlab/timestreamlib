@@ -155,7 +155,10 @@ def ts_guess_manifest_v1(ts_path):
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
         intervals.append(interval.seconds)
-    retval["interval"] = max(min(intervals), 1)
+    if len(intervals) < 1:
+        retval["interval"] = 1
+    else:
+        retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
