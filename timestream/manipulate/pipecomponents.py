@@ -601,7 +601,7 @@ class PlantExtractor (PipeComponent):
         for key, iph in self.ipm.iter_through_pots():
             iph.ps = self.segmenter
 
-        # Segment all pots and put
+        # Segment all pots and relpace with segmented image.
         tsi.pixels = self.segAllPots(img.copy())
 
         # Put current image pot matrix in context for the next run
@@ -820,20 +820,18 @@ class ResultingImageWriter (PipeComponent):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        print (self.mess)
-        # FIXME: Can we just use args[0] here?
-        img = args[0]
+        LOG.info(self.mess)
         ts_out = context.getVal("outts." + self.outstream)
-        img.parent_timestream = ts_out
-        img.data["processed"] = "yes"
+        args[0].parent_timestream = ts_out
+        args[0].data["processed"] = "yes"
         for key, value in context.outputwithimage.iteritems():
-            img.data[key] = value
+            args[0].data[key] = value
 
-        ts_out.write_image(img)
+        ts_out.write_image(args[0])
         ts_out.write_metadata()
-        img.parent_timestream = None  # reset to move forward
+        args[0].parent_timestream = None  # reset to move forward
 
-        return [img]
+        return args
 
 
 class PopulatePotMetaIds (PipeComponent):
@@ -849,6 +847,7 @@ class PopulatePotMetaIds (PipeComponent):
         super(PopulatePotMetaIds, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
+        LOG.info(self.mess)
         ipm = args[0].ipm
         # assign all the metaids that we find in self.metas
         for midName in self.metas.keys():
