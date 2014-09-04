@@ -601,6 +601,10 @@ class PlantExtractor (PipeComponent):
         for key, iph in self.ipm.iter_through_pots():
             iph.ps = self.segmenter
 
+        # FIXME: Here we replace pixels and probably loose a way to get back to
+        #        the original image. Instead of this we should keep the original
+        #        pixels and devise a way to output a segmented image from
+        #        TimeStreamImage by using the data in ImagePotMatrix.
         # Segment all pots and relpace with segmented image.
         tsi.pixels = self.segAllPots(img.copy())
 
@@ -612,7 +616,7 @@ class PlantExtractor (PipeComponent):
     def segAllPots(self, img):
         if not self.parallel:
             for key, iph in self.ipm.iter_through_pots():
-                img = img & iph.maskedImage(inSuper=True)
+                img = img & iph.getImage(masked=True,inSuper=True)
             return (img)
 
         # Parallel from here: We create a child process for each pot and pipe
@@ -648,7 +652,7 @@ class PlantExtractor (PipeComponent):
             os.waitpid(pid, 0)
             pIn.close()
             iph.mask = msk
-            img = img & iph.maskedImage(inSuper=True)
+            img = img & iph.getImage(masked=True, inSuper=True)
 
         return (img)
 

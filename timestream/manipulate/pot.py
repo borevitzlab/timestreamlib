@@ -118,9 +118,10 @@ class ImagePotHandler(object):
             segmented images. We create a new instance for every fc call.
           iphPrev(ImagePotHandler): Is the ImagePotHandler of the previous
             ImagePotMatrix with the same id as self.
-          image(ndarray): Return the cropped image (defined by rect) of
+          _image(ndarray): Return the cropped image (defined by rect) of
             self._ipm.image.
-          maskedImage: Return the segmented cropped image.
+          getImage: Return images that is either masked, cropped and/or with
+            feature strings
           mask,_mask(ndarray): binary image represenging the mask.
           features: Return the calculated features
 
@@ -323,34 +324,43 @@ class ImagePotHandler(object):
     def fc(self):
         return tm_ps.StatParamCalculator()
 
-    def maskedImage(self, inSuper=False):
-        """Returns segmented pixels on a black background
+    def getImage(self, masked=False, features=[], inSuper=False):
+        """Returns pot pixels
 
+        masked(boolean): If True, we replace background pixels with black
+        features(list): List of feature classes that should be added to the
+          perimeter of the pot image
         inSuper: When True we return the segmentation in the totality of
                  self._ipm.image. When False we return it in the rect.
         """
-        # We use the property to trigger creation if needed.
-        msk = self.mask
-        img = self._image
+        img = self._image.copy()
 
-        height, width, dims = img.shape
-        msk = np.reshape(msk, (height * width, 1), order="F")
-        img = np.reshape(img, (height * width, dims), order="F")
+        if masked:
+            # trigger creation if needed
+            msk = self.mask
 
-        retVal = np.zeros((height, width, dims), dtype=img.dtype)
-        retVal = np.reshape(retVal, (height * width, dims), order="F")
+            height, width, dims = img.shape
+            msk = np.reshape(msk, (height * width, 1), order="F")
+            img = np.reshape(img, (height * width, dims), order="F")
 
-        Ind = np.where(msk)[0]
-        retVal[Ind, :] = img[Ind, :]
-        retVal = np.reshape(retVal, (height, width, dims), order="F")
+            tmpImg = np.zeros((height, width, dims), dtype=img.dtype)
+            tmpImg = np.reshape(tmpImg, (height * width, dims), order="F")
+
+            Ind = np.where(msk)[0]
+            tmpImg[Ind, :] = img[Ind,:]
+            tmpImg = np.reshape(tmpImg, (height, width, dims), order="F")
+            del img; img = tmpImg
+
+        if len(features) > 0:
+            pass
 
         if inSuper:
             superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3],
-                   self._rect[0]:self._rect[2], :] = retVal
-            retVal = superI
+                       self._rect[0]:self._rect[2], :] = img
+            del img; img = superI
 
-        return (retVal)
+        return img
 
     def increaseRect(self, by=5):
         # Using property to trigger assignment, checks and cleanup
@@ -531,7 +541,7 @@ class ImagePotMatrix(object):
         """ Show segmented image with the plot squares on top. """
         sImage = self.image.pixels
         for key, pot in self._pots.iteritems():
-            sImage = sImage & pot.maskedImage(inSuper=True)
+            sImage = sImage & pot.getImage(masked=True, inSuper=True)
 
         plt.figure()
         plt.imshow(sImage.astype(np.uint8))
