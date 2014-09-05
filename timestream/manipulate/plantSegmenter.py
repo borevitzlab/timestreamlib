@@ -44,6 +44,21 @@ class StatParamValue(object):
     def range(self):
         return [self._min, self._max]
 
+class StatParamMinCircle(StatParamValue):
+    """The value is the radius and we add center"""
+    def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=1.0):
+        super(StatParamMinCircle, self).__init__(name, radius,
+                rMin=rMin, rMax=rMax)
+        self._center = center
+
+    @property
+    def radius(self):
+        return self._value
+
+    @property
+    def center(self):
+        return self._center
+
 class StatParamCalculator(object):
 
     def area(self, mask):
@@ -89,6 +104,16 @@ class StatParamCalculator(object):
             retVal = ecce[0]["Eccentricity"]
 
         return StatParamValue("eccentricity", retVal)
+
+    def mincircle(self, mask):
+        r = 0.0; c = (0,0)
+        a, b = np.where(mask == 1)
+        if len(a) > 0 and len(b) > 0:
+            ab = np.transpose(np.vstack((a,b)))
+            c, r = cv2.minEnclosingCircle(ab)
+
+        return StatParamMinCircle("mincircle", r, c, rMax=float('Inf'))
+
 
     @classmethod
     def statParamMethods(cls):
