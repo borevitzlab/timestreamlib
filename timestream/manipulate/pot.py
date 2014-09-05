@@ -16,6 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import timestream.manipulate.plantSegmenter as tm_ps
@@ -341,18 +342,33 @@ class ImagePotHandler(object):
 
             height, width, dims = img.shape
             msk = np.reshape(msk, (height * width, 1), order="F")
-            img = np.reshape(img, (height * width, dims), order="F")
 
             tmpImg = np.zeros((height, width, dims), dtype=img.dtype)
             tmpImg = np.reshape(tmpImg, (height * width, dims), order="F")
 
             Ind = np.where(msk)[0]
-            tmpImg[Ind, :] = img[Ind,:]
+            imgR = np.reshape(img, (height * width, dims), order="F")
+            tmpImg[Ind, :] = imgR[Ind,:]
             tmpImg = np.reshape(tmpImg, (height, width, dims), order="F")
-            del img; img = tmpImg
+            img[::] = tmpImg[::]
 
         if len(features) > 0:
-            pass
+            # For every calculated feature we try to fit values in image.
+            # FIXME: We silently ingore elements in features that are not in
+            #        self._features
+            # FIXME: We should have a limit to the amount of features we put in
+            #        an image
+            x = img.shape[1] - 200
+            y = 50
+            for f in features:
+                if f in self._features.keys():
+                    feat = self._features[f]
+                    ftxt = feat.name[0:3]+":"+str(feat.value)
+                    ftxt = ftxt[0:11]
+
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    cv2.putText(img, ftxt, (x,y), font, 1.2, (255,255,255), 3)
+                    y += 30
 
         if inSuper:
             superI = self._ipm.image.pixels.copy()

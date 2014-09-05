@@ -816,7 +816,7 @@ class ResultingImageWriter (PipeComponent):
     argNames = {
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
-    }
+        "addStats": [False, "list of statistics", []]}
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
@@ -827,16 +827,27 @@ class ResultingImageWriter (PipeComponent):
     def __call__(self, context, *args):
         LOG.info(self.mess)
         ts_out = context.getVal("outts." + self.outstream)
-        args[0].parent_timestream = ts_out
-        args[0].data["processed"] = "yes"
+        self.img = args[0]
+        self.img.parent_timestream = ts_out
+        self.img.data["processed"] = "yes"
         for key, value in context.outputwithimage.iteritems():
-            args[0].data[key] = value
+            self.img.data[key] = value
 
-        ts_out.write_image(args[0])
+        if len(self.addStats) > 0:
+            self.img.pixels = self.putStatsAllPots()
+
+        ts_out.write_image(self.img)
         ts_out.write_metadata()
-        args[0].parent_timestream = None  # reset to move forward
+        self.img.parent_timestream = None  # reset to move forward
 
-        return args
+        return [self.img]
+
+    def putStatsAllPots(self):
+        img = self.img.pixels
+        for key, iph in self.img.ipm.iter_through_pots():
+            img = img | iph.getImage(masked=True, \
+                    features=self.addStats, inSuper=True)
+        return (img)
 
 
 class PopulatePotMetaIds (PipeComponent):
