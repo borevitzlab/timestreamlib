@@ -68,6 +68,7 @@ class StatParamMinCircle(StatParamValue):
         super(StatParamMinCircle, self).__init__(name, radius,
                 rMin=rMin, rMax=rMax)
         self._center = center
+        self._radius = self._value
 
     @property
     def radius(self):
@@ -76,6 +77,14 @@ class StatParamMinCircle(StatParamValue):
     @property
     def center(self):
         return self._center
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._radius > 0 and self._center[0] >= 0 and self._center[1] >= 0:
+            # FIXME: Why is the center returned by cv2.minEnclosingCircle need
+            #        to be swapped for cv2.circle??????
+            c = (self._center[1], self._center[0])
+            cv2.circle(img, c, self._radius, color)
+
 
 class StatParamCalculator(object):
 
@@ -129,9 +138,10 @@ class StatParamCalculator(object):
         if len(a) > 0 and len(b) > 0:
             ab = np.transpose(np.vstack((a,b)))
             c, r = cv2.minEnclosingCircle(ab)
+            c = (int(c[0]), int(c[1]))
+            r = int(r)
 
         return StatParamMinCircle("mincircle", r, c, rMax=float('Inf'))
-
 
     @classmethod
     def statParamMethods(cls):
