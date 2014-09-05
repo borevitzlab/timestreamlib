@@ -44,6 +44,24 @@ class StatParamValue(object):
     def range(self):
         return [self._min, self._max]
 
+    def drawParamInImg(self, img, x=0, y=0, nMax=3, tMax=11,
+            font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
+            tScale=1):
+        """Draw param name and value on image
+
+        Arguments:
+          img(np.array): The image to draw to.
+          x,y(int): Coordinates to draw to.
+          nMax(int): Maximum size of name
+          tMax(int): Maximum of total text
+          font(cv2FONT): The font to be used
+          color(tuple): Font color
+          tScale(float): Scaling of the font
+        """
+        txt = self._name[0:nMax]+":"+str(self._value)
+        txt = txt[0:tMax]
+        cv2.putText(img, txt, (x,y), font, tScale, color, 3)
+
 class StatParamMinCircle(StatParamValue):
     """The value is the radius and we add center"""
     def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=1.0):

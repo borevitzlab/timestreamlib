@@ -363,11 +363,7 @@ class ImagePotHandler(object):
             for f in features:
                 if f in self._features.keys():
                     feat = self._features[f]
-                    ftxt = feat.name[0:3]+":"+str(feat.value)
-                    ftxt = ftxt[0:11]
-
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    cv2.putText(img, ftxt, (x,y), font, 1.2, (255,255,255), 3)
+                    feat.drawParamInImg(img, x=x, y=y, tScale=1.2)
                     y += 30
 
         if inSuper:
