@@ -573,10 +573,10 @@ def matchTemplateLocation(Image, Template, EstimatedLocation,
         CroppedHalfWidth = Image.shape[1] // 2 - 1
     if CroppedHalfHeight > Image.shape[0] // 2 - 1:
         CroppedHalfHeight = Image.shape[0] // 2 - 1
-    srchTLCnr = [EstimatedLocation[0] - CroppedHalfWidth,
-                 EstimatedLocation[1] - CroppedHalfHeight]
-    srchBRCnr = [EstimatedLocation[0] + CroppedHalfWidth,
-                 EstimatedLocation[1] + CroppedHalfHeight]
+    srchTLCnr = [max(EstimatedLocation[0]-CroppedHalfWidth, 0),
+                 max(EstimatedLocation[1]-CroppedHalfHeight, 0)]
+    srchBRCnr = [min(EstimatedLocation[0]+CroppedHalfWidth, Image.shape[1]),
+                 min(EstimatedLocation[1]+CroppedHalfHeight, Image.shape[0])]
     return matchTemplateWindow(Image, Template, srchTLCnr, srchBRCnr)
 
 
