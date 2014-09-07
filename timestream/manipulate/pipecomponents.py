@@ -517,11 +517,17 @@ class PotDetector (PipeComponent):
         if context.hasSubSecName("ipmPrev"):
             ipmPrev = context.ipmPrev
 
-        # Calculate growM
-        flattened = list(chain.from_iterable(self.potLocs2))
-        sortDist = np.sort(spatial.distance.pdist(flattened))
-        sortDist = sortDist[0:len(flattened)] #
-        growM = round(np.median(sortDist) / 2)
+        # Calculate growM with potSize from potdetect component.
+        growM = 0
+        if isinstance(self.potSize, list) and len(self.potSize) == 2:
+            growM = round(max(self.potSize) / 2)
+        else:
+            # if no user vals, we try to calculate it.
+            flattened = list(chain.from_iterable(self.potLocs2))
+            sortDist = np.sort(spatial.distance.pdist(flattened))
+            sortDist = sortDist[0:len(flattened)] #
+            growM = round(np.median(sortDist) / 2)
+
         tsi.ipm = tm_pot.ImagePotMatrix(
             tsi,
             pots=[],
