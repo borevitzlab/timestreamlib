@@ -295,41 +295,18 @@ class TimeStream(object):
             raise NotImplementedError("v2 timestreams not implemented yet")
 
     def write_pickled_image(self, image, overwrite=False):
-        if not isinstance(image, TimeStreamImage):
-            msg = "image must be instance of TimeStreamImage"
-            LOG.error(msg)
-            raise TypeError(msg)
-
         pPath = path.join(self.data_dir,
                           _ts_date_to_path(self.name, "p", image.datetime, 0))
 
-        if path.isfile(pPath) and not overwrite:
-            msg = "File {} exists and overwrite is {}".format(pPath, overwrite)
-            LOG.error(msg)
-            raise RuntimeError(msg)
-
-        # lose all the unnecessaries
-        image.strip()
-
-        if not path.exists(path.dirname(pPath)):
-            os.makedirs(path.dirname(pPath))
-
-        f = file(pPath, "w")
-        cPickle.dump(image, f)
-        f.close()
+        TimeStreamImage.pickledump(image, pPath, overwrite=overwrite)
 
     def load_pickled_image(self, datetime):
-        retImg = None
         pPath = path.join(self.data_dir,
                           _ts_date_to_path(self.name, "p", datetime, 0))
-        if path.isfile(pPath):
-            f = file(pPath, "r")
-            retImg = cPickle.load(f)
-            f.close()
-
-            if not isinstance(retImg, TimeStreamImage):
-                retImg = None
-
+        try:
+            retImg = TimeStreamImage.pickleload(pPath)
+        except:
+            retImg = None
         return retImg
 
     def write_metadata(self):
@@ -840,6 +817,9 @@ class TimeStreamImage(object):
         # make sure we strip away everythin that is unneeded.
         tsi.strip()
 
+        if not path.exists(path.dirname(filepath)):
+            os.makedirs(path.dirname(filepath))
+
         f = file(filepath, "w")
         cPickle.dump(tsi, f)
         f.close()
@@ -852,6 +832,10 @@ class TimeStreamImage(object):
             raise TypeError(msg)
         if not path.exists(filepath):
             msg = "File {} not found".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
+        if not path.isfile(filepath):
+            msg = "{} is not a regular file".format(filepath)
             LOG.error(msg)
             raise RuntimeError(msg)
 
