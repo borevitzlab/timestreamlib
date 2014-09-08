@@ -32,11 +32,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
           _scene(QGraphicsScene): Where we put the pixmap
           _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
             and zoom.
-          _activeTS(TimeStreamTraverser): Holds all active instances related to a TS
+          _activeTS(int): Selected offset in tstable. -1 is no tems
         """
         QtGui.QMainWindow.__init__(self)
 
-        self._activeTS = None
+        self._activeTS = -1
         self._ui = uic.loadUi("derandui.ui")
 
         # Setup Image viewer
@@ -103,27 +103,31 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             i = QtGui.QTableWidgetItem(tsbasedir)
             i.setTextAlignment(QtCore.Qt.AlignLeft)
-            i.setData(QtCore.Qt.UserRole, tst)
+            items = []
+            img = tst.curr()
+            mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
+            mids.append("potid") # The default is original pot ids.
+            for mid in mids:
+                items.append(mid)
+            tstdata = [tst, items, 0] # TimeStream object, items, offset
+            i.setData(QtCore.Qt.UserRole, tstdata)
             self._ui.tslist.setItem(0,1,i)
 
             # Show if it is the first.
-            if self._activeTS is None:
-                self.selectRowTS(0)
+            self.selectRowTS(self._activeTS+1)
 
         # Deleting
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
-            item = self._ui.tslist.item(row,1)
-            dtst = item.data(QtCore.Qt.UserRole).toPyObject()
+            #item = self._ui.tslist.item(row,1)
+            #dtst = item.data(QtCore.Qt.UserRole).toPyObject()
             self._ui.tslist.removeRow(row)
-            if self._activeTS is dtst:
-                self._activeTS = None
-                if self._ui.tslist.rowCount() > 1:
-                    nitem = self._ui.tslist.item(0,1)
-                    self._activeTS = nitem.data(QtCore.Qt.UserRole).toPyObject()
+            self._activeTS = -1
 
-            self._ftc.refreshCol0Header(self._activeTS)
-            self.showImage(self._activeTS)
+            if self._ui.tslist.rowCount() > 1:
+                self.selectRowTS(0)
+            else:
+                self.selectRowTS(self._activeTS)
 
         # Selecting
         elif row != self._ui.tslist.rowCount()-1:
@@ -139,24 +143,36 @@ class DerandomizeGUI(QtGui.QMainWindow):
             for c in range(2):
                 self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
 
-        for c in range(2):
-            self._ui.tslist.item(row,c).setBackground(QtGui.QColor(100,100,200))
 
-        # select in self._activeTS
-        item = self._ui.tslist.item(row,1)
-        self._activeTS = item.data(QtCore.Qt.UserRole).toPyObject()
+        # Keep track of the combobox offset.
+        if self._activeTS != -1:
+            i = self._ui.tslist.item(self._activeTS,1)
+            d = i.data(QtCore.Qt.UserRole).toPyObject()
+            d[2] = self._ui.csv.cellWidget(0,0).currentIndex()
+            i.setData(QtCore.Qt.UserRole, d)
+            # self._ui.tslist.setItem(self._activeTS,1,i)
 
-        self._ftc.refreshCol0Header(self._activeTS)
+        # change self._activeTS
+        self._activeTS = row
+        if self._activeTS >= 0:
+            i = self._ui.tslist.item(self._activeTS,1)
+            d = i.data(QtCore.Qt.UserRole).toPyObject()
+            color = QtGui.QColor(100,100,200)
+            for c in range(2):
+                self._ui.tslist.item(self._activeTS,c).setBackground(color)
+        else:
+            d = [None, None, None]
+        self._ftc.refreshCol0Header(d)
 
         # Show image of self._activeTS
-        img = self._activeTS.curr()
-        self.showImage(img.path)
+        self.showImage(d[0])
 
-    def showImage(self, path=None):
-        if path is None:
+    def showImage(self, tst=None):
+        if tst is None:
             pixmap = QtGui.QPixmap(0,0)
         else:
-            pixmap = QtGui.QPixmap(path)
+            img = tst.curr()
+            pixmap = QtGui.QPixmap(img.path)
 
         self._scene.clear()
         pixItem = self._scene.addPixmap(pixmap)
@@ -277,22 +293,30 @@ class BindingTable(QtCore.QObject):
         self.refreshCol1Header()
         self.refreshCol2Header()
 
-    def refreshCol0Header(self, tst):
+    def refreshCol0Header(self, tstuple):
+        # tstuple (tst, items, offset)
         """Menu widget at position self._csvTable(0,0)"""
         # FIXME: We need to put the metaids in the TimeStream!!!!
-        self._tst = tst
+        self._tst = tstuple[0]
 
         if self._tst is not None:
-            # Create an action per every metaid in TimeStream
+            if tstuple[1] is None:
+                items = []
+                img = self._tst.curr()
+                # Create an action per every metaid in TimeStream
+                mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
+                mids.append("potid") # The default is original pot ids.
+                for mid in mids:
+                    items.append(mid)
+                tstuple[1] = items
+            if tstuple[2] is None or tstuple[2] < 0:
+                tstuple[2] = offset
+
             self._tscb.blockSignals(True)
             self._tscb.clear()
-            img = self._tst.curr()
-            mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-            mids.append("potid") # The default is original pot ids.
-            for mid in mids:
-                self._tscb.addItem(str(mid), QtCore.QVariant(mid))
-
-            self._tscb.setCurrentIndex(0)
+            for item in tstuple[1]:
+                self._tscb.addItem(str(item), QtCore.QVariant(item))
+            self._tscb.setCurrentIndex(tstuple[2])
             self._indSelect[0] = -1
             self._tscb.blockSignals(False)
             self._colActionDispatcher()
