@@ -18,6 +18,7 @@
 
 import numpy as np
 from scipy import signal
+from scipy import ndimage
 from skimage.measure import regionprops
 from skimage.measure import label
 import cv2
@@ -64,7 +65,7 @@ class StatParamValue(object):
 
 class StatParamMinCircle(StatParamValue):
     """The value is the radius and we add center"""
-    def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=1.0):
+    def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=float("Inf")):
         super(StatParamMinCircle, self).__init__(name, radius,
                 rMin=rMin, rMax=rMax)
         self._center = center
@@ -85,6 +86,25 @@ class StatParamMinCircle(StatParamValue):
             c = (self._center[1], self._center[0])
             cv2.circle(img, c, self._radius, color)
 
+class StatParamPerimeter(StatParamValue):
+    """The value is the sum of the perimeter. Also perimeter coords"""
+    def __init__(self, name, plen, xycoords, rMin=0.0, rMax=float("Inf")):
+        super(StatParamPerimeter, self).__init__(name, plen,
+                rMin=rMin, rMax=rMax)
+        self._length = self._value
+        self._coords = xycoords
+
+    @property
+    def length(self):
+        return self._length
+
+    @property
+    def coords(self):
+        return self._coords
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._length > 0:
+            img[self._coords[0], self._coords[1], :] = 255
 
 class StatParamCalculator(object):
 
@@ -99,10 +119,14 @@ class StatParamCalculator(object):
     def perimeter(self, mask):
         retVal = 0.0
         perim = regionprops(mask.astype("int8"), ["Perimeter"])
+
+        bmsk = ndimage.binary_erosion(mask, np.ones((3,3)), border_value=0)
+        bmsk = mask - bmsk
+        xycoords = np.where(bmsk == 1)
         if len(perim) > 0:
             retVal = perim[0]["Perimeter"]
 
-        return StatParamValue("perimeter", retVal, rMax=float("Inf"))
+        return StatParamPerimeter("perimeter", retVal, xycoords)
 
     def roundness(self, mask):
         # (4 (pi) * AREA) / PERIM^2
