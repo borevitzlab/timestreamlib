@@ -550,6 +550,30 @@ class TimeStreamTraverser(TimeStream):
 
         return img
 
+    @property
+    def timestamps(self):
+        return self._timestamps
+
+    def getImgByTimeStamp(self, timestamp):
+        if timestamp not in self._timestamps:
+            raise RuntimeError("Timestamp not found")
+
+        # FIXME: This code is basically the same as curr()
+        relpath = _ts_date_to_path(self.name, self.extension, timestamp, 0)
+        img_path = path.join(self.path, relpath)
+
+        img = self.load_pickled_image(timestamp)
+        if img is None:
+            img = TimeStreamImage(dt=timestamp)
+
+        try:
+            img_date = ts_format_date(img.datetime)
+            img.data = self.image_data[img_date]
+        except KeyError:
+            img.data = {}
+
+        return img
+
 
 class TimeStreamImage(object):
     """Class to represent an image in a TimeSeries.

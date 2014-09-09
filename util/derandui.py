@@ -20,8 +20,10 @@ import csv
 import sys
 import os.path
 from PyQt4 import QtGui, QtCore, uic
-from timestream import TimeStreamTraverser
+from timestream import TimeStreamTraverser, TimeStream
 from collections import namedtuple
+import timestream.manipulate.configuration as pipeconf
+import timestream.manipulate.pipeline as pipeline
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -64,8 +66,80 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
+        self._ui.bDerand.clicked.connect(self._derandomize)
 
         self._ui.show()
+
+    def _derandomize(self):
+        # FIXME check if we have all the information.
+        # 1.Temp struct to relate tspath with metaid list.
+        tsts = {}
+        timestamps = [] # needed for pipeline execution.
+        for r in range(self._ui.tslist.rowCount()-1):
+            i = self._ui.tslist.item(r,1)
+            d = i.data(QtCore.Qt.UserRole).toPyObject()
+            tspath = d[0].path
+            # FIXME: make sure d[2] is within range
+            # FIXME: make sure settings.general.metas.midname exists
+            midname = str(d[1][d[2]])
+            midlist = d[0].data["settings"]["general"]["metas"][midname]
+            # switch key<->values in midlist
+            midlist = {y:x for x,y in midlist.iteritems()}
+            tsts[tspath] = midlist
+            timestamps = timestamps + d[0].timestamps
+        timestamps = sorted(set(timestamps))
+
+        # 2. Create derandStruct needed for drandomize component.
+        # Column 2 will have all the meta id names
+        derandStruct = {}
+        for r in range(1, self._ui.csv.rowCount()):
+            # skip if empty
+            r1cell = self._ui.csv.item(r,1)
+            if str(r1cell.data(QtCore.Qt.UserRole).toPyObject()) \
+                    == BindingTable.E:
+                continue
+
+            r2cell = self._ui.csv.item(r,2)
+            mid = str(r2cell.text())
+            if mid not in derandStruct:
+                derandStruct[mid] = {}
+
+            # We search for r1cell.text() in every TS
+            for path, midlist in tsts.iteritems():
+                if str(r1cell.text()) in midlist:
+                    if path not in derandStruct[mid]:
+                        derandStruct[mid][path] = []
+                    derandStruct[mid][path].append(midlist[str(r1cell.text())])
+                    break
+
+        # 3. Create pipeline components
+        plc = pipeconf.PCFGSection("--")
+        plc.setVal("pipeline._0.name", "derandomize")
+        plc.setVal("pipeline._0.derandStruct", derandStruct)
+        plc.setVal("pipeline._1.name", "imagewrite")
+        plc.setVal("pipeline._1.outstream", "outts")
+
+        # FIXME: we need to add a box that asks for the output dir.
+        tsoutpath = "/home/joel/.Trash/derandomize"
+        outts = TimeStream()
+        outts.name = "derandomized"
+        outts.create(tsoutpath)
+
+        ctx = pipeconf.PCFGSection("--")
+        ctx.setVal("outts.outts", outts)
+
+        pl = pipeline.ImagePipeline(plc.pipeline, ctx)
+
+        # 4. Execute pipeline
+        for ts in timestamps:
+            try:
+                result = pl.process(ctx, [ts], True)
+            except Exception as e:
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.setWindowTitle("Error Derandomizing to ". \
+                        format(tsoutpath))
+                errmsg.showMessage(str(e))
+                break
 
     def onClickTimeStreamList(self, row, column):
         # Adding
@@ -248,6 +322,11 @@ class BindingTable(QtCore.QObject):
                            self._csvcb.currentIndex(),
                            self._derandcb.currentIndex()]
 
+    def getDerandId(self):
+        if self._indSelect[2] < 0:
+            raise RuntimeError("No derand offset selected")
+        return str(self._derandcb.itemText(self._indSelect[2]))
+
     def selectCsv(self):
         fname = QtGui.QFileDialog.getOpenFileName(self._parent,
                 "Select CSV", "", "CSV (*.csv)")
@@ -329,7 +408,6 @@ class BindingTable(QtCore.QObject):
         self._indSelect[2] = -1
         self._derandcb.blockSignals(False)
         self._colActionDispatcher()
-
 
     def _colActionDispatcher(self):
         """Will dispatch actions depending on changed column"""

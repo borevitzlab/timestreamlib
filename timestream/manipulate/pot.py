@@ -49,7 +49,7 @@ class ImagePotRectangle(object):
         self._imgwidth = imgSize[1]
         self._imgheight = imgSize[0]
 
-        if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.array))\
+        if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.ndarray))\
                 or (len(rectDesc) != 2 and len(rectDesc) != 4):
             raise TypeError(
                 "Rectangle Descriptor must be a list of len 2 or 4")
@@ -63,6 +63,7 @@ class ImagePotRectangle(object):
             self._rect = np.concatenate((pt1, pt2))
 
         # Check to see if rect is within size.
+        print(self._rect, self._imgheight, self._imgwidth)
         if sum(self._rect < 0) > 0 \
                 or sum(self._rect[[1, 3]] > self._imgheight) > 0 \
                 or sum(self._rect[[0, 2]] > self._imgwidth) > 0:
@@ -296,7 +297,7 @@ class ImagePotHandler(object):
             else:
                 self._rect = ImagePotRectangle(r, self._ipm.image.pixels.shape)
 
-        elif isinstance(ImagePotRectangle):
+        elif isinstance(r, ImagePotRectangle):
             # The right thing to do here is to create a new Imagepotrectangle so
             # we are sure we relate it to the correct image shape.
             self._rect = ImagePotRectangle(r.asList(),
@@ -531,7 +532,7 @@ class ImagePotMatrix(object):
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
-            raise IndexError("No pot id %d found" % potId)
+            raise IndexError("No pot id %s found" % str(potId))
 
         return self._pots[potId]
 

@@ -28,8 +28,9 @@ import os
 from scipy import spatial
 import sys
 import time
+import datetime
 
-from timestream import TimeStreamImage
+from timestream import TimeStreamImage, TimeStream, TimeStreamTraverser
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
@@ -836,8 +837,9 @@ class ResultingImageWriter (PipeComponent):
         self.img = args[0]
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
-        for key, value in context.outputwithimage.iteritems():
-            self.img.data[key] = value
+        # This is for derandomization
+        #for key, value in context.outputwithimage.iteritems():
+        #    self.img.data[key] = value
 
         if len(self.addStats) > 0:
             self.img.pixels = self.putStatsAllPots()
@@ -854,3 +856,132 @@ class ResultingImageWriter (PipeComponent):
             img = img | iph.getImage(masked=True, \
                     features=self.addStats, inSuper=True)
         return (img)
+
+class DerandomizeTimeStreams (PipeComponent):
+    actName = "derandomize"
+    argNames = {"mess": [False, "Output Message", "Derandomizing"],
+            "derandStruct": [True, "Derandomization Structure"]}
+    # derandStruct(dict): {mid0:{TS0:[PotId, PotId...],
+    #                            TS1:[PotId, PotId...]...},
+    #                      mid1:{TS0:[PotId, PotId...],
+    #                            TS1:[PotId, PotId...],...},...}
+    # mid*(str): is the metaid string
+    # TS*(str): is the path to the TimeStreamTraverser
+    # PotId(str): is the Pot number in TS*
+
+    runExpects = [datetime.datetime]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(DerandomizeTimeStreams, self).__init__(**kwargs)
+        mids, self._numPotPerMid = self.createMids(timestamp=None)
+        self._numMid = len(mids)
+
+    def __call__(self, context, *args):
+        LOG.info(self.mess)
+        img = TimeStreamImage(args[0])
+        img.pixels = self.createCompoundImage(args[0])
+        return [img]
+
+    def createCompoundImage(self, timestamp):
+        # 1. Max size of pot imgs. All pots are checked.
+        mids, _ = self.createMids(timestamp=timestamp)
+        maxPotRect = (0,0)
+        for _, potlist in mids.iteritems():
+            for pot in potlist:
+                if pot.rect.width > maxPotRect[0] \
+                        or pot.rect.height > maxPotRect[1]:
+                    maxPotRect = (pot.rect.width, pot.rect.height)
+
+        # 2. Find column and row length for both _numPotPerMid and _numMid
+        v = np.sqrt(self._numPotPerMid)
+        if v % 1 == 0 or v % 1 > 0.5:
+            numPotPerMidSize = (np.ceil(v), np.ceil(v))
+        else:
+            numPotPerMidSize = (np.floor(v), np.floor(v)+1)
+
+        v = np.sqrt(self._numMid)
+        if v % 1 == 0 or v % 1 > 0.5:
+            numMidSize = (np.ceil(v), np.ceil(v))
+        else:
+            numMidSize = (np.floor(v), np.floor(v)+1)
+
+        # 3 Init the derandomized image
+        retImgHeight = maxPotRect[1] * numPotPerMidSize[0] * numMidSize[0]
+        retImgWidth = maxPotRect[0] * numPotPerMidSize[1] * numMidSize[1]
+        retImg = np.ndarray((retImgHeight, retImgWidth, 3),
+                dtype=np.dtype("uint8"))
+
+        i = 0 # the ith mid being added
+        for mid, potlist in mids.iteritems():
+            midGrpRow = i % numMidSize[0]
+            midGrpCol = int(np.floor(float(i)/numMidSize[0]))
+
+            # Width {From,To}
+            wF = midGrpRow*maxPotRect[0]*numPotPerMidSize[0]
+            wT = wF + (maxPotRect[0]*numPotPerMidSize[0])
+            # Height {From,To}
+            hF = midGrpCol*maxPotRect[1]*numPotPerMidSize[1]
+            hT = hF + (maxPotRect[1]*numPotPerMidSize[1])
+
+            retImg[wF:wT, hF:hT, :] = self.getMidGrpImg(potlist,
+                    maxPotRect, numPotPerMidSize )
+            i += 1
+
+        return retImg
+
+    # midGrp -> [pot1, pot2,.... potN]
+    def getMidGrpImg(self, potList, maxPotRect, numPotPerMidSize):
+        midGrpImgHeight = maxPotRect[1] * numPotPerMidSize[0]
+        midGrpImgWidth = maxPotRect[0] * numPotPerMidSize[1]
+        midGrpImg = np.ndarray((midGrpImgHeight, midGrpImgWidth, 3),
+                dtype=np.dtype("uint8"))
+
+        j = 0 # j'th pot being added
+        for pot in potList:
+            potGrpRow = j % numPotPerMidSize[0]
+            potGrpCol = int(np.floor(float(j)/numPotPerMidSize[0]))
+
+            # Width {From,To}
+            wF = potGrpRow*maxPotRect[0]
+            wT = wF + maxPotRect[0]
+            # Height {From,To}
+            hF = potGrpCol*maxPotRect[1]
+            hT = hF + maxPotRect[1]
+
+            midGrpImg[wF:wT, hF:hT, :] = pot.getImage()
+            j += 1
+
+        return midGrpImg
+
+    def createMids(self, timestamp=None):
+        # Create mids(dict): {mid0:[PotObj,PotObj...],
+        #                     mid1:[PotObj,PotObj...]...}
+        # PotObj(PyObject): is the Pot Object.
+        maxPotPerMid = 0
+        mids = {}
+        tsts = {}
+        for mid, tslist in self.derandStruct.iteritems():
+            mids[mid] = []
+            for tspath, potlist in tslist.iteritems():
+                if tspath not in tsts.keys():
+                    # FIXME: We are creating too many TimeStreams.
+                    tsts[tspath] = TimeStreamTraverser(str(tspath))
+
+                ts = tsts[tspath]
+                if timestamp is None:
+                    img = ts.curr()
+                else:
+                    img = ts.getImgByTimeStamp(timestamp)
+
+                if img.ipm is None:
+                    continue
+                for potnum in potlist:
+                    pot = img.ipm.getPot(int(potnum))
+                    mids[mid].append(pot)
+
+            # Find the max number of elements for one mid
+            if len(mids[mid]) > maxPotPerMid:
+                maxPotPerMid = len(mids[mid])
+
+        return mids, maxPotPerMid

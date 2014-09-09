@@ -29,7 +29,7 @@ from timestream.manipulate.pipecomponents import (
     ResultingFeatureWriter_ndarray,
     ResultingFeatureWriter_csv,
     ResultingImageWriter,
-    PopulatePotMetaIds,
+    DerandomizeTimeStreams,
 )
 
 
@@ -44,9 +44,9 @@ class ImagePipeline (object):
         ResultingImageWriter.actName: ResultingImageWriter,
         FeatureExtractor.actName: FeatureExtractor,
         ResultingFeatureWriter_ndarray.actName:
-        ResultingFeatureWriter_ndarray,
-        ResultingFeatureWriter_csv.actName:
-        ResultingFeatureWriter_csv
+            ResultingFeatureWriter_ndarray,
+        ResultingFeatureWriter_csv.actName: ResultingFeatureWriter_csv,
+        DerandomizeTimeStreams.actName: DerandomizeTimeStreams
     }
 
     def __init__(self, plConf, context):
