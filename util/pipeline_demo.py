@@ -71,20 +71,20 @@ if not os.path.isfile(tmpPath):
     raise IOError("%s is not a file"%tmpPath)
 tsConf = pipeconf.PCFGConfig(tmpPath, 1)
 
-# Merge the two configurations
-for pComp in plConf.pipeline.listSubSecNames():
-    # get a PipLine SubSection
-    plss = plConf.getVal("pipeline."+pComp)
-
-    try:
-        # get TimeStream SubSection
-        tsss = tsConf.getVal(plss.name)
-    except pipeconf.PCFGExInvalidSubsection:
-        # No additional configuration in tsConf for "pipeline."+pComp
+# Merge timestream configuration into pipeline.
+for tsComp in tsConf.listSubSecNames():
+    merged = False
+    tsss = tsConf.getVal(tsComp)
+    for pComp in plConf.pipeline.listSubSecNames():
+        plss = plConf.getVal("pipeline."+pComp)
+        if plss.name == tsComp:
+            # Merge if we find a pipeline component with the same name.
+            pipeconf.PCFGConfig.merge(tsss, plss)
+            merged = True
+            break
+    if merged:
         continue
-
-    # Merge timestream conf onto pipeline conf
-    pipeconf.PCFGConfig.merge(tsss, plss)
+    plConf.general.setVal(tsComp, tsss)
 
 # Add whatever came in the command line
 if opts['--set']:

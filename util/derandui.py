@@ -80,12 +80,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             tsbasedir = os.path.basename(str(tsdir))
 
-            # Check to see if selected TS has needed information.
-            try:
+            try: # See if TS has needed information.
                 tst = TimeStreamTraverser(str(tsdir))
-
-                if tst.curr().ipm is None:
-                    msg = "TimeStream {} needs an ImagePotMatrix.".\
+                if "metas" not in tst.data["settings"]["general"].keys():
+                    msg = "metas needs to be defined in TS {} settings.".\
                             format(tst.name)
                     raise RuntimeError(msg)
             except Exception as e:
@@ -103,13 +101,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             i = QtGui.QTableWidgetItem(tsbasedir)
             i.setTextAlignment(QtCore.Qt.AlignLeft)
-            items = []
-            img = tst.curr()
-            mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-            mids.append("potid") # The default is original pot ids.
-            for mid in mids:
-                items.append(mid)
-            tstdata = [tst, items, 0] # TimeStream object, items, offset
+            midnames = tst.data["settings"]["general"]["metas"].keys()
+            midnames.append("potid") # potid is the default.
+            tstdata = [tst, midnames, 0] # TimeStream object, items, offset
             i.setData(QtCore.Qt.UserRole, tstdata)
             self._ui.tslist.setItem(0,1,i)
 
@@ -119,8 +113,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Deleting
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
-            #item = self._ui.tslist.item(row,1)
-            #dtst = item.data(QtCore.Qt.UserRole).toPyObject()
             self._ui.tslist.removeRow(row)
             self._activeTS = -1
 
@@ -143,14 +135,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
             for c in range(2):
                 self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
 
-
         # Keep track of the combobox offset.
         if self._activeTS != -1:
             i = self._ui.tslist.item(self._activeTS,1)
             d = i.data(QtCore.Qt.UserRole).toPyObject()
             d[2] = self._ui.csv.cellWidget(0,0).currentIndex()
             i.setData(QtCore.Qt.UserRole, d)
-            # self._ui.tslist.setItem(self._activeTS,1,i)
 
         # change self._activeTS
         self._activeTS = row
@@ -296,19 +286,13 @@ class BindingTable(QtCore.QObject):
     def refreshCol0Header(self, tstuple):
         # tstuple (tst, items, offset)
         """Menu widget at position self._csvTable(0,0)"""
-        # FIXME: We need to put the metaids in the TimeStream!!!!
         self._tst = tstuple[0]
 
         if self._tst is not None:
             if tstuple[1] is None:
-                items = []
-                img = self._tst.curr()
-                # Create an action per every metaid in TimeStream
-                mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-                mids.append("potid") # The default is original pot ids.
-                for mid in mids:
-                    items.append(mid)
-                tstuple[1] = items
+                midnames = tst.data["settings"]["general"]["metas"].keys()
+                midnames.append("potid")
+                tstuple[1] = midnames
             if tstuple[2] is None or tstuple[2] < 0:
                 tstuple[2] = offset
 
@@ -398,7 +382,15 @@ class BindingTable(QtCore.QObject):
             self._num0Rows = 0
             return
 
-        img = self._tst.curr()
+        # If we don't find an ipm in the first 10, something is wrong
+        img = None
+        for i in range(10):
+            if self._tst.next().ipm is not None:
+                img = self._tst.curr()
+                break
+        if img is None:
+            msg = "Could not find pot specific metadata"
+            raise IndexError(msg)
 
         # Append sufficient rows.
         if img.ipm.numPots > self._csvTable.rowCount()-BindingTable.RIRN:
@@ -407,6 +399,8 @@ class BindingTable(QtCore.QObject):
         # Fill first Column with active action mid
         self._num0Rows = 0
         mid = str(self._tscb.itemData(index).toPyObject())
+        if mid != "potid":
+            mids = self._tst.data["settings"]["general"]["metas"][mid]
         potIds = img.ipm.potIds
 
         for r in range(1, self._csvTable.rowCount()):
@@ -416,7 +410,9 @@ class BindingTable(QtCore.QObject):
                 pot = img.ipm.getPot(potIds.pop(0))
                 metaval = pot.id
                 if mid != "potid":
-                    metaval = pot.getMetaId(mid)
+                    # Due to Json changing dict keys from int to str, We need to
+                    # transform
+                    metaval = mids[str(pot.id)]
                 item.setText(str(metaval))
                 item.setData(QtCore.Qt.UserRole, QtCore.QVariant(pot))
 

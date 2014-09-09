@@ -46,8 +46,7 @@ class ImagePipeline (object):
         ResultingFeatureWriter_ndarray.actName:
         ResultingFeatureWriter_ndarray,
         ResultingFeatureWriter_csv.actName:
-        ResultingFeatureWriter_csv,
-        PopulatePotMetaIds.actName: PopulatePotMetaIds
+        ResultingFeatureWriter_csv
     }
 
     def __init__(self, plConf, context):

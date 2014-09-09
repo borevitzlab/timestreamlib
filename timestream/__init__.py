@@ -517,12 +517,16 @@ class TimeStreamTraverser(TimeStream):
     def next(self):
         if self._offset == len(self._timestamps) - 1:
             self._offset = 0
+        else:
+            self._offset += 1
 
         return self.curr()
 
     def prev(self):
         if self._offset == 0:
             self._offset = len(self._timestamps) - 1
+        else:
+            self._offset -= 1
 
         return self.curr()
 
@@ -839,7 +843,7 @@ class TimeStreamImage(object):
             LOG.error(msg)
             raise RuntimeError(msg)
 
-        f = file(filepath, "w")
+        f = file(filepath, "r")
         tsi = cPickle.load(f)
         f.close()
 

@@ -854,26 +854,3 @@ class ResultingImageWriter (PipeComponent):
             img = img | iph.getImage(masked=True, \
                     features=self.addStats, inSuper=True)
         return (img)
-
-
-class PopulatePotMetaIds (PipeComponent):
-    actName = "populatepotmetaids"
-    argNames = {
-        "mess": [False, "Output Message", "Populating Metaids"],
-        "metas": [False, "Dictionary binding potID with global IDS", {}]}
-
-    runExpects = [TimeStreamImage]
-    runReturns = [TimeStreamImage]
-
-    def __init__(self, context, **kwargs):
-        super(PopulatePotMetaIds, self).__init__(**kwargs)
-
-    def __call__(self, context, *args):
-        LOG.info(self.mess)
-        ipm = args[0].ipm
-        # assign all the metaids that we find in self.metas
-        for midName in self.metas.keys():
-            for potid, mval in self.metas[midName].iteritems():
-                ipm.getPot(potid).setMetaId(midName, mval)
-
-        return args
