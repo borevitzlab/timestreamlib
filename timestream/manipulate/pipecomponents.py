@@ -949,7 +949,6 @@ class DerandomizeTimeStreams (PipeComponent):
 
         return retImg
 
-    # midGrp -> [pot1, pot2,.... potN]
     def getMidGrpImg(self, potList, maxPotRect, numPotPerMidSize):
         midGrpImgHeight = maxPotRect[1] * numPotPerMidSize[0]
         midGrpImgWidth = maxPotRect[0] * numPotPerMidSize[1]
@@ -970,6 +969,10 @@ class DerandomizeTimeStreams (PipeComponent):
 
             midGrpImg[wF:wT, hF:hT, :] = pot.getImage()
             j += 1
+
+        # Wite image Primter
+        midGrpImg[:, [0,(midGrpImgWidth-1)], :] = (255,255,255)
+        midGrpImg[[0,(midGrpImgHeight-1)], :, :] = (255,255,255)
 
         return midGrpImg
 
