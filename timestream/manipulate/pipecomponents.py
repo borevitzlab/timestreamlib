@@ -943,13 +943,13 @@ class DerandomizeTimeStreams (PipeComponent):
             hF = midGrpCol*maxPotRect[1]*numPotPerMidSize[1]
             hT = hF + (maxPotRect[1]*numPotPerMidSize[1])
 
-            retImg[wF:wT, hF:hT, :] = self.getMidGrpImg(potlist,
+            retImg[wF:wT, hF:hT, :] = self.getMidGrpImg(mid, potlist,
                     maxPotRect, numPotPerMidSize )
             i += 1
 
         return retImg
 
-    def getMidGrpImg(self, potList, maxPotRect, numPotPerMidSize):
+    def getMidGrpImg(self, mid, potList, maxPotRect, numPotPerMidSize):
         midGrpImgHeight = maxPotRect[1] * numPotPerMidSize[0]
         midGrpImgWidth = maxPotRect[0] * numPotPerMidSize[1]
         midGrpImg = np.ndarray((midGrpImgHeight, midGrpImgWidth, 3),
@@ -973,6 +973,13 @@ class DerandomizeTimeStreams (PipeComponent):
         # Wite image Primter
         midGrpImg[:, [0,(midGrpImgWidth-1)], :] = (255,255,255)
         midGrpImg[[0,(midGrpImgHeight-1)], :, :] = (255,255,255)
+
+        # Write the mid name on the midgrpimg
+        txt = str(mid)
+        font=cv2.FONT_HERSHEY_SIMPLEX
+        scale=1
+        color=(255,0,0)
+        cv2.putText(midGrpImg, txt, (30,30), font, scale, color, 3)
 
         return midGrpImg
 
