@@ -535,17 +535,28 @@ class BindingTable(QtCore.QObject):
                 self._swapRow(c0r, c1r)
                 del c1dict[c0item.text()]
 
+                # Update c1dict if necessary
+                item = self._csvTable.item(c1r,1)
+                if item.text() in c1dict.keys():
+                    c1dict[item.text()] = c1r
+
             except KeyError:
                 # c0item not in c1
                 c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
                 if c0data != BindingTable.E:
                     # Not a empty row: Add null row and swap
                     self._csvTable.insertRow(self._csvTable.rowCount())
+                    lastRow = self._csvTable.rowCount()-1
                     item = QtGui.QTableWidgetItem(" ")
                     item.setData(QtCore.Qt.UserRole, BindingTable.E)
-                    self._csvTable.setItem(self._csvTable.rowCount()-1, 1, item)
+                    self._csvTable.setItem(lastRow, 1, item)
 
-                    self._swapRow(c0r, self._csvTable.rowCount()-1)
+                    self._swapRow(c0r, lastRow)
+
+                    # Update c1dict if necessary
+                    item = self._csvTable.item(lastRow,1)
+                    if item.text() in c1dict.keys():
+                        c1dict[item.text()] = lastRow
                 continue
 
         self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
