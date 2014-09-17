@@ -928,7 +928,7 @@ class DerandomizeTimeStreams (PipeComponent):
         # 3 Init the derandomized image
         retImgHeight = maxPotRect[1] * numPotPerMidSize[0] * numMidSize[0]
         retImgWidth = maxPotRect[0] * numPotPerMidSize[1] * numMidSize[1]
-        retImg = np.ndarray((retImgHeight, retImgWidth, 3),
+        retImg = np.zeros((retImgHeight, retImgWidth, 3),
                 dtype=np.dtype("uint8"))
 
         i = 0 # the ith mid being added
@@ -952,7 +952,7 @@ class DerandomizeTimeStreams (PipeComponent):
     def getMidGrpImg(self, mid, potList, maxPotRect, numPotPerMidSize):
         midGrpImgHeight = maxPotRect[1] * numPotPerMidSize[0]
         midGrpImgWidth = maxPotRect[0] * numPotPerMidSize[1]
-        midGrpImg = np.ndarray((midGrpImgHeight, midGrpImgWidth, 3),
+        midGrpImg = np.zeros((midGrpImgHeight, midGrpImgWidth, 3),
                 dtype=np.dtype("uint8"))
 
         j = 0 # j'th pot being added
