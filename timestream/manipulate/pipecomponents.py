@@ -874,6 +874,15 @@ class DerandomizeTimeStreams (PipeComponent):
 
     def __init__(self, context, **kwargs):
         super(DerandomizeTimeStreams, self).__init__(**kwargs)
+        # Use one instance of each TS.
+        self._tsts = {}
+        # unique Timestream paths from derandStruct
+        tspaths = set([x \
+                        for _, l in self.derandStruct.iteritems() \
+                            for x in l.keys()])
+        for tspath in tspaths:
+            self._tsts[tspath] = TimeStreamTraverser(str(tspath))
+
         mids, self._numPotPerMid = self.createMids(timestamp=None)
         self._numMid = len(mids)
 
@@ -960,15 +969,10 @@ class DerandomizeTimeStreams (PipeComponent):
         # PotObj(PyObject): is the Pot Object.
         maxPotPerMid = 0
         mids = {}
-        tsts = {}
         for mid, tslist in self.derandStruct.iteritems():
             mids[mid] = []
             for tspath, potlist in tslist.iteritems():
-                if tspath not in tsts.keys():
-                    # FIXME: We are creating too many TimeStreams.
-                    tsts[tspath] = TimeStreamTraverser(str(tspath))
-
-                ts = tsts[tspath]
+                ts = self._tsts[tspath]
                 if timestamp is None:
                     img = ts.curr()
                 else:
