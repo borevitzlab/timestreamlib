@@ -874,7 +874,9 @@ class DerandomizeTimeStreams (PipeComponent):
 
     def __init__(self, context, **kwargs):
         super(DerandomizeTimeStreams, self).__init__(**kwargs)
-        # Use one instance of each TS.
+
+        # 1. Create only one instance of all TSs and use
+        #    it when referencing pots.
         self._tsts = {}
         # unique Timestream paths from derandStruct
         tspaths = set([x \
@@ -883,8 +885,16 @@ class DerandomizeTimeStreams (PipeComponent):
         for tspath in tspaths:
             self._tsts[tspath] = TimeStreamTraverser(str(tspath))
 
-        mids, self._numPotPerMid = self.createMids(timestamp=None)
-        self._numMid = len(mids)
+        # Create _mids(dict): {mid0:[PotObj,PotObj...],
+        #                      mid1:[PotObj,PotObj...]...}
+        # PotObj(PyObject): is the Pot Object.
+        # Easy direct relation between mids and pot objects
+        self._mids = {}
+        for mid in [i for i,_ in self.derandStruct.iteritems()]:
+            self._mids[mid] = []
+
+        self._numPotPerMid = self.refreshMids(timestamp=None)
+        self._numMid = len(self._mids)
 
     def __call__(self, context, *args):
         LOG.info(self.mess)
@@ -894,9 +904,9 @@ class DerandomizeTimeStreams (PipeComponent):
 
     def createCompoundImage(self, timestamp):
         # 1. Max size of pot imgs. All pots are checked.
-        mids, _ = self.createMids(timestamp=timestamp)
+        self.refreshMids(timestamp=timestamp)
         maxPotRect = (0,0)
-        for _, potlist in mids.iteritems():
+        for _, potlist in self._mids.iteritems():
             for pot in potlist:
                 if pot.rect.width > maxPotRect[0] \
                         or pot.rect.height > maxPotRect[1]:
@@ -922,7 +932,7 @@ class DerandomizeTimeStreams (PipeComponent):
                 dtype=np.dtype("uint8"))
 
         i = 0 # the ith mid being added
-        for mid, potlist in mids.iteritems():
+        for mid, potlist in self._mids.iteritems():
             midGrpRow = i % numMidSize[0]
             midGrpCol = int(np.floor(float(i)/numMidSize[0]))
 
@@ -963,29 +973,35 @@ class DerandomizeTimeStreams (PipeComponent):
 
         return midGrpImg
 
-    def createMids(self, timestamp=None):
-        # Create mids(dict): {mid0:[PotObj,PotObj...],
-        #                     mid1:[PotObj,PotObj...]...}
-        # PotObj(PyObject): is the Pot Object.
+    def refreshMids(self, timestamp=None):
+        # Count pots at the same time
         maxPotPerMid = 0
-        mids = {}
-        for mid, tslist in self.derandStruct.iteritems():
-            mids[mid] = []
-            for tspath, potlist in tslist.iteritems():
-                ts = self._tsts[tspath]
-                if timestamp is None:
-                    img = ts.curr()
-                else:
-                    img = ts.getImgByTimeStamp(timestamp)
 
-                if img.ipm is None:
-                    continue
-                for potnum in potlist:
-                    pot = img.ipm.getPot(int(potnum))
-                    mids[mid].append(pot)
+        # Flush current _mids
+        for mid in self._mids.keys():
+            self._mids[mid] = []
+
+        # Create intermediate tuple list to ease _mids creation
+        mid_pth_pts = [(mid,pth,pts) \
+                        for mid,l in self.derandStruct.iteritems() \
+                            for pth, pts in l.iteritems() ]
+        # mid -> meta ids
+        # pth -> TimeStream path
+        # pts -> list of pot numbers
+        for mid, pth, pts in mid_pth_pts:
+            ts = self._tsts[pth]
+            if timestamp is None:
+                img = ts.curr()
+            else:
+                img = ts.getImgByTimeStamp(timestamp)
+            if img.ipm is None:
+                continue
+            for potnum in pts:
+                pot = img.ipm.getPot(int(potnum))
+                self._mids[mid].append(pot)
 
             # Find the max number of elements for one mid
-            if len(mids[mid]) > maxPotPerMid:
-                maxPotPerMid = len(mids[mid])
+            if len(self._mids[mid]) > maxPotPerMid:
+                maxPotPerMid = len(self._mids[mid])
 
-        return mids, maxPotPerMid
+        return maxPotPerMid
