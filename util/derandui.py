@@ -101,6 +101,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             r2cell = self._ui.csv.item(r,2)
             mid = str(r2cell.text())
+
+            # ingore if only whitespace
+            if all(c in " " for c in mid):
+                continue
+
             if mid not in derandStruct:
                 derandStruct[mid] = {}
 
