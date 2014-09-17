@@ -995,15 +995,19 @@ class DerandomizeTimeStreams (PipeComponent):
         mid_pth_pts = [(mid,pth,pts) \
                         for mid,l in self.derandStruct.iteritems() \
                             for pth, pts in l.iteritems() ]
+        # Pre-load images to avoid going to disk
+        tsimgs = {}
+        for pth, ts in self._tsts.iteritems():
+            if timestamp is None:
+                tsimgs[pth] = ts.curr()
+            else:
+                tsimgs[pth] = ts.getImgByTimeStamp(timestamp)
+
         # mid -> meta ids
         # pth -> TimeStream path
         # pts -> list of pot numbers
         for mid, pth, pts in mid_pth_pts:
-            ts = self._tsts[pth]
-            if timestamp is None:
-                img = ts.curr()
-            else:
-                img = ts.getImgByTimeStamp(timestamp)
+            img = tsimgs[pth]
             if img.ipm is None:
                 continue
             for potnum in pts:
