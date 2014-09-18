@@ -63,11 +63,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Setup first two columns
         self._ftc = BindingTable(self._ui.csv, self)
         self._ftc.c02RelationChange.connect(self.imgRefresh)
+        self._ftc.cb0Change.connect(self._trackTSComboBoxOffset)
 
         # Button connection
         self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
         self._ui.bDerand.clicked.connect(self._derandomize)
 
+        self._ui.pbts.setVisible(False)
         self._ui.show()
 
     def _derandomize(self):
@@ -152,7 +154,14 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pl = pipeline.ImagePipeline(plc.pipeline, ctx)
 
         # 4. Execute pipeline
-        for ts in timestamps:
+        self._ui.pbts.setVisible(True)
+        self._ui.pbts.setMinimum(0)
+        self._ui.pbts.setMaximum(len(timestamps))
+        self._ui.pbts.reset()
+        for i in range(len(timestamps)):
+            self._ui.pbts.setValue(i)
+            QtGui.qApp.processEvents()
+            ts = timestamps[i]
             try:
                 result = pl.process(ctx, [ts], True)
             except Exception as e:
@@ -161,6 +170,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
                         format(tsoutpath))
                 errmsg.showMessage(str(e))
                 break
+        self._ui.pbts.setValue(self._ui.pbts.maximum())
+        self._ui.pbts.setVisible(False)
 
     def onClickTimeStreamList(self, row, column):
         # Adding
@@ -223,6 +234,15 @@ class DerandomizeGUI(QtGui.QMainWindow):
         else:
             pass
 
+    def _trackTSComboBoxOffset(self):
+        # Keep track of the combobox offset.
+        if self._activeTS != -1:
+            i = self._ui.tslist.item(self._activeTS,1)
+            d = i.data(QtCore.Qt.UserRole).toPyObject()
+            d[2] = self._ui.csv.cellWidget(0,0).currentIndex()
+            i.setData(QtCore.Qt.UserRole, d)
+
+
     def selectRowTS(self, row):
         # Clear all cell coloring
         #FIXME: Clearing with a forloop, but there must be a better way!!!
@@ -230,12 +250,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
             for c in range(2):
                 self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
 
-        # Keep track of the combobox offset.
-        if self._activeTS != -1:
-            i = self._ui.tslist.item(self._activeTS,1)
-            d = i.data(QtCore.Qt.UserRole).toPyObject()
-            d[2] = self._ui.csv.cellWidget(0,0).currentIndex()
-            i.setData(QtCore.Qt.UserRole, d)
+        self._trackTSComboBoxOffset()
 
         # change self._activeTS
         self._activeTS = row
@@ -301,6 +316,7 @@ class BindingTable(QtCore.QObject):
     RICN = 3 # Reserved Initial Column Number (RICN)
     RIRN = 1 # Reserved Initial Row Number (RIRN)
     c02RelationChange = QtCore.pyqtSignal() # Emit when col0 & col2 changes
+    cb0Change = QtCore.pyqtSignal() # Emit when combo box in col0 changes
 
     def __init__(self, csvTable, parent):
         """Class in charge of the first three columns in self._ui.csv
@@ -449,6 +465,7 @@ class BindingTable(QtCore.QObject):
             self._refreshCol0()
             self._refreshCol1()
             self._refreshCol2()
+            self.cb0Change.emit()
 
         elif changedCol[1]: # Refresh cols{1,2}
             self._refreshCol1()
