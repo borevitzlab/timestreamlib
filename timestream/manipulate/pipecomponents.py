@@ -229,7 +229,8 @@ class ColorCardDetector (PipeComponent):
                            self.ccdPyramid[0].shape[0]]
             score, loc, angle = cd.matchTemplatePyramid(
                 self.imagePyramid, self.ccdPyramid,
-                0, EstimatedLocation=self.ccdPosition, SearchRange=SearchRange)
+                0, EstimatedLocation=self.colorcardPosition,
+                SearchRange=SearchRange)
             if score > 0.3:
                 # extract color information
                 self.foundCard = self.image[
@@ -237,8 +238,9 @@ class ColorCardDetector (PipeComponent):
                     loc[0] - ccdImg.shape[1] // 2:loc[0] + ccdImg.shape[1] // 2]
                 self.ccdColors, _ = cd.getColorcardColors(self.foundCard,
                                                           GridSize=[6, 4])
-                self.ccdParams = cd.estimateColorParameters(self.ccdTrueColors,
-                                                            self.ccdColors)
+                self.ccdParams = cd.estimateColorParameters(
+                        self.colorcardTrueColors,
+                        self.ccdColors)
                 # Save colourcard image to instance
                 self.colorcardImage = ccdImg
                 # for displaying

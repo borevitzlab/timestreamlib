@@ -63,7 +63,6 @@ class ImagePotRectangle(object):
             self._rect = np.concatenate((pt1, pt2))
 
         # Check to see if rect is within size.
-        print(self._rect, self._imgheight, self._imgwidth)
         if sum(self._rect < 0) > 0 \
                 or sum(self._rect[[1, 3]] > self._imgheight) > 0 \
                 or sum(self._rect[[0, 2]] > self._imgwidth) > 0:
