@@ -969,6 +969,13 @@ class DerandomizeTimeStreams (PipeComponent):
             hF = potGrpCol*maxPotRect[1]
             hT = hF + maxPotRect[1]
 
+            # Increase images size to fit maximum
+            wdiff = maxPotRect[0] - pot.rect.width
+            hdiff = maxPotRect[1] - pot.rect.height
+            if wdiff > 0 or hdiff > 0:
+                pot.increaseRect(leftby=0, topby=0,
+                        rightby=wdiff, bottomby=hdiff)
+
             midGrpImg[wF:wT, hF:hT, :] = pot.getImage()
             j += 1
 
@@ -1003,12 +1010,18 @@ class DerandomizeTimeStreams (PipeComponent):
             if timestamp is None:
                 tsimgs[pth] = ts.curr()
             else:
-                tsimgs[pth] = ts.getImgByTimeStamp(timestamp)
+                try:
+                    tsimgs[pth] = ts.getImgByTimeStamp(timestamp)
+                except RuntimeError:
+                    # Not all timestamps exist for all TimeStreams.
+                    pass
 
         # mid -> meta ids
         # pth -> TimeStream path
         # pts -> list of pot numbers
         for mid, pth, pts in mid_pth_pts:
+            if pth not in tsimgs.keys():
+                continue
             img = tsimgs[pth]
             if img.ipm is None:
                 continue

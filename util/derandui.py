@@ -71,6 +71,17 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.show()
 
     def _derandomize(self):
+        # 0. Get the output directory
+        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                "Select Output Derandomization Directory", "", \
+                QtGui.QFileDialog.ShowDirsOnly \
+                | QtGui.QFileDialog.DontResolveSymlinks)
+
+        if tsdir == "": # Handle the cancel
+            return
+
+        tsoutpath = os.path.basename(str(tsdir))
+
         # FIXME check if we have all the information.
         # 1.Temp struct to relate tspath with metaid list.
         tsts = {}
@@ -111,10 +122,17 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             # We search for r1cell.text() in every TS
             for path, midlist in tsts.iteritems():
+                # Don't know if midlist keys will be ints or strs.
+                midlistkey = None
                 if str(r1cell.text()) in midlist:
+                    midlistkey = str(r1cell.text())
+                elif int(r1cell.text()) in midlist:
+                    midlistkey = int(r1cell.text())
+
+                if midlistkey is not None:
                     if path not in derandStruct[mid]:
                         derandStruct[mid][path] = []
-                    derandStruct[mid][path].append(midlist[str(r1cell.text())])
+                    derandStruct[mid][path].append(midlist[midlistkey])
                     break
 
         # 3. Create pipeline components
@@ -124,8 +142,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
         plc.setVal("pipeline._1.name", "imagewrite")
         plc.setVal("pipeline._1.outstream", "outts")
 
-        # FIXME: we need to add a box that asks for the output dir.
-        tsoutpath = "/home/joel/.Trash/derandomize"
         outts = TimeStream()
         outts.name = "derandomized"
         outts.create(tsoutpath)
