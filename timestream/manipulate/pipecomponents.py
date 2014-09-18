@@ -131,12 +131,15 @@ class PCExBrakeInPipeline(PCException):
 
 class ImageUndistorter (PipeComponent):
     actName = "undistort"
-    argNames = {"mess": [True, "Apply lens distortion correction"],
-                "cameraMatrix": [True, "3x3 matrix for mapping physical"
-                                 + "coordinates with screen coordinates"],
-                "distortCoefs": [True, "5x1 matrix for image distortion"],
-                "imageSize": [True, "2x1 matrix: [width, height]"],
-                "rotationAngle": [True, "rotation angle for the image"]}
+    argNames = {
+        "mess": [True, "Apply lens distortion correction"],
+        "cameraMatrix": [True,
+                         "3x3 matrix for mapping physical coordinates with "
+                                 "screen coords"],
+        "distortCoefs": [True, "5x1 matrix for image distortion"],
+        "imageSize": [True, "2x1 matrix: [width, height]"],
+        "rotationAngle": [True, "rotation angle for the image"],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -179,29 +182,27 @@ class ImageUndistorter (PipeComponent):
 
 class ColorCardDetector (PipeComponent):
     actName = "colorcarddetect"
-    argNames = {"mess": [True, "Detect color card"],
-                "colorcardTrueColors": [True, "Matrix representing the "
-                                        + "groundtrue color card colors"],
-                "minIntensity": [
-                    False,
-                    "Skip colorcard detection if intensity below this value",
-                    0],
-                "colorcardFile": [True, "Path to the color card file"],
-                "colorcardPosition": [True, "(x,y) of the colorcard"],
-                "settingPath": [True, "Path to setting files"],
-                "useWhiteBackground": [
-                    False,
-                    "Use white background as reference for color correction",
-                    False],
-                "backgroundWindow":
-                [False,
-                 "Window background region with top-left and botom-right corners",
-                 []],
-                "maxIntensity": [
-                    False,
-                    "Max intensity when correcting using white background",
-                    255]
-                }
+    argNames = {
+        "mess": [True, "Detect color card"],
+        "cccdTrueColors": [True,
+                           "Matrix representing the groundtrue color card colors"],
+        "minIntensity": [False,
+                         "Skip colorcard detection if intensity below this value",
+                         0],
+        "ccdFile": [True, "Path to the color card file"],
+        "ccdPosition": [True, "(x,y) of the colorcard"],
+        "settingPath": [True, "Path to setting files"],
+        "useWhiteBackground": [False,
+                               "White background as reference for color corretion?",
+                               False],
+        "backgroundWindow": [False,
+                             "Window background region with top-left &"
+                                 "botom-right corners",
+                             []],
+        "maxIntensity": [False,
+                         "Max intensity when correcting using white background",
+                         255],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage, list]
@@ -225,14 +226,12 @@ class ColorCardDetector (PipeComponent):
             # FIXME: this should be handled with an error.
             LOG.warn('Image is too dark, skiping colorcard detection!')
             return([self.image, [None, None, None]])
-
         if not self.useWhiteBackground:
             self.imagePyramid = cd.createImagePyramid(self.image)
             ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
             if ccdImg is None:
                 raise ValueError("Failed to read %s" % self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
-
             # create image pyramid for multiscale matching
             SearchRange = [self.ccdPyramid[0].shape[1],
                            self.ccdPyramid[0].shape[0]]
@@ -259,7 +258,6 @@ class ColorCardDetector (PipeComponent):
         else:
             self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
-
         return([tsi, self.ccdParams])
 
     def show(self):
@@ -276,7 +274,6 @@ class ColorCardDetector (PipeComponent):
                     'ColorCard',
                     color='yellow')
                 plt.title('Detected color card')
-
                 plt.subplot(212)
                 plt.imshow(self.foundCard)
                 plt.title('Detected color card')
@@ -302,16 +299,15 @@ class ColorCardDetector (PipeComponent):
 
 class ImageColorCorrector (PipeComponent):
     actName = "colorcorrect"
-    argNames = {"mess": [False, "Correct image color"],
-                "writeImage": [
-                    False,
-                    "Whether to write processing image to output timestream",
-                    False],
-                "minIntensity": [
-                    False,
-                    "Skip colorcard correction if intensity below this value",
-                    0]
-                }
+    argNames = {
+        "mess": [False, "Correct image color"],
+        "writeImage": [False,
+                       "Whether to write processing image to output timestream",
+                       False],
+        "minIntensity": [False,
+                         "Skip colorcard correction if intensity below this value",
+                         0],
+    }
 
     runExpects = [TimeStreamImage, list]
     runReturns = [TimeStreamImage]
@@ -358,13 +354,14 @@ class ImageColorCorrector (PipeComponent):
 
 class TrayDetector (PipeComponent):
     actName = "traydetect"
-    argNames = {"mess": [False, "Detect tray positions"],
-                "trayFiles": [True, "File name pattern for trays "
-                              + "such as Trays_%02d.png"],
-                "trayNumber": [True, "Number of trays in given image"],
-                "trayPositions": [True, "Estimated tray positions"],
-                "settingPath": [True, "Path to setting files"]
-                }
+    argNames = {
+        "mess": [False, "Detect tray positions"],
+        "trayFiles": [True,
+                      "File name pattern for trays such as Trays_%02d.png"],
+        "trayNumber": [True, "Number of trays in given image"],
+        "trayPositions": [True, "Estimated tray positions"],
+        "settingPath": [True, "Path to setting files"],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage, list, list]
@@ -434,14 +431,15 @@ class TrayDetector (PipeComponent):
 
 class PotDetector (PipeComponent):
     actName = "potdetect"
-    argNames = {"mess": [False, "Detect pot position"],
-                "potFile": [True, "File name of a pot image"],
-                "potTemplateFile": [True, "File name of a pot template image"],
-                "potPositions": [True, "Estimated pot positions"],
-                "potSize": [True, "Estimated pot size"],
-                "traySize": [True, "Estimated tray size"],
-                "settingPath": [True, "Path to setting files"]
-                }
+    argNames = {
+        "mess": [False, "Detect pot position"],
+        "potFile": [True, "File name of a pot image"],
+        "potTemplateFile": [True, "File name of a pot template image"],
+        "potPositions": [True, "Estimated pot positions"],
+        "potSize": [True, "Estimated pot size"],
+        "traySize": [True, "Estimated tray size"],
+        "settingPath": [True, "Path to setting files"],
+    }
 
     runExpects = [TimeStreamImage, list, list]
     runReturns = [TimeStreamImage]
@@ -587,16 +585,15 @@ class PotDetector (PipeComponent):
 
 class PlantExtractor (PipeComponent):
     actName = "plantextract"
-    argNames = {"mess": [False, "Extract plant biometrics", "default message"],
-                "minIntensity": [
-                    False,
-                    "Skip image segmentation if intensity below this value",
-                    0],
-                "meth": [False, "Segmentation Method", "k-means-square"],
-                "methargs": [False,
-                             "Method Args: maxIter, epsilon, attempts",
-                             {}],
-                "parallel": [False, "Whether to run in parallel", False]}
+    argNames = {
+        "mess": [False, "Extract plant biometrics", "default message"],
+        "minIntensity": [False,
+                         "Skip image segmentation if intensity below this value",
+                         0],
+        "meth": [False, "Segmentation Method", "k-means-square"],
+        "methargs": [False, "Method Args: maxIter, epsilon, attempts", {}],
+        "parallel": [False, "Whether to run in parallel", False],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -675,8 +672,10 @@ class PlantExtractor (PipeComponent):
 
 class FeatureExtractor (PipeComponent):
     actName = "featureextract"
-    argNames = {"mess": [False, "Default message", "Extracting Features"],
-                "features": [False, "Features to extract", ["all"]]}
+    argNames = {
+        "mess": [False, "Default message", "Extracting Features"],
+        "features": [False, "Features to extract", ["all"]],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -695,8 +694,10 @@ class FeatureExtractor (PipeComponent):
 
 class ResultingFeatureWriter_ndarray (PipeComponent):
     actName = "writefeatures_ndarray"
-    argNames = {"mess": [False, "Default message", "Writing the features"],
-                "outputfile": [True, "File where the output goes"]}
+    argNames = {
+        "mess": [False, "Default message", "Writing the features"],
+        "outputfile": [True, "File where the output goes"],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -754,9 +755,11 @@ class ResultingFeatureWriter_ndarray (PipeComponent):
 
 class ResultingFeatureWriter_csv (PipeComponent):
     actName = "writefeatures_csv"
-    argNames = {"mess": [False, "Default message", "Writing the features"],
-                "outputdir": [False, "Dir where the output files go", None],
-                "overwrite": [False, "Whether to overwrite out files", True]}
+    argNames = {
+        "mess": [False, "Default message", "Writing the features"],
+        "outputdir": [False, "Dir where the output files go", None],
+        "overwrite": [False, "Whether to overwrite out files", True],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -819,8 +822,10 @@ class ResultingFeatureWriter_csv (PipeComponent):
 
 class ResultingImageWriter (PipeComponent):
     actName = "imagewrite"
-    argNames = {"mess": [False, "Output Message", "Writing Image"],
-                "outstream": [True, "Name of stream to use"]}
+    argNames = {
+        "mess": [False, "Output Message", "Writing Image"],
+        "outstream": [True, "Name of stream to use"],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
@@ -847,9 +852,10 @@ class ResultingImageWriter (PipeComponent):
 
 class PopulatePotMetaIds (PipeComponent):
     actName = "populatepotmetaids"
-    argNames = {"mess": [False, "Output Message", "Populating Metaids"],
-                "metas": [False,
-                          "Dictionary binidng potID with global IDS", {}]}
+    argNames = {
+        "mess": [False, "Output Message", "Populating Metaids"],
+        "metas": [False, "Dictionary binidng potID with global IDS", {}],
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
