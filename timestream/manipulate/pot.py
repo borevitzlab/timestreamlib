@@ -290,9 +290,9 @@ class ImagePotHandler(object):
 
     @rect.setter
     def rect(self, r):
-        if isinstance(r, list):
+        if isinstance(r, np.ndarray):
             if len(r) != 4:
-                raise TypeError("Pass a list of len 4 to set a rectangle")
+                raise TypeError("Pass an ndarray of len 4 to set a rectangle")
             else:
                 self._rect = ImagePotRectangle(r, self._ipm.image.pixels.shape)
 
@@ -374,14 +374,14 @@ class ImagePotHandler(object):
 
         return img
 
-    def increaseRect(self, by=5):
+    def increaseRect(self, leftby=5, topby=5, rightby=5, bottomby=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([-by, -by, by, by])
+        r = self._rect.asList() + np.array([-leftby, -topby, rightby, bottomby])
         self.rect = r
 
-    def reduceRect(self, by=5):
+    def reduceRect(self, leftby=5, tobby=5, rightby=5, bottom=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([by, by, -by, -by])
+        r = self._rect.asList() + np.array([leftby, topby, -rightby, -bottomby])
         self.rect = r
 
     def calcFeatures(self, feats):
