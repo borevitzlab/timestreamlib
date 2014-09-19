@@ -66,7 +66,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ftc.cb0Change.connect(self._trackTSComboBoxOffset)
 
         # Button connection
-        self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
+        self._ui.bAddCsv.clicked.connect(self._ftc.selectCsv)
+        self._ui.bAddTs.clicked.connect(self._addTS)
         self._ui.bDerand.clicked.connect(self._derandomize)
 
         # Hide the progress bar stuff
@@ -188,48 +189,54 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.pbts.setVisible(False)
         self._ui.bCancel.setVisible(False)
 
+    # FIXME: might want to handle the return statements differently now that
+    #        _addTS is a separate method.
+    def _addTS(self):
+        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                "Select Time Stream", "", \
+                QtGui.QFileDialog.ShowDirsOnly \
+                | QtGui.QFileDialog.DontResolveSymlinks)
+
+        if tsdir == "": # Handle the cancel
+            return
+
+        tsbasedir = os.path.basename(str(tsdir))
+
+        try: # See if TS has needed information.
+            tst = TimeStreamTraverser(str(tsdir))
+            if "metas" not in tst.data["settings"]["general"].keys():
+                msg = "metas needs to be defined in TS {} settings.".\
+                        format(tst.name)
+                raise RuntimeError(msg)
+        except Exception as e:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error Opening Time Stream {}". \
+                    format(tsbasedir))
+            errmsg.showMessage(str(e))
+            return
+
+        self._ui.tslist.insertRow(0)
+
+        i = QtGui.QTableWidgetItem("-")
+        i.setTextAlignment(QtCore.Qt.AlignCenter)
+        self._ui.tslist.setItem(0,0,i)
+
+        i = QtGui.QTableWidgetItem(tsbasedir)
+        i.setTextAlignment(QtCore.Qt.AlignLeft)
+        midnames = tst.data["settings"]["general"]["metas"].keys()
+        midnames.append("potid") # potid is the default.
+        tstdata = [tst, midnames, 0] # TimeStream object, items, offset
+        i.setData(QtCore.Qt.UserRole, tstdata)
+        self._ui.tslist.setItem(0,1,i)
+
+        # Show if it is the first.
+        self.selectRowTS(self._activeTS+1)
+
+
     def onClickTimeStreamList(self, row, column):
         # Adding
         if self._ui.tslist.item(row,column) is self.addTsItem:
-            tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                    "Select Time Stream", "", \
-                    QtGui.QFileDialog.ShowDirsOnly \
-                    | QtGui.QFileDialog.DontResolveSymlinks)
-
-            if tsdir == "": # Handle the cancel
-                return
-
-            tsbasedir = os.path.basename(str(tsdir))
-
-            try: # See if TS has needed information.
-                tst = TimeStreamTraverser(str(tsdir))
-                if "metas" not in tst.data["settings"]["general"].keys():
-                    msg = "metas needs to be defined in TS {} settings.".\
-                            format(tst.name)
-                    raise RuntimeError(msg)
-            except Exception as e:
-                errmsg = QtGui.QErrorMessage(self)
-                errmsg.setWindowTitle("Error Opening Time Stream {}". \
-                        format(tsbasedir))
-                errmsg.showMessage(str(e))
-                return
-
-            self._ui.tslist.insertRow(0)
-
-            i = QtGui.QTableWidgetItem("-")
-            i.setTextAlignment(QtCore.Qt.AlignCenter)
-            self._ui.tslist.setItem(0,0,i)
-
-            i = QtGui.QTableWidgetItem(tsbasedir)
-            i.setTextAlignment(QtCore.Qt.AlignLeft)
-            midnames = tst.data["settings"]["general"]["metas"].keys()
-            midnames.append("potid") # potid is the default.
-            tstdata = [tst, midnames, 0] # TimeStream object, items, offset
-            i.setData(QtCore.Qt.UserRole, tstdata)
-            self._ui.tslist.setItem(0,1,i)
-
-            # Show if it is the first.
-            self.selectRowTS(self._activeTS+1)
+            self._addTS()
 
         # Deleting
         elif column == 0 \
