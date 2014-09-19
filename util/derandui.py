@@ -69,8 +69,16 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.bOpenCsv.clicked.connect(self._ftc.selectCsv)
         self._ui.bDerand.clicked.connect(self._derandomize)
 
+        # Hide the progress bar stuff
         self._ui.pbts.setVisible(False)
+        self._ui.bCancelClicked = False
+        self._ui.bCancel.setVisible(False)
+        self._ui.bCancel.clicked.connect(self._cancelDerand)
+
         self._ui.show()
+
+    def _cancelDerand(self):
+        self._ui.bCancelClicked = True
 
     def _derandomize(self):
         # 0. Get the output directory
@@ -154,7 +162,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pl = pipeline.ImagePipeline(plc.pipeline, ctx)
 
         # 4. Execute pipeline
+        self._ui.bCancelClicked = False
         self._ui.pbts.setVisible(True)
+        self._ui.bCancel.setVisible(True)
         self._ui.pbts.setMinimum(0)
         self._ui.pbts.setMaximum(len(timestamps))
         self._ui.pbts.reset()
@@ -170,8 +180,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
                         format(tsoutpath))
                 errmsg.showMessage(str(e))
                 break
+
+            if self._ui.bCancelClicked:
+                break
+
         self._ui.pbts.setValue(self._ui.pbts.maximum())
         self._ui.pbts.setVisible(False)
+        self._ui.bCancel.setVisible(False)
 
     def onClickTimeStreamList(self, row, column):
         # Adding
