@@ -236,9 +236,11 @@ class TestTimeStreamIterByFiles(TestCase):
         res = ts.iter_by_files()
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
+            self.assertIsNot(image, None)
             self.assertEqual(image.path, helpers.TS_FILES_JPG[iii])
             self.assertEqual(image.datetime,
                              helpers.TS_DATES_PARSED[iii])
+            self.assertIsNot(image.pixels, None)
             self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
             self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
@@ -255,10 +257,12 @@ class TestTimeStreamIterByTimepoints(TestCase):
         self.assertTrue(isgenerator(res))
         for iii, image in enumerate(res):
             # Check lazy-loading
+            self.assertIsNot(image, None)
             self.assertIsNone(image._pixels)
             self.assertEqual(image.path, helpers.TS_FILES_JPG[iii])
             self.assertEqual(image.datetime,
                              helpers.TS_DATES_PARSED[iii])
+            self.assertIsNot(image.pixels, None)
             self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
             self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
