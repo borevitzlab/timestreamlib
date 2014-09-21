@@ -135,7 +135,7 @@ class ImageUndistorter (PipeComponent):
         "mess": [True, "Apply lens distortion correction"],
         "cameraMatrix": [True,
                          "3x3 matrix for mapping physical coordinates with "
-                                 "screen coords"],
+                         "screen coords"],
         "distortCoefs": [True, "5x1 matrix for image distortion"],
         "imageSize": [True, "2x1 matrix: [width, height]"],
         "rotationAngle": [True, "rotation angle for the image"],
@@ -197,7 +197,7 @@ class ColorCardDetector (PipeComponent):
                                False],
         "backgroundWindow": [False,
                              "Window background region with top-left &"
-                                 "botom-right corners",
+                             "botom-right corners",
                              []],
         "maxIntensity": [False,
                          "Max intensity when correcting using white background",
