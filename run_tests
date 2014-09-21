@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -e
+set -x
+
 git submodule update --init
 nosetests $@ --nologcapture --with-coverage --cover-package timestream
-exit $?
+test -n "$(which flake8)" && flake8 --max-line-length=85 timestream tests --exclude tests/helpers.py
