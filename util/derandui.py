@@ -24,6 +24,7 @@ from timestream import TimeStreamTraverser, TimeStream
 from collections import namedtuple
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
+import yaml
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -69,6 +70,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.bAddCsv.clicked.connect(self._ftc.selectCsv)
         self._ui.bAddTs.clicked.connect(self._addTS)
         self._ui.bDerand.clicked.connect(self._derandomize)
+        self._ui.bGenConf.clicked.connect(self._genConfig)
 
         # Hide the progress bar stuff
         self._ui.pbts.setVisible(False)
@@ -81,18 +83,34 @@ class DerandomizeGUI(QtGui.QMainWindow):
     def _cancelDerand(self):
         self._ui.bCancelClicked = True
 
-    def _derandomize(self):
-        # 0. Get the output directory
-        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                "Select Output Derandomization Directory", "", \
-                QtGui.QFileDialog.ShowDirsOnly \
-                | QtGui.QFileDialog.DontResolveSymlinks)
+    def _genConfig(self):
 
-        if tsdir == "": # Handle the cancel
+        cFile = QtGui.QFileDialog.getSaveFileName(self, \
+                "Select Filename for Config File", "", \
+                options=QtGui.QFileDialog.DontResolveSymlinks)
+
+        # FIXME: Make sure we are not overwriting
+        if cFile == "": # Handle the cancel
             return
 
-        tsoutpath = os.path.basename(str(tsdir))
+        derandStruct, _, tsts = self._createDerandStruct()
 
+        for i in range(len(tsts.keys())):
+            tsts[tsts.keys()[i]] = i
+
+        for mid, midlist in derandStruct.iteritems():
+            for p, _ in midlist.iteritems():
+                newKey = tsts[p]
+                derandStruct[mid][newKey] = derandStruct[mid].pop(p)
+
+        # reverse tsts
+        tsts = {y:x for x,y in tsts.iteritems()}
+
+        f = file(cFile, "w")
+        yaml.dump([tsts, derandStruct], f)
+        f.close()
+
+    def _createDerandStruct(self):
         # FIXME check if we have all the information.
         # 1.Temp struct to relate tspath with metaid list.
         tsts = {}
@@ -146,6 +164,23 @@ class DerandomizeGUI(QtGui.QMainWindow):
                     derandStruct[mid][path].append(midlist[midlistkey])
                     break
 
+        return derandStruct, timestamps, tsts
+
+    def _derandomize(self):
+        # 0. Get the output directory
+        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                "Select Output Derandomization Directory", "", \
+                QtGui.QFileDialog.ShowDirsOnly \
+                | QtGui.QFileDialog.DontResolveSymlinks)
+
+        if tsdir == "": # Handle the cancel
+            return
+
+        tsoutpath = os.path.basename(str(tsdir))
+
+        # 1,2 create timestamps and derand struct.
+        derandStruct, timestamps, _ = self._createDerandStruct()
+
         # 3. Create pipeline components
         plc = pipeconf.PCFGSection("--")
         plc.setVal("pipeline._0.name", "derandomize")
@@ -189,8 +224,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.pbts.setVisible(False)
         self._ui.bCancel.setVisible(False)
 
-    # FIXME: might want to handle the return statements differently now that
-    #        _addTS is a separate method.
+    # FIXME: handle returning differently now that _addTS is a separate method.
     def _addTS(self):
         tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
                 "Select Time Stream", "", \
