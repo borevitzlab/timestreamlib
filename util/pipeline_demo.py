@@ -163,10 +163,6 @@ ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
 if not os.path.exists(ctx.outputroot):
     os.mkdir(ctx.outputroot)
 
-# Dictionary where we put all values that should be added with an image as soon
-# as it is output with the TimeStream
-ctx.setVal("outputwithimage", {})
-
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
 

@@ -399,9 +399,6 @@ class TrayDetector (PipeComponent):
 
             self.trayLocs.append(loc)
 
-        # add tray location information
-        context.outputwithimage["trayLocs"] = self.trayLocs
-
         tsi.pixels = self.image
         return([tsi, self.imagePyramid, self.trayLocs])
 
@@ -550,7 +547,6 @@ class PotDetector (PipeComponent):
                 potID += 1
                 trayID += 1
 
-        context.outputwithimage["potLocs"] = self.potLocs2
         return([tsi])
 
     def show(self):
@@ -839,9 +835,6 @@ class ResultingImageWriter (PipeComponent):
         self.img = args[0]
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
-        # This is for derandomization
-        #for key, value in context.outputwithimage.iteritems():
-        #    self.img.data[key] = value
 
         if len(self.addStats) > 0:
             self.img.pixels = self.putStatsAllPots()
