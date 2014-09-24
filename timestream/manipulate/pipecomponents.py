@@ -31,12 +31,13 @@ import time
 import datetime
 
 from timestream import TimeStreamImage, TimeStream, TimeStreamTraverser
+from timestream.manipulate import setup_console_logger
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
 
+setup_console_logger(level=logging.INFO)
 LOG = logging.getLogger("CONSOLE")
-
 
 class PipeComponent (object):
     # Name has to be unique among pipecomponents

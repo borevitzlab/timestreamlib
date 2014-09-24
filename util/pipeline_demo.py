@@ -30,6 +30,9 @@ from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
+timestream.setup_module_logging(level=logging.INFO)
+LOG = logging.getLogger("timestreamlib")
+
 CLI_OPTS = """
 USAGE:
     pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML] [--set=CONFIG]
@@ -111,7 +114,6 @@ if opts['--set']:
 print(plConf)
 
 # initialise input timestream for processing
-timestream.setup_module_logging(level=logging.INFO)
 ts = timestream.TimeStream()
 ts.load(inputRootPath)
 # FIXME: ts.data cannot have plConf because it cannot be handled by json.
@@ -214,20 +216,20 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
                                  ignored_timestamps = ignored_timestamps):
 
     if len(img.pixels) == 0:
-        print('Missing image at {}'.format(img.datetime))
+        LOG.info('Missing image at {}'.format(img.datetime))
         continue
 
     # Detach img from timestream. We don't need it!
     img.parent_timestream = None
-    print("Process", img.path, '...'),
-    print("Time stamp", img.datetime)
+    LOG.info("Process {} ...".format(img.path))
+    LOG.info("Time stamp {}".format(img.datetime))
     ctx.setVal("origImg", img)
     try:
         result = pl.process(ctx, [img], visualise)
     except PCExBrakeInPipeline as bip:
-        print(bip.message)
+        LOG.info(bip.message)
         continue
-    print("Done")
+    LOG.info("Done")
 
 # Example of the 2 yaml configuration files:
 #
