@@ -456,8 +456,8 @@ class PotDetector (PipeComponent):
              potImage.shape[0]))
         self.potPyramid = cd.createImagePyramid(potTemplateImage)
 
-        XSteps = self.traySize[0] // self.potSize[0]
-        YSteps = self.traySize[1] // self.potSize[1]
+        XSteps = int(round(self.traySize[0] / float(self.potSize[0])))
+        YSteps = int(round(self.traySize[1] / float(self.potSize[1])))
         StepX = self.traySize[0] // XSteps
         StepY = self.traySize[1] // YSteps
 
