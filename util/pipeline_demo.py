@@ -36,8 +36,10 @@ LOG = logging.getLogger("timestreamlib")
 CLI_OPTS = """
 USAGE:
     pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML] [--set=CONFIG]
+    pipeline_demo.py (-h | --help)
 
 OPTIONS:
+    -h --help   Show this screen.
     -i IN       Input timestream directory
     -o OUT      Output directory
     -p YML      Path to pipeline yaml configuration. Defaults to
@@ -160,6 +162,7 @@ for i,timestamps in enumerate(existing_timestamps):
 ignored_timestamps = list(ts_set)
 print('ignored_timestamps = ', ignored_timestamps)
 
+# FIXME: Gets created even if we don't have any additional data.
 # We put everything else that is not an time series into outputroot.
 ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
 if not os.path.exists(ctx.outputroot):
