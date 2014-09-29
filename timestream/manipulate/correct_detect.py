@@ -9,6 +9,7 @@ from __future__ import absolute_import, division
 
 import cv2
 import logging
+import warnings
 import matplotlib.pylab as plt
 import numpy as np
 from scipy import optimize
@@ -463,11 +464,15 @@ def getColorMatchingErrorVectorised(Arg, Colors, Captured_Colors):
     ColorConstant = Arg[9:12].reshape([3, 1])
     ColorGamma = Arg[12:15]
 
-    TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
-    Corrected_Colors = np.zeros_like(TempRGB)
-    Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
-    Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
-    Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
+    # We get warnings when base of power is negative. Ignore them as they
+    # probably are not significant in the least square search
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
+        Corrected_Colors = np.zeros_like(TempRGB)
+        Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
+        Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
+        Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
 
     Diff = Colors - Corrected_Colors
     ErrorList = np.sqrt(np.sum(Diff * Diff, axis=0)).tolist()
