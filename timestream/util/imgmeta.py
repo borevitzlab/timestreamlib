@@ -20,11 +20,8 @@
 
 .. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
 """
-try:
-    import exifread as er
-    library = "exifread"
-except ImportError:
-    library = "wand"
+import datetime
+import exifread as er
 from string import (
     digits,
 )
@@ -45,35 +42,19 @@ def get_exif_tags(image, mode="silent"):
     """
     if mode not in {"silent", "raise"}:
         raise ValueError("Bad get_exif_tags mode '{}'".format(mode))
-    if library == "wand":
-        # use the wand library, as either we've been told to or the faster
-        # exifread isn't available
-        from wand.image import Image
-        with Image(filename=image) as img:
-            exif = {k[5:]: v for k, v in img.metadata.items() if
-                    k.startswith('exif:')}
-    elif library == "exifread":
-        try:
-            er.__doc__
-        except NameError:
-            import exifread as er
-        with open(image, "rb") as fh:
-            tags = er.process_file(fh, details=False)
-        tags = dict_unicode_to_str(tags)
-        # remove the first bit off the tags
-        exif = {}
-        for k, v in tags.items():
-            # Remove the EXIF/Image category from the keys
-            k = " ".join(k.split(" ")[1:])
-            # weird exif tags in CR2s start with a 2/3, or have hex in them
-            if k[0] in digits or "0x" in k:
-                continue
-            v = str(v)
-            exif[k] = v
-    else:
-        raise ValueError(
-            "Library '{}' not supported (only wand and exifread are".format(
-                library))
+    with open(image, "rb") as fh:
+        tags = er.process_file(fh, details=False)
+    tags = dict_unicode_to_str(tags)
+    # remove the first bit off the tags
+    exif = {}
+    for k, v in tags.items():
+        # Remove the EXIF/Image category from the keys
+        k = " ".join(k.split(" ")[1:])
+        # weird exif tags in CR2s start with a 2/3, or have hex in them
+        if k[0] in digits or "0x" in k:
+            continue
+        v = str(v)
+        exif[k] = v
     return exif
 
 
@@ -97,3 +78,17 @@ def get_exif_tag(image, tag, mode="silent"):
             return None
         else:
             raise exc
+
+
+def get_exif_date(image):
+    """Get a tag from image exif header
+
+    :param str image: Path to image file.
+    :returns: datetime.datetime -- The DateTime EXIF tag, parsed.
+    :raises: KeyError, ValueError
+    """
+    try:
+        str_date = get_exif_tag(image, "DateTime", "raise")
+        return datetime.datetime.strptime(str_date, "%Y:%m:%d %H:%M:%S")
+    except (KeyError, ValueError):
+        return None

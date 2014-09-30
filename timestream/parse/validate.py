@@ -26,7 +26,6 @@ from voluptuous import Schema, Required, Range, All, Length, Any
 
 from timestream.util.validation import (
     v_datetime,
-    v_date,
     v_num_str,
 )
 
@@ -62,6 +61,16 @@ __TS_V1_LEVELS = [
     '{tsname:s}_%Y_%m_%d_%H_%M_%S_{n:02d}.{ext:s}',
 ]
 TS_V1_FMT = path.join(*__TS_V1_LEVELS)
+
+TS_MANIFEST_KEYS = [
+    "name",
+    "version",
+    "start_datetime",
+    "end_datetime",
+    "image_type",
+    "extension",
+    "interval",
+]
 
 
 def validate_timestream_manifest(manifest):

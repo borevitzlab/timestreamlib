@@ -1,11 +1,24 @@
 import json
-from unittest import TestCase, skip, skipIf, skipUnless
+from unittest import TestCase
 
 from tests import helpers
 from timestream.util import (
     imgmeta,  # module
     dict_unicode_to_str,
 )
+
+
+class TestGetExifDate(TestCase):
+    _multiprocess_can_split_ = True
+    maxDiff = None
+
+    def test_get_exif_date_jpg(self):
+        r = imgmeta.get_exif_date(helpers.FILES["zeros_jpg"])
+        self.assertEqual(r, helpers.ZEROS_DATETIME)
+
+    def test_get_exif_date_tiff(self):
+        r = imgmeta.get_exif_date(helpers.FILES["basic_tiff"])
+        self.assertEqual(r, helpers.ZEROS_DATETIME)
 
 
 class TestGetExifTag(TestCase):
@@ -34,13 +47,13 @@ class TestGetExifTag(TestCase):
                                      mode="raise")
             self.assertIsNone(r)
 
-    def test_get_exif_tag_cr2(self):
-        r = imgmeta.get_exif_tag(helpers.FILES["basic_cr2"], "DateTime")
+    def test_get_exif_tag_tiff(self):
+        r = imgmeta.get_exif_tag(helpers.FILES["basic_tiff"], "DateTime")
         self.assertEqual(r, "2013:11:12 20:53:09")
 
-    def test_get_exif_tag_cr2_raise(self):
+    def test_get_exif_tag_tiff_raise(self):
         r = imgmeta.get_exif_tag(
-            helpers.FILES["basic_cr2"],
+            helpers.FILES["basic_tiff"],
             "DateTime",
             mode="raise"
         )
@@ -54,8 +67,8 @@ class TestGetExifTags(TestCase):
     def setUp(self):
         with open(helpers.FILES["basic_jpg_exif"]) as fh:
             self.exif_data_jpg = dict_unicode_to_str(json.load(fh))
-        with open(helpers.FILES["basic_cr2_exif"]) as fh:
-            self.exif_data_cr2 = dict_unicode_to_str(json.load(fh))
+        with open(helpers.FILES["basic_tiff_exif"]) as fh:
+            self.exif_data_tiff = dict_unicode_to_str(json.load(fh))
 
     def test_get_exif_tags_jpg(self):
         r = imgmeta.get_exif_tags(helpers.FILES["basic_jpg"])
@@ -76,20 +89,20 @@ class TestGetExifTags(TestCase):
         self.assertNotIn("NOTATAG", r)
         self.assertEqual(r["DateTime"], "2013:11:12 20:53:09")
 
-    def test_get_exif_tags_cr2(self):
-        r = imgmeta.get_exif_tags(helpers.FILES["basic_cr2"])
-        self.assertDictEqual(r, self.exif_data_cr2)
+    def test_get_exif_tags_tiff(self):
+        r = imgmeta.get_exif_tags(helpers.FILES["basic_tiff"])
+        self.assertDictEqual(r, self.exif_data_tiff)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
         self.assertEqual(r["DateTime"], "2013:11:12 20:53:09")
 
-    def test_get_exif_tags_cr2_raise(self):
+    def test_get_exif_tags_tiff_raise(self):
         r = imgmeta.get_exif_tags(
-            helpers.FILES["basic_cr2"],
+            helpers.FILES["basic_tiff"],
             mode="raise"
         )
-        self.assertDictEqual(r, self.exif_data_cr2)
+        self.assertDictEqual(r, self.exif_data_tiff)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)

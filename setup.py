@@ -1,4 +1,11 @@
 from setuptools import setup
+import versioneer
+
+versioneer.VCS = 'git'
+versioneer.versionfile_source = 'timestream/_version.py'
+versioneer.versionfile_build = 'timestream/_version.py'
+versioneer.tag_prefix = ''
+versioneer.parentdir_prefix = 'timestreamlib-'
 
 desc = """
 timestream: Utilities and a python library for manipulating timelapses in the
@@ -10,6 +17,7 @@ install_requires = [
         "docopt==0.6.2",
         "voluptuous==0.8.4",
         "netCDF4==1.1.0",
+        "scikit-image>=0.10.1"
         ]
 
 test_requires = [
@@ -27,13 +35,14 @@ setup(
         'timestream.parse',
         'timestream.util',
         ],
-    version="0.1a2",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     install_requires=install_requires,
     tests_require=test_requires,
     description=desc,
     author="Kevin Murray",
     author_email="spam@kdmurray.id.au",
-    url="https://github.com/borevitzlab/timestream",
+    url="https://github.com/borevitzlab/timestreamlib",
     keywords=["timestream", "timelapse", "photography", "video"],
     classifiers=[
         "Programming Language :: Python",

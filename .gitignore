@@ -1,3 +1,6 @@
+# test data dir
+data
+
 *.swp
 
 # python compiled files
@@ -20,6 +23,7 @@ sdist
 develop-eggs
 .installed.cfg
 MANIFEST*
+!MANIFEST.in
 
 # Installer logs
 pip-log.txt

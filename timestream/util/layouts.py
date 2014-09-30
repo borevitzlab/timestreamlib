@@ -25,8 +25,8 @@ import logging
 import re
 
 from timestream.util import (
-        PARAM_TYPE_ERR,
-        )
+    PARAM_TYPE_ERR,
+)
 
 
 LOG = logging.getLogger("timestreamlib")
@@ -50,5 +50,3 @@ def traypos_to_chamber_index(traypos, tray_cap=20, col_cap=5):
     row = int(row)
     index = (tray - 1) * tray_cap + col * col_cap + row
     return index
-
-

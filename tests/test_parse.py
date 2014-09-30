@@ -2,41 +2,18 @@ import datetime as dt
 from inspect import (
     isgenerator,
 )
-import json
 import os
-from os import path
-from unittest import TestCase, skip, skipIf, skipUnless
+from unittest import TestCase
 
 from tests import helpers
 from timestream.parse import (
-    _ts_has_manifest,
     ts_guess_manifest,
     all_files_with_ext,
     all_files_with_exts,
     ts_iter_images,
     ts_get_image,
     ts_parse_date,
-    ts_parse_date_path,
-    ts_format_date,
 )
-
-
-class TestTSHasManifest(TestCase):
-
-    """Test function timestream.parse._ts_has_manifest"""
-    _multiprocess_can_split_ = True
-    maxDiff = None
-
-    def test_good_ts_with_manifold(self):
-        """Test _ts_has_manifest with a TS with a manifold"""
-        res = _ts_has_manifest(helpers.FILES["timestream_manifold"])
-        self.assertEqual(res, path.join(helpers.FILES["timestream_manifold"],
-                                        "BVZ0022-GC05L-CN650D-Cam07~fullres-orig.tsm"))
-
-    def test_good_ts_with_no_manifold(self):
-        """Test _ts_has_manifest with a TS without a manifold"""
-        res = _ts_has_manifest(helpers.FILES["timestream_nomanifold"])
-        self.assertFalse(res)
 
 
 class TestAllFilesWithExt(TestCase):
@@ -46,38 +23,38 @@ class TestAllFilesWithExt(TestCase):
     maxDiff = None
 
     def test_with_timestream_ext_jpg(self):
-        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg")
+        res = all_files_with_ext(helpers.FILES["timestream"], "jpg")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
-        self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
+        res = list(res)
+        self.assertListEqual(res, helpers.TS_FILES_JPG)
 
     def test_with_timestream_ext_jpggccaps(self):
-        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG")
+        res = all_files_with_ext(helpers.FILES["timestream"], "JPG")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
-        self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
+        res = list(res)
+        self.assertListEqual(res, helpers.TS_FILES_JPG)
 
     def test_with_timestream_ext_jpg_cs(self):
-        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "jpg",
+        res = all_files_with_ext(helpers.FILES["timestream"], "jpg",
                                  cs=True)
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
-        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "JPG",
+        res = all_files_with_ext(helpers.FILES["timestream"], "JPG",
                                  cs=True)
-        res = sorted(list(res))
-        self.assertListEqual(res, helpers.TS_MANIFOLD_FILES_JPG)
+        res = list(res)
+        self.assertListEqual(res, helpers.TS_FILES_JPG)
 
     def test_with_timestream_ext_xyz(self):
-        res = all_files_with_ext(helpers.FILES["timestream_manifold"], "xyz")
+        res = all_files_with_ext(helpers.FILES["timestream"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
 
     def test_with_emptydir_ext_xyz(self):
         res = all_files_with_ext(helpers.FILES["empty_dir"], "xyz")
         self.assertTrue(isgenerator(res))
-        res = sorted(list(res))
+        res = list(res)
         self.assertListEqual(res, [])
 
     def test_with_bad_param_types(self):
@@ -99,32 +76,22 @@ class TestAllFilesWithExts(TestCase):
     maxDiff = None
 
     def test_with_timestream_ext_jpg(self):
-        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream"],
                                   ["jpg", ])
         self.assertTrue(isinstance(res, dict))
-        self.assertDictEqual(res, {"jpg": helpers.TS_MANIFOLD_FILES_JPG})
-
-    def test_with_timestream_ext_jpg_tsm(self):
-        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
-                                  ["jpg", "tsm"])
-        self.assertTrue(isinstance(res, dict))
-        expt = {
-            "jpg": helpers.TS_MANIFOLD_FILES_JPG,
-            "tsm": helpers.TS_MANIFOLD_FILES_TSM,
-        }
-        self.assertDictEqual(res, expt)
+        self.assertDictEqual(res, {"jpg": helpers.TS_FILES_JPG})
 
     def test_with_timestream_ext_jpg_cs(self):
         # with incorrect capitialisation
-        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream"],
                                   ["jpg", ], cs=True)
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"jpg": []})
         # With correct capitilisation
-        res = all_files_with_exts(helpers.FILES["timestream_manifold"],
+        res = all_files_with_exts(helpers.FILES["timestream"],
                                   ["JPG", ], cs=True)
         self.assertTrue(isinstance(res, dict))
-        self.assertDictEqual(res, {"JPG": helpers.TS_MANIFOLD_FILES_JPG})
+        self.assertDictEqual(res, {"JPG": helpers.TS_FILES_JPG})
 
 
 class TestIterImages(TestCase):
@@ -133,11 +100,11 @@ class TestIterImages(TestCase):
     _multiprocess_can_split_ = True
     maxDiff = None
 
-    def test_good_timestream_manifold(self):
+    def test_good_timestream(self):
         """Test ts_iter_images with a timestream with a manifold"""
-        res = ts_iter_images(helpers.FILES["timestream_manifold"])
+        res = ts_iter_images(helpers.FILES["timestream"])
         self.assertTrue(isgenerator(res))
-        self.assertListEqual(sorted(list(res)), helpers.TS_MANIFOLD_FILES_JPG)
+        self.assertListEqual(list(res), helpers.TS_FILES_JPG)
 
 
 class TestGuessManifest(TestCase):
@@ -145,26 +112,16 @@ class TestGuessManifest(TestCase):
     """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
-    expect_good = {
-        "name": "BVZ0022-GC05L-CN650D-Cam07~fullres-orig",
-        "start_datetime": "2013_10_30_03_00_00",
-        "end_datetime": "2013_10_30_06_00_00",
-        "version": 1,
-        "image_type": "jpg",
-        "extension": "JPG",
-        "interval": 30,
-        "missing": [],
-    }
 
     def test_good_ts(self):
-        got = ts_guess_manifest(helpers.FILES["timestream_manifold"])
+        got = ts_guess_manifest(helpers.FILES["timestream"])
         self.assertTrue(isinstance(got, dict))
-        self.assertDictEqual(got, self.expect_good)
+        self.assertDictEqual(got, helpers.TS_DICT)
 
     def test_trailing_slash(self):
-        got = ts_guess_manifest(helpers.FILES["timestream_manifold"] + os.sep)
+        got = ts_guess_manifest(helpers.FILES["timestream"] + os.sep)
         self.assertTrue(isinstance(got, dict))
-        self.assertDictEqual(got, self.expect_good)
+        self.assertDictEqual(got, helpers.TS_DICT)
 
 
 class TestGetImage(TestCase):
@@ -175,31 +132,31 @@ class TestGetImage(TestCase):
 
     def test_get_image_good_str(self):
         """Test ts_get_image with a str date on a good timestream"""
-        for iii in range(len(helpers.TS_MANIFOLD_DATES)):
-            date = helpers.TS_MANIFOLD_DATES[iii]
-            ts = helpers.FILES["timestream_manifold"]
+        for iii in range(len(helpers.TS_DATES)):
+            date = helpers.TS_DATES[iii]
+            ts = helpers.FILES["timestream"]
             res = ts_get_image(ts, date)
-            self.assertEqual(res, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(res, helpers.TS_FILES_JPG[iii])
 
     def test_get_image_good_datetime(self):
         """Test ts_get_image with a datetime obj on a good timestream"""
-        for iii in range(len(helpers.TS_MANIFOLD_DATES)):
-            date = ts_parse_date(helpers.TS_MANIFOLD_DATES[iii])
-            ts = helpers.FILES["timestream_manifold"]
+        for iii in range(len(helpers.TS_DATES)):
+            date = ts_parse_date(helpers.TS_DATES[iii])
+            ts = helpers.FILES["timestream"]
             res = ts_get_image(ts, date)
-            self.assertEqual(res, helpers.TS_MANIFOLD_FILES_JPG[iii])
+            self.assertEqual(res, helpers.TS_FILES_JPG[iii])
 
     def test_get_image_missing_str(self):
         """Test ts_get_image with a missing str date on a good timestream"""
         date = "2010_10_10_10_10_10"
-        ts = helpers.FILES["timestream_manifold"]
+        ts = helpers.FILES["timestream"]
         res = ts_get_image(ts, date)
         self.assertEqual(res, None)
 
     def test_get_image_missing_datetime(self):
         """Test ts_get_image with a missing datetime on a good timestream"""
         date = ts_parse_date("2010_10_10_10_10_10")
-        ts = helpers.FILES["timestream_manifold"]
+        ts = helpers.FILES["timestream"]
         res = ts_get_image(ts, date)
         self.assertEqual(res, None)
 
@@ -207,17 +164,17 @@ class TestGetImage(TestCase):
         """Test giving bad paramters to ts_get_image raises ValueError"""
         with self.assertRaises(ValueError):
             # bad ts_path param
-            ts_get_image(None, helpers.TS_MANIFOLD_DATES[0])
+            ts_get_image(None, helpers.TS_DATES[0])
         with self.assertRaises(ValueError):
             # bad date param
-            ts_get_image(helpers.FILES["timestream_manifold"], None)
+            ts_get_image(helpers.FILES["timestream"], None)
         with self.assertRaises(ValueError):
             # unparseable str date param
-            ts_get_image(helpers.FILES["timestream_manifold"], "NOTADATE")
+            ts_get_image(helpers.FILES["timestream"], "NOTADATE")
         with self.assertRaises(ValueError):
             # bad subsecond param
-            ts_get_image(helpers.FILES["timestream_manifold"],
-                         helpers.TS_MANIFOLD_DATES[0], n="this should be an int")
+            ts_get_image(helpers.FILES["timestream"],
+                         helpers.TS_DATES[0], n="this should be an int")
 
 
 class TestParseDate(TestCase):

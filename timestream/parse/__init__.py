@@ -36,6 +36,7 @@ import logging
 import os
 from os import path
 from voluptuous import MultipleInvalid
+from warnings import warn
 
 from timestream.parse.validate import (
     validate_timestream_manifest,
@@ -95,6 +96,13 @@ def ts_format_date(dt):
 
 
 def ts_guess_manifest(ts_path):
+    """Conveience function to keep API compatibiliy. DEPRICATED"""
+    warn("ts_guess_manifest is deprecated, use TimeStream class.",
+         DeprecationWarning)
+    return ts_guess_manifest_v1(ts_path)
+
+
+def ts_guess_manifest_v1(ts_path):
     """Guesses the values of manifest fields in a timestream
     """
     # This whole thing's one massive fucking kludge. But it seems to work
@@ -102,13 +110,17 @@ def ts_guess_manifest(ts_path):
     retval = {}
     # get a sorted list of all files
     all_files = []
-    for root, _, files in os.walk(ts_path):
+    for root, folders, files in os.walk(ts_path):
+        for folder in folders:
+            if folder.startswith("_"):
+                folders.remove(folder)
         for fle in files:
             all_files.append(path.join(root, fle))
     all_files = sorted(all_files)
     # find most common extension, and assume this is the ext
     exts = collections.Counter(IMAGE_EXT_CONSTANTS)
     our_exts = map(lambda x: path.splitext(x)[1][1:], all_files)
+    our_exts = ifilter(lambda x: x.lower() in IMAGE_EXT_CONSTANTS, our_exts)
     for ext in our_exts:
         try:
             exts[ext] += 1
@@ -116,6 +128,9 @@ def ts_guess_manifest(ts_path):
             pass
     # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
     retval["extension"] = exts.most_common(1)[0][0]
+    all_files = ifilter(
+        lambda x: path.splitext(x)[1][1:] == retval["extension"],
+        all_files)
     # get image type from extension:
     try:
         retval["image_type"] = IMAGE_EXT_TO_TYPE[retval["extension"]]
@@ -128,15 +143,19 @@ def ts_guess_manifest(ts_path):
     # decode times from images:
     times = map(ts_parse_date_path, sorted(images))
     # get first and last dates:
-    retval["start_datetime"] = ts_format_date(times[0])
-    retval["end_datetime"] = ts_format_date(times[-1])
+    try:
+        retval["start_datetime"] = ts_format_date(times[0])
+        retval["end_datetime"] = ts_format_date(times[-1])
+    except IndexError:
+        msg = "{} is an invalid V1 timestream".format(ts_path)
+        LOG.error(msg)
+        raise ValueError(msg)
     # Get time intervals between images
-    intervals = collections.Counter()
+    intervals = list()
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
-        intervals[interval.seconds / 60] += 1
-    # most common gives list of tuples. [0] = (ext, count), [0][0] = ext
-    retval["interval"] = intervals.most_common(1)[0][0]
+        intervals.append(interval.seconds)
+    retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
@@ -150,17 +169,17 @@ def all_files_with_ext(topdir, ext, cs=False):
     """
     if not isinstance(topdir, str):
         msg = PARAM_TYPE_ERR.format(param="topdir",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(ext, str):
         msg = PARAM_TYPE_ERR.format(param="ext",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     if not isinstance(cs, bool):
         msg = PARAM_TYPE_ERR.format(param="cs",
-                                    func="all_files_with_ext",  type="bool")
+                                    func="all_files_with_ext", type="bool")
         LOG.error(msg)
         raise ValueError(msg)
     # Trim any leading spaces from the extension we've been given
@@ -172,7 +191,13 @@ def all_files_with_ext(topdir, ext, cs=False):
         ext = ext.lower()
     # OK, walk the dir. we only care about files, hence why dirs never gets
     # touched
-    for root, dirs, files in os.walk(topdir):
+    for root, folders, files in os.walk(topdir):
+        # These *must* be in place, not f = sorted(f)
+        folders.sort()
+        files.sort()
+        for folder in folders:
+            if folder.startswith("_"):
+                folders.remove(folder)
         for fpath in files:
             # split out ext, and do any case-conversion we need
             fname, fext = path.splitext(fpath)
@@ -190,7 +215,7 @@ def all_files_with_exts(topdir, exts, cs=False):
     """
     if not isinstance(exts, list):
         msg = PARAM_TYPE_ERR.format(param="exts",
-                                    func="all_files_with_exts",  type="list")
+                                    func="all_files_with_exts", type="list")
         LOG.error(msg)
         raise ValueError(msg)
     ext_dict = {}
@@ -265,7 +290,7 @@ def ts_iter_times(ts_path):
     manifest = ts_get_manifest(ts_path)
     start = manifest["start_datetime"]
     end = manifest["end_datetime"]
-    interval = manifest['interval'] * 60
+    interval = manifest['interval']
     for time in iter_date_range(start, end, interval):
         yield time
 
@@ -283,7 +308,7 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         raise ValueError(msg)
     if not isinstance(ts_path, str):
         msg = PARAM_TYPE_ERR.format(param="ts_path",
-                                    func="all_files_with_ext",  type="str")
+                                    func="all_files_with_ext", type="str")
         LOG.error(msg)
         raise ValueError(msg)
     # Get ts_info from manifest
@@ -292,7 +317,8 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
     if date in ts_info["missing"]:
         return None
     # Format the path below the ts root (ts_path)
-    relpath = _ts_date_to_path(ts_info, ts_parse_date(date), n)
+    relpath = _ts_date_to_path(ts_info["name"], ts_info["extension"],
+                               ts_parse_date(date), n)
     # Join to make "absolute" path, i.e. path including ts_path
     abspath = path.join(ts_path, relpath)
     # not-so-silently fail if we can't find the image
@@ -309,12 +335,11 @@ def ts_get_image(ts_path, date, n=0, write_manifest=False):
         return None
 
 
-def _ts_date_to_path(ts_info, date, n=0):
+def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     """Formats a string that should correspond to the relative (from
     ``ts_path``) path to the image at the given ``time``.
     """
-    pth = TS_V1_FMT.format(tsname=ts_info["name"], ext=ts_info["extension"],
-                           n=n)
+    pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
 
@@ -332,3 +357,52 @@ def ts_iter_numpy(fname_iter):
                      "Raw images not supported")
             yield (img, cv2.imread(img))
 
+
+def _is_ts_v2(ts_path):
+    """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""
+    # This will need to be written properly, but for now we just check the
+    # magic number.
+    if not path.isfile(ts_path):
+        return False
+    with open(ts_path, "rb") as tmpfh:
+        file_sig = tmpfh.read(8)
+        return file_sig == '\x89\x48\x44\x46\x0d\x0a\x1a\x0a'
+
+
+def _is_ts_v1(ts_path):
+    """Check if ``ts_path`` is a v1 timestream stored as date-nested folders"""
+    # Again, this should, in time, be rewritten to check the folder structure
+    # fully, and check images exist etc.
+    if not path.isdir(ts_path):
+        LOG.debug("'{}' is not a directory, can't be v1 TS".format(ts_path))
+        return False
+    # we want to check all folders in the root path match the year
+    walker = os.walk(ts_path)
+    root, dirs, files = next(walker)
+    is_ok = True
+    for fldr in dirs:
+        worked = False
+        try:
+            if not fldr.startswith("_"):
+                datetime.strptime(fldr, '%Y')
+            worked = True
+        except ValueError:
+            worked = False
+        is_ok &= worked
+    if is_ok:
+        LOG.debug("'{}' contains only year-based folders, assume v1 TS".format(
+            ts_path))
+    else:
+        LOG.debug("'{}' contains non-year-based folders, or has extras".format(
+            ts_path))
+    return is_ok
+
+
+def ts_make_dirs(fpath):
+    """Make image dir if not exists"""
+    if not path.exists(path.dirname(fpath)):
+        try:
+            os.makedirs(path.dirname(fpath))
+        except (OSError, IOError) as e:
+            if not path.exists(path.dirname(fpath)):
+                raise e

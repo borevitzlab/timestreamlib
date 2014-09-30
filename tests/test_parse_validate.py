@@ -1,14 +1,11 @@
 import datetime as dt
-from unittest import TestCase, skip, skipIf, skipUnless
+from unittest import TestCase
 from voluptuous import MultipleInvalid
 
-from tests import helpers
 from timestream.parse.validate import (
     validate_timestream_manifest,
-    v_date,
-    v_datetime,
-    v_num_str,
 )
+from timestream.util.validation import v_date
 
 
 class TestValidateTimestreamManfiest(TestCase):
@@ -49,7 +46,9 @@ class TestValidateTimestreamManfiest(TestCase):
         with self.assertRaises(MultipleInvalid):
             validate_timestream_manifest({"A": "b", })
 
+
 class TestDateValidators(TestCase):
+
     """Tests for misc date format validators"""
 
     def test_v_date_invalid(self):
@@ -67,10 +66,10 @@ class TestDateValidators(TestCase):
         """Test v_date validator with valid dates"""
         # standard date format
         date_str = "2013_03_01"
-        self.assertEqual(v_date(date_str), dt.datetime(2013, 03, 01))
-        date_obj = dt.datetime(2013, 03, 01)
+        self.assertEqual(v_date(date_str), dt.datetime(2013, 3, 1))
+        date_obj = dt.datetime(2013, 3, 1)
         self.assertEqual(v_date(date_obj), date_obj)
         # with different date format
         date_str = "2013-03-01"
         self.assertEqual(v_date(date_str, format="%Y-%m-%d"),
-                         dt.datetime(2013, 03, 01))
+                         dt.datetime(2013, 3, 1))
