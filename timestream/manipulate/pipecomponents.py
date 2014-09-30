@@ -224,10 +224,10 @@ class ColorCardDetector (PipeComponent):
             ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
             if ccdImg is None:
                 raise ValueError("Failed to read %s" % self.ccf)
-            self.colorcardPyramid = cd.createImagePyramid(ccdImg)
+            self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
-            SearchRange = [self.colorcardPyramid[0].shape[1],
-                           self.colorcardPyramid[0].shape[0]]
+            SearchRange = [self.ccdPyramid[0].shape[1],
+                           self.ccdPyramid[0].shape[0]]
             score, loc, angle = cd.matchTemplatePyramid(
                 self.imagePyramid, self.ccdPyramid,
                 0, EstimatedLocation=self.colorcardPosition,
@@ -249,11 +249,11 @@ class ColorCardDetector (PipeComponent):
             else:
                 # FIXME: this should be handled with an error.
                 LOG.warn('Cannot find color card')
-                self.colorcardParams = [None, None, None]
+                self.ccdParams = [None, None, None]
         else:
-            self.colorcardParams = cd.estimateColorParametersFromWhiteBackground(
+            self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
-        return([tsi, self.colorcardParams])
+        return([tsi, self.ccdParams])
 
     def show(self):
         plt.figure()
