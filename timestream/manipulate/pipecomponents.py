@@ -184,19 +184,20 @@ class ColorCardDetector (PipeComponent):
     actName = "colorcarddetect"
     argNames = {
         "mess": [True, "Detect color card"],
-        "cccdTrueColors": [True,
-                           "Matrix representing the groundtrue color card colors"],
+        "colorcardTrueColors": [True,
+                                "Matrix representing the groundtrue color "
+                                "card colors"],
         "minIntensity": [False,
                          "Skip colorcard detection if intensity below this value",
                          0],
-        "ccdFile": [True, "Path to the color card file"],
-        "ccdPosition": [True, "(x,y) of the colorcard"],
+        "colorcardFile": [True, "Path to the color card file"],
+        "colorcardPosition": [True, "(x,y) of the colorcard"],
         "settingPath": [True, "Path to setting files"],
         "useWhiteBackground": [False,
                                "White background as reference for color corretion?",
                                False],
         "backgroundWindow": [False,
-                             "Window background region with top-left &"
+                             "Window background region with top-left & "
                              "botom-right corners",
                              []],
         "maxIntensity": [False,
@@ -231,13 +232,17 @@ class ColorCardDetector (PipeComponent):
             ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
             if ccdImg is None:
                 raise ValueError("Failed to read %s" % self.ccf)
-            self.ccdPyramid = cd.createImagePyramid(ccdImg)
+            self.colorcardPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
-            SearchRange = [self.ccdPyramid[0].shape[1],
-                           self.ccdPyramid[0].shape[0]]
+            SearchRange = [self.colorcardPyramid[0].shape[1],
+                           self.colorcardPyramid[0].shape[0]]
             score, loc, angle = cd.matchTemplatePyramid(
-                self.imagePyramid, self.ccdPyramid,
-                0, EstimatedLocation=self.ccdPosition, SearchRange=SearchRange)
+                self.imagePyramid,
+                self.colorcardPyramid,
+                0,
+                EstimatedLocation=self.colorcardPosition,
+                SearchRange=SearchRange
+            )
             if score > 0.3:
                 # extract color information
                 self.foundCard = self.image[
@@ -245,8 +250,10 @@ class ColorCardDetector (PipeComponent):
                     loc[0] - ccdImg.shape[1] // 2:loc[0] + ccdImg.shape[1] // 2]
                 self.ccdColors, _ = cd.getColorcardColors(self.foundCard,
                                                           GridSize=[6, 4])
-                self.ccdParams = cd.estimateColorParameters(self.ccdTrueColors,
-                                                            self.ccdColors)
+                self.colorcardParams = cd.estimateColorParameters(
+                    self.colorcardTrueColors,
+                    self.colorcardColors
+                )
                 # Save colourcard image to instance
                 self.colorcardImage = ccdImg
                 # for displaying
@@ -254,11 +261,11 @@ class ColorCardDetector (PipeComponent):
             else:
                 # FIXME: this should be handled with an error.
                 LOG.warn('Cannot find color card')
-                self.ccdParams = [None, None, None]
+                self.colorcardParams = [None, None, None]
         else:
-            self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
+            self.colorcardParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
-        return([tsi, self.ccdParams])
+        return([tsi, self.colorcardParams])
 
     def show(self):
         plt.figure()
