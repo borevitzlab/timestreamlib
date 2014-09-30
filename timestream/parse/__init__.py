@@ -22,7 +22,6 @@
 """
 
 import collections
-import cv2
 from datetime import (
     datetime,
     timedelta,
@@ -345,6 +344,19 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
+def read_image(img):
+    try:
+        import skimage.io as imgio
+        try:
+            return imgio.imread(img, plugin="freeimage")
+        except (ValueError, RuntimeError) as exc:
+            LOG.error(str(exc))
+            return None
+    except ImportError:
+        import cv2
+        LOG.warn("Couln't load scikit image io module. " +
+                 "Raw images not supported")
+        return cv2.imread(img)
 
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
@@ -352,14 +364,7 @@ def ts_iter_numpy(fname_iter):
     ``(img_path, img_matrix)``.
     """
     for img in fname_iter:
-        try:
-            import skimage.io as imgio
-            yield (img, imgio.imread(img, plugin="freeimage"))
-        except ImportError:
-            LOG.warn("Couln't load scikit image io module. " +
-                     "Raw images not supported")
-            yield (img, cv2.imread(img))
-
+        yield (img, read_image(img))
 
 def _is_ts_v2(ts_path):
     """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""
