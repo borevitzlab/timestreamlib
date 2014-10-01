@@ -604,28 +604,22 @@ class PlantExtractor (PipeComponent):
         for key, iph in self.ipm.iter_through_pots():
             iph.ps = self.segmenter
 
-        # FIXME: Here we replace pixels and probably loose a way to get back to
-        #        the original image. Instead of this we should keep the original
-        #        pixels and devise a way to output a segmented image from
-        #        TimeStreamImage by using the data in ImagePotMatrix.
-        # Segment all pots and relpace with segmented image.
-        tsi.pixels = self.segAllPots(img.copy())
+        # Segment all pots
+        self.segAllPots()
 
         # Put current image pot matrix in context for the next run
         context.setVal("ipmPrev", self.ipm)
 
         return [tsi]
 
-    def segAllPots(self, img):
+    def segAllPots(self):
         if not self.parallel:
             for key, iph in self.ipm.iter_through_pots():
-                img = img & iph.getImage(masked=True,inSuper=True)
-            return (img)
+                _ = iph.mask # Property will trigger the segmentation
+            return
 
         # Parallel from here: We create a child process for each pot and pipe
         # the pickled result back to the parent.
-        # FIXME: Joel: This should be done using the multiprocessing module if
-        # possible.
         childPids = []
         for key, iph in self.ipm.iter_through_pots():
             In, Out = os.pipe()
@@ -655,9 +649,8 @@ class PlantExtractor (PipeComponent):
             os.waitpid(pid, 0)
             pIn.close()
             iph.mask = msk
-            img = img & iph.getImage(masked=True, inSuper=True)
 
-        return (img)
+        return
 
     def show(self):
         self.ipm.show()
@@ -819,7 +812,8 @@ class ResultingImageWriter (PipeComponent):
     argNames = {
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
-        "addStats": [False, "list of statistics", []]}
+        "addStats": [False, "List of statistics", []],
+        "masked": [False, "Whether to output masked images", False]}
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
@@ -828,27 +822,32 @@ class ResultingImageWriter (PipeComponent):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
+        """
+        We change self.img.pixels just for the ts_out.write_image call.
+        Once we have written, we revert self.img.pixels to its original value.
+        """
         LOG.info(self.mess)
-        ts_out = context.getVal("outts." + self.outstream)
         self.img = args[0]
+        origimg = self.img.pixels.copy()
+        ts_out = context.getVal("outts." + self.outstream)
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
 
-        if len(self.addStats) > 0:
-            self.img.pixels = self.putStatsAllPots()
+        if self.img.ipm is not None:
+            for key, iph in self.img.ipm.iter_through_pots():
+                self.img.pixels = iph.getImage( masked = self.masked,
+                                                features = self.addStats,
+                                                inSuper = True )
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
-        self.img.parent_timestream = None  # reset to move forward
+
+        # reset to move forward
+        self.img.parent_timestream = None
+        self.img.pixels = origimg
 
         return [self.img]
 
-    def putStatsAllPots(self):
-        img = self.img.pixels
-        for key, iph in self.img.ipm.iter_through_pots():
-            img = img | iph.getImage(masked=True, \
-                    features=self.addStats, inSuper=True)
-        return (img)
 
 class DerandomizeTimeStreams (PipeComponent):
     actName = "derandomize"

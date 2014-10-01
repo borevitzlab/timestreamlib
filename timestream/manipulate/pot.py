@@ -242,45 +242,12 @@ class ImagePotHandler(object):
 
         # if bad segmentation
         if 1 not in msk and self.iphPrev is not None:
-            # We try previous mask. This is tricky because we need to fit the
-            # previous mask size into msk
+            # Use previous mask. Fit the previous mask size into msk
             pm = self.iphPrev.mask
-
-            vDiff = msk.shape[0] - pm.shape[0]
-            if vDiff < 0:  # reduce pm vertically
-                side = True
-                for i in range(abs(vDiff)):
-                    if side:
-                        pm = pm[1:, :]
-                    else:
-                        pm = pm[:-1, :]
-                    side = not side
-
-            if vDiff > 0:  # grow pm vertically
-                padS = np.array([1, 0])
-                for i in range(abs(vDiff)):
-                    pm = np.lib.pad(pm, (padS.tolist(), (0, 0)), 'constant',
-                                    constant_values=0)
-                    padS = -(padS - 1)  # other side
-
-            hDiff = msk.shape[1] - pm.shape[1]
-            if hDiff < 0:  # reduce pm horizontally
-                side = True
-                for i in range(abs(hDiff)):
-                    if side:
-                        pm = pm[:, 1:]
-                    else:
-                        pm = pm[:, :-1]
-                    side = not side
-
-            if hDiff > 0:  # grow pm horizontally
-                padS = np.array([1, 0])
-                for i in range(abs(hDiff)):
-                    pm = np.lib.pad(pm, ((0, 0), padS.tolist()), 'constant',
-                                    constant_values=0)
-                    padS = -(padS - 1)  # other side
-
-            msk = pm
+            msk[:] = 0
+            minHeight = np.min([pm.shape[0], msk.shape[0]])
+            minWidth = np.min([pm.shape[1], msk.shape[1]])
+            msk[0:minHeight ,0:minWidth ] = pm[0:minHeight ,0:minWidth ]
 
         return msk
 
