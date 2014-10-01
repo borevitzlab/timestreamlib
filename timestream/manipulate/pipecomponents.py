@@ -293,12 +293,9 @@ class ColorCardDetector (PipeComponent):
 
 
 class ImageColorCorrector (PipeComponent):
-    # FIXME: Do we need writeImage now that we have ResultingImageWriter?
     actName = "colorcorrect"
     argNames = {
         "mess": [False, "Correct image color"],
-        "writeImage": [False,
-            "Whether to write processing image to output timestream", False],
         "minIntensity": [False, "Skip when below this value", 0]}
 
     runExpects = [TimeStreamImage, list]
