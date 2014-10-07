@@ -106,9 +106,26 @@ class StatParamPerimeter(StatParamValue):
         if self._length > 0:
             img[self._coords[0], self._coords[1], :] = 255
 
+class StatParamLeafCount(StatParamValue):
+    """The number of leaves on a rosette. Also leaf coordinates"""
+    def __init__(self, name, centerCoords, radius=5, rMin=0.0, rMax=float("Inf")):
+        super(StatParamLeafCount, self).__init__(name, len(centerCoords),
+                rMin=rMin, rMax=rMax)
+        self._centers = centerCoords
+        self._radius = radius
+
+    @property
+    def centers(self):
+        return self._centers
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._centers > 0:
+            for c in self._centers:
+                cv2.circle(img, (int(c[0]), int(c[1])), self._radius, color)
+
 class StatParamCalculator(object):
 
-    def area(self, mask):
+    def area(self, mask, img=None):
         retVal = 0.0
         area = regionprops(mask.astype("int8"), ["Area"])
         if len(area) > 0:
@@ -116,7 +133,7 @@ class StatParamCalculator(object):
 
         return StatParamValue("area", retVal, rMax=float("Inf"))
 
-    def perimeter(self, mask):
+    def perimeter(self, mask, img=None):
         retVal = 0.0
         perim = regionprops(mask.astype("int8"), ["Perimeter"])
 
@@ -128,7 +145,7 @@ class StatParamCalculator(object):
 
         return StatParamPerimeter("perimeter", retVal, xycoords)
 
-    def roundness(self, mask):
+    def roundness(self, mask, img=None):
         # (4 (pi) * AREA) / PERIM^2
         retVal = 0.0
         roundness = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
@@ -139,7 +156,7 @@ class StatParamCalculator(object):
 
         return StatParamValue("roundness", retVal, rMax=float("Inf"))
 
-    def compactness(self, mask):
+    def compactness(self, mask, img=None):
         # In skimage its called solidity
         retVal = 0.0 # FIXME: is this the best default?
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
@@ -148,7 +165,7 @@ class StatParamCalculator(object):
 
         return StatParamValue("compactness", retVal, rMax=float("Inf"))
 
-    def eccentricity(self, mask):
+    def eccentricity(self, mask, img=None):
         retVal = 0.0 # FIXME: is this the best default?
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) > 0:
@@ -156,7 +173,7 @@ class StatParamCalculator(object):
 
         return StatParamValue("eccentricity", retVal)
 
-    def mincircle(self, mask):
+    def mincircle(self, mask, img=None):
         r = 0.0; c = (0,0)
         a, b = np.where(mask == 1)
         if len(a) > 0 and len(b) > 0:
@@ -166,6 +183,49 @@ class StatParamCalculator(object):
             r = int(r)
 
         return StatParamMinCircle("mincircle", r, c, rMax=float('Inf'))
+
+    def leafcount1(self, mask, img=None):
+        # each leaf is located at a maxima of the distance transform. This
+        # function implements the paper "3-D Histogram-Based Segmentation and
+        # Leaf Detection for Rosette Plants" Jean-Michel Pape et. al. 2014
+        # FIXME: We are missing some leafs when because there are isthmus in the
+        #        distance transform that are leaves but are not a max.
+
+        # 1. Calc the distance transform
+        dt = cv2.distanceTransform(mask.astype("uint8"), cv2.cv.CV_DIST_C, 5)
+
+        # 2. Mark non-max coordinates
+        #    Potential maxima where 8-neighbor max <= pixel.
+        sel = np.ones([3,3]).astype("uint8")
+        sel[1,1] = 0
+        maximas = dt - cv2.dilate(dt.astype("uint8"), sel)
+
+        # Potential maximas >= 0
+        maximas[np.where(maximas>=0)] = 1
+
+        # No max where dtDiff is negative nor mask == 0.
+        maximas[np.where(maximas<0)] = 0
+        maximas[np.where(mask==0)] = 0
+
+        # 3. Prune connected components.
+        cc, ccNum = label(maximas, return_num=True)
+        sel = np.ones([3,3]).astype("uint8")
+        for i in range(1,ccNum):
+            ccmsk = (cc == i).astype("float32")
+            ccCoords = np.where(ccmsk == 1)
+            perim = cv2.dilate(ccmsk, sel) - ccmsk
+            perimCoords = np.where(perim == 1)
+            if np.min(dt[ccCoords]) <= np.max(dt[perimCoords]):
+                # No max if connected component has an adjacent max or equal.
+                cc[ccCoords] = 0
+
+        # 4. Find leaf centers.
+        centers = []
+        for rp in regionprops(cc):
+            c = rp["centroid"]
+            centers.append((c[1],c[0]))
+
+        return StatParamLeafCount("leafcount1", centers)
 
     @classmethod
     def statParamMethods(cls):

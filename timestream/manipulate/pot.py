@@ -368,7 +368,7 @@ class ImagePotHandler(object):
             # calc the ones we don't have
             if not featName in self._features.keys():
                 featFunc = getattr(fc, featName)
-                self._features[featName] = featFunc(msk)
+                self._features[featName] = featFunc(msk, img=self._image)
 
     def getCalcedFeatures(self):
         return self._features
