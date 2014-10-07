@@ -41,7 +41,7 @@ USAGE:
 OPTIONS:
     -h --help   Show this screen.
     -i IN       Input timestream directory
-    -o OUT      Output directory
+    -o OUT      Output root. Where results will be created.
     -p YML      Path to pipeline yaml configuration. Defaults to
                 IN/_data/pipeline.yml
     -t YML      Path to timestream yaml configuration. Defaults to
@@ -58,18 +58,6 @@ if os.path.isfile(inputRootPath):
     raise IOError("%s is a file. Expected a directory"%inputRootPath)
 if not os.path.exists(inputRootPath):
     raise IOError("%s does not exists"%inputRootPath)
-
-if opts['-o']:
-    outputRootPath = opts['-o']
-
-    if not os.path.exists(outputRootPath):
-        os.makedirs(outputRootPath)
-    if os.path.isfile(outputRootPath):
-        raise IOError("%s is a file"%outputRootPath)
-    outputRootPath = os.path.join (outputRootPath, \
-            os.path.basename(os.path.abspath(inputRootPath)))
-else:
-    outputRootPath = inputRootPath
 
 # Pipeline configuration.
 if opts['-p']:
@@ -111,6 +99,23 @@ if opts['--set']:
         #FIXME: print help if any exceptions.
         cName, cVal = setelem.split("=")
         plConf.setVal(cName, cVal)
+
+if not plConf.general.hasSubSecName("tsdirrootname"):
+    plConf.general.setVal("tsdirrootname",
+            os.path.basename(os.path.abspath(inputRootPath)))
+
+if opts['-o']:
+    outputRootPath = opts['-o']
+
+    if not os.path.exists(outputRootPath):
+        os.makedirs(outputRootPath)
+    if os.path.isfile(outputRootPath):
+        raise IOError("%s is a file"%outputRootPath)
+    outputRootPath = os.path.join (outputRootPath, \
+            plConf.general.tsdirrootname)
+else:
+    outputRootPath = os.path.join(os.path.dirname(inputRootPath),
+            plConf.general.tsdirrootname)
 
 # Show the user the resulting configuration:
 print(plConf)
