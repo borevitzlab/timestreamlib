@@ -166,12 +166,26 @@ class StatParamCalculator(object):
         return StatParamValue("compactness", retVal, rMax=float("Inf"))
 
     def eccentricity(self, mask, img=None):
+        # In skimage eccentricity ratio between minor and  major axis length of
+        # the ellipse with the same second moment as the region.
         retVal = 0.0 # FIXME: is this the best default?
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) > 0:
             retVal = ecce[0]["Eccentricity"]
 
         return StatParamValue("eccentricity", retVal)
+
+    def rms(self, mask, img=None):
+        # RMS: Rotational Mass Symmetry. For PSI (Photon Systems Instruments) is
+        #      the ratio between foci and major axis of the ellipse with the
+        #      same second moment as the region. We calc with eccentricity
+        retVal = 0.0 # FIXME: is this the best default?
+        ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
+        if len(ecce) > 0:
+            retVal = 1 - (ecce[0]["Eccentricity"])**2
+
+        return StatParamValue("rms", retVal)
+
 
     def mincircle(self, mask, img=None):
         r = 0.0; c = (0,0)
