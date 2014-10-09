@@ -178,6 +178,7 @@ ignored_timestamps = list(ts_set)
 print('ignored_timestamps = ', ignored_timestamps)
 
 ctx.setVal("outputPathPrefix", plConf.general.outputPathPrefix)
+ctx.setVal("outputPrefix", plConf.general.outputPrefix)
 
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(plConf.pipeline, ctx)

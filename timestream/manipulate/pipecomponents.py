@@ -776,7 +776,8 @@ class ResultingFeatureWriter_csv (PipeComponent):
         ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
         for fName in ipm.potFeatures:
-            outputfile = os.path.join(self.outputdir, fName + ".csv")
+            outputfile = os.path.join(self.outputdir,
+                    context.outputPrefix + "-" + fName + ".csv")
 
             # Sorted so we can easily append after.
             potIds = sorted(ipm.potIds)
