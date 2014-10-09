@@ -743,8 +743,8 @@ class ResultingFeatureWriter_csv (PipeComponent):
     actName = "writefeatures_csv"
     argNames = {
         "mess": [False, "Default message", "Writing the features"],
-        "outputdir": [False, "Dir where the output files go", None],
         "overwrite": [False, "Whether to overwrite out files", True],
+        "outname" : [False, "String to append to outputPathPrefix", "csv"],
     }
 
     runExpects = [TimeStreamImage]
@@ -753,15 +753,9 @@ class ResultingFeatureWriter_csv (PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter_csv, self).__init__(**kwargs)
 
-        if self.outputdir is None:
-            if not context.hasSubSecName("outputroot"):
-                raise Exception("Must define output directory")
-
-            if not os.path.isdir(context.outputroot):
-                raise Exception("%s is not a directory" %
-                                context.outputroot)
-
-            self.outputdir = os.path.join(context.outputroot, "csv")
+        if not context.hasSubSecName("outputPathPrefix"):
+            raise Exception("Must define output prefix directory")
+        self.outputdir = context.outputPathPrefix + "-" + self.outname
 
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)

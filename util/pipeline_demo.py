@@ -100,22 +100,30 @@ if opts['--set']:
         cName, cVal = setelem.split("=")
         plConf.setVal(cName, cVal)
 
-if not plConf.general.hasSubSecName("tsdirrootname"):
-    plConf.general.setVal("tsdirrootname",
+# There are two output variables:
+# outputPath : Directory where resulting directories will be put
+# outputPathPrefix : Convenience var. outputPath/outputPrefix.
+#                    Where outputPrefix will identify all the outputs from
+#                    this run in that directory.
+if not plConf.general.hasSubSecName("outputPrefix"):
+    plConf.general.setVal("outputPrefix",
             os.path.basename(os.path.abspath(inputRootPath)))
 
 if opts['-o']:
-    outputRootPath = opts['-o']
+    plConf.general.setVal("outputPath", opts['-o'])
 
-    if not os.path.exists(outputRootPath):
-        os.makedirs(outputRootPath)
-    if os.path.isfile(outputRootPath):
-        raise IOError("%s is a file"%outputRootPath)
-    outputRootPath = os.path.join (outputRootPath, \
-            plConf.general.tsdirrootname)
+    if os.path.isfile(plConf.general.outputPath):
+        raise IOError("%s is a file"%plConf.general.outputPath)
+    if not os.path.exists(plConf.general.outputPath):
+        os.makedirs(plConf.general.outputPath)
+    outputPathPrefix = os.path.join (plConf.general.outputPath,
+            plConf.general.outputPrefix)
+    plConf.general.setVal("outputPathPrefix", outputPathPrefix)
 else:
-    outputRootPath = os.path.join(os.path.dirname(inputRootPath),
-            plConf.general.tsdirrootname)
+    plConf.general.setVal("outputPath",os.path.dirname(inputRootPath))
+    plConf.general.setVal("outputPathPrefix",
+            os.path.join(plConf.general.outputPath,
+                plConf.general.outputPrefix))
 
 # Show the user the resulting configuration:
 print(plConf)
@@ -141,11 +149,13 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
     ts_out.name = outstream["name"]
 
     # timeseries output input path plus a suffix
-    tsoutpath = os.path.abspath(outputRootPath) + '-' + outstream["name"]
+    tsoutpath = os.path.abspath(plConf.general.outputPathPrefix) \
+            + '-' + outstream["name"]
     print(tsoutpath)
     if "outpath" in outstream.keys():
         tsoutpath = outstream["outpath"]
-    if not os.path.exists(tsoutpath) or len(os.listdir(os.path.join(tsoutpath, '_data'))) == 0:
+    if not os.path.exists(tsoutpath) \
+            or len(os.listdir(os.path.join(tsoutpath, '_data'))) == 0:
         ts_out.create(tsoutpath)
         print("Timestream instance created:")
         print("   ts_out.path:", ts_out.path)
@@ -167,11 +177,7 @@ for i,timestamps in enumerate(existing_timestamps):
 ignored_timestamps = list(ts_set)
 print('ignored_timestamps = ', ignored_timestamps)
 
-# FIXME: Gets created even if we don't have any additional data.
-# We put everything else that is not an time series into outputroot.
-ctx.setVal("outputroot", os.path.abspath(outputRootPath) + '-results' )
-if not os.path.exists(ctx.outputroot):
-    os.mkdir(ctx.outputroot)
+ctx.setVal("outputPathPrefix", plConf.general.outputPathPrefix)
 
 # initialise processing pipeline
 pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
