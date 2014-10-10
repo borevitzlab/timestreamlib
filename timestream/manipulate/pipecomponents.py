@@ -745,6 +745,7 @@ class ResultingFeatureWriter_csv (PipeComponent):
         "mess": [False, "Default message", "Writing the features"],
         "overwrite": [False, "Whether to overwrite out files", True],
         "outname" : [False, "String to append to outputPathPrefix", "csv"],
+        "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
     }
 
     runExpects = [TimeStreamImage]
@@ -773,7 +774,16 @@ class ResultingFeatureWriter_csv (PipeComponent):
     def __call__(self, context, *args):
         LOG.info(self.mess)
         ipm = args[0].ipm
-        ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
+
+        if self.timestamp == "LINUX_SEC" or self.timestamp is None:
+            ts = time.mktime(context.origImg.datetime.timetuple())
+        elif self.timestamp == "LINUX_MILISEC":
+            ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
+        else:
+            try:
+                ts = context.origImg.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
+            except:
+                ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
         for fName in ipm.potFeatures:
             outputfile = os.path.join(self.outputdir,
@@ -791,7 +801,7 @@ class ResultingFeatureWriter_csv (PipeComponent):
                 fd.close()
 
             fd = open(outputfile, 'a')
-            fd.write("%f" % ts)
+            fd.write("%s" % str(ts))
             for potId in potIds:
                 pot = ipm.getPot(potId)
                 fet = pot.getCalcedFeatures()[fName]
