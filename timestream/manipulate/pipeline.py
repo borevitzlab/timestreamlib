@@ -26,8 +26,7 @@ from timestream.manipulate.pipecomponents import (
     PotDetector,
     PlantExtractor,
     FeatureExtractor,
-    ResultingFeatureWriter_ndarray,
-    ResultingFeatureWriter_csv,
+    ResultingFeatureWriter,
     ResultingImageWriter,
     DerandomizeTimeStreams,
 )
@@ -43,9 +42,7 @@ class ImagePipeline (object):
         PlantExtractor.actName: PlantExtractor,
         ResultingImageWriter.actName: ResultingImageWriter,
         FeatureExtractor.actName: FeatureExtractor,
-        ResultingFeatureWriter_ndarray.actName:
-            ResultingFeatureWriter_ndarray,
-        ResultingFeatureWriter_csv.actName: ResultingFeatureWriter_csv,
+        ResultingFeatureWriter.actName: ResultingFeatureWriter,
         DerandomizeTimeStreams.actName: DerandomizeTimeStreams
     }
 
