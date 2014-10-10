@@ -303,10 +303,12 @@ class TimeStream(object):
     def load_pickled_image(self, datetime):
         pPath = path.join(self.data_dir,
                           _ts_date_to_path(self.name, "p", datetime, 0))
-        try:
-            retImg = TimeStreamImage.pickleload(pPath)
-        except:
-            retImg = None
+        retImg = None
+        if path.isfile(pPath):
+            try:
+                retImg = TimeStreamImage.pickleload(pPath)
+            except:
+                retImg = None
         return retImg
 
     def write_metadata(self):
