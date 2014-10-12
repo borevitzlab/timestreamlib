@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (C) 2014
 # Author(s): Chuong Nguyen <chuong.v.nguyen@gmail.com>
@@ -21,7 +21,8 @@
 from __future__ import absolute_import, division, print_function
 
 import docopt
-import sys, os
+import sys
+import os
 import timestream
 import logging
 import timestream.manipulate.configuration as pipeconf
@@ -246,6 +247,8 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
         continue
     LOG.info("Done")
 
+# TODO: This should move from the script to documentation
+
 # Example of the 2 yaml configuration files:
 #
 ####### Timestream Configuration File: #######
@@ -304,4 +307,3 @@ for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
 #  timeInterval: 900
 #  visualise: False
 ####### Pipeline Configuration File: #######
-
