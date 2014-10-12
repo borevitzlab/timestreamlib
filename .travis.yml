@@ -35,7 +35,7 @@ install:
 
 script:
  - ./run_tests
- - flake8 --max-line-length=85 timestream tests --exclude tests/helpers.py
+ - flake8 --exit-zero --max-line-length=85 timestream tests --exclude tests/helpers.py
 
 after_script:
  - coveralls
