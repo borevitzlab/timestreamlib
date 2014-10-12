@@ -21,6 +21,7 @@ before_install:
  - pip install -q cython==0.20.2
  - pip install -q pytz
  - pip install -q flake8
+ - pip install networkx
  - cp /usr/share/pyshared/cv.py /usr/lib/pyshared/python2.7/cv2.so $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp /usr/share/pyshared/pyparsing.py $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp -r /usr/lib/python2.7/dist-packages/scipy $VIRTUAL_ENV/lib/python2.7/site-packages/
