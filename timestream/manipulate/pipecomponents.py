@@ -36,8 +36,18 @@ import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
 
+from timestream.manipulate import (
+    PCException,
+    PCExBadRunExpects,
+    PCExBreakInPipeline,
+    PCExBadConfig,
+    PCExBadContext,
+)
+
+
 setup_console_logger(level=logging.INFO)
 LOG = logging.getLogger("CONSOLE")
+
 
 class PipeComponent (object):
     # Name has to be unique among pipecomponents
@@ -64,16 +74,39 @@ class PipeComponent (object):
                     # if optional set the default
                     setattr(self, attrKey, attrVal[2])
                 else:
+                    # This check runs during instantiation.
                     raise PCExBadRunExpects(self.__class__, attrKey)
 
     def __call__(self, context, *args):
         """ Is executed every time a component needs to do something.
 
+        Procedure:
+          1. Check for propagated exceptions
+          2. Check argument consistency against runExpects
+          3. Call self.__exec__ (should be overridden by children )
         Args:
           context(PCFGSection): a tree containing context arguments. Same names
             for all components
           args(list): What this components receives
         """
+        self.__chkExcept__(context, *args)
+
+        for i in range(len(self.runExpects)):
+            if not isinstance(args[i], self.runExpects[i]):
+                raise PCExBadRunExpects(self.__class__,
+                        "Call Expected %s but got %s"
+                        % (self.runExpects[i], type(args[i])))
+
+        return(self.__exec__(context, *args))
+
+    def __chkExcept__(self, context, *args):
+        # Separated from __call__ so it might be overridden by children that
+        # need special treatment of propagated exceptions.
+        for arg in args:
+            if isinstance(arg, PCException):
+                raise arg
+
+    def __exec__(self, context, *args):
         raise NotImplementedError()
 
     @classmethod
@@ -106,30 +139,6 @@ class PipeComponent (object):
         pass
 
 
-class PCException(Exception):
-
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        return ("PipeComp_Error: %s" % self.message)
-
-
-class PCExBadRunExpects(PCException):
-
-    def __init__(self, cls, attrKey=None):
-        self.message = "The call to %s should consider \n%s" % \
-            (cls.actName, cls.info())
-        if attrKey is not None:
-            self.message = self.message + \
-                " Error: missing entry for '%s'" % attrKey
-
-
-class PCExBrakeInPipeline(PCException):
-
-    def __init__(self, name, msg):
-        self.message = "Unrecoverable error at %s: %s" % (name, msg)
-
 
 class ImageUndistorter (PipeComponent):
     actName = "undistort"
@@ -154,7 +163,7 @@ class ImageUndistorter (PipeComponent):
             tuple(self.imageSize),
             cv2.CV_32FC1)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -198,7 +207,7 @@ class ColorCardDetector (PipeComponent):
             "Max intensity when using white background", 255]}
 
     runExpects = [TimeStreamImage]
-    runReturns = [TimeStreamImage, list]
+    runReturns = [TimeStreamImage, tuple]
 
     def __init__(self, context, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
@@ -210,7 +219,7 @@ class ColorCardDetector (PipeComponent):
                 context.ints.data["settings"]['configFile'])
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -223,7 +232,8 @@ class ColorCardDetector (PipeComponent):
             self.imagePyramid = cd.createImagePyramid(self.image)
             ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
             if ccdImg is None:
-                raise ValueError("Failed to read %s" % self.ccf)
+                raise PCExBreakInPipeline(self.actName,
+                        "Failed to read %s"%self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
             SearchRange = [self.ccdPyramid[0].shape[1],
@@ -298,13 +308,13 @@ class ImageColorCorrector (PipeComponent):
         "mess": [False, "Correct image color"],
         "minIntensity": [False, "Skip when below this value", 0]}
 
-    runExpects = [TimeStreamImage, list]
+    runExpects = [TimeStreamImage, tuple]
     runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, colorcardParam = args
         image = tsi.pixels
@@ -357,7 +367,7 @@ class TrayDetector (PipeComponent):
     def __init__(self, context, **kwargs):
         super(TrayDetector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -390,9 +400,8 @@ class TrayDetector (PipeComponent):
                 EstimatedLocation=self.trayPositions[i],
                 SearchRange=SearchRange)
             if score < 0.3:
-                # FIXME: For now we don't handle missing trays.
-                raise PCExBrakeInPipeline(
-                    self.actName,
+                # FIXME: Is there a better way to handler this?
+                raise PCExBreakInPipeline( self.actName,
                     "Low tray matching score. Likely tray %d is missing." % i)
 
             self.trayLocs.append(loc)
@@ -431,7 +440,7 @@ class PotDetector (PipeComponent):
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
         self.image = tsi.pixels
@@ -590,11 +599,12 @@ class PlantExtractor (PipeComponent):
     def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
         if self.meth not in tm_ps.segmentingMethods.keys():
-            raise ValueError("%s is not a valid method" % self.meth)
+            raise PCExBadConfig(self.actName, self.meth,
+                                "Invalid method for component")
         # FIXME: Check the arg names. Inform an error in yaml file if error.
         self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         img = tsi.pixels
@@ -637,8 +647,8 @@ class PlantExtractor (PipeComponent):
                 cOut.write(msk)
                 cOut.close()
             except Exception as exc:
-                raise RuntimeError("Unknown error segmenting %s %s" %
-                                   (iph.id, str(exc)))
+                raise PCExBreakInPipeline("Unknown error segmenting %s %s" %
+                                          (iph.id, str(exc)))
             finally:
                 os._exit(0)
             # Child Section
@@ -669,7 +679,7 @@ class FeatureExtractor (PipeComponent):
     def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
@@ -694,9 +704,11 @@ class ResultingFeatureWriter (PipeComponent):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
         if not context.hasSubSecName("outputPathPrefix"):
-            raise Exception("Must define output prefix directory")
+            raise PCExBadContext(self.actName, outputPathPrefix,
+                                 "Must define output prefix directory")
         if not context.hasSubSecName("outputPrefix"):
-            raise Exception("Must define an output prefix")
+            raise PCExBadContext(self.actName, outputPrefix,
+                            "Must define an output prefix")
 
         if self.outname is None:
             self.outname = self.ext
@@ -712,10 +724,15 @@ class ResultingFeatureWriter (PipeComponent):
                 "ndarray": self.ndarrayCheck
             }[self.ext]
         except:
-            raise Exception("Invalid extension %s" % self.ext)
+            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
         func()
 
-    def __call__(self, context, *args):
+    def __chkExcept__(self, context, *args):
+        for arg in args:
+            if isinstance(arg, PCException):
+                raise arg
+
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         ipm = args[0].ipm
 
@@ -735,7 +752,7 @@ class ResultingFeatureWriter (PipeComponent):
                 "ndarray": self.ndarrayCall
             }[self.ext]
         except:
-            raise Exception("Invalid extension %s" % self.ext)
+            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
         func(ipm, ts)
 
         return args
@@ -749,7 +766,8 @@ class ResultingFeatureWriter (PipeComponent):
                 if self.overwrite:
                     os.remove(outputfile)
                 else:
-                    raise Exception("Can't overwrite %s" % outputfile)
+                    raise PCExBreakInPipeline(self.actName,
+                                              "Cant overwrite %s"%outputfile)
 
     def csvCall(self, ipm, ts):
         for fName in ipm.potFeatures:
@@ -783,7 +801,8 @@ class ResultingFeatureWriter (PipeComponent):
             if self.overwrite:
                 os.remove(outputfile)
             else:
-                raise Exception("Can't overwrite %s" % outputfile)
+                raise PCExBreakInPipeline(self.actName,
+                                          "Cant overwrite %s"%outputfile)
 
     def ndarrayCall(self, ipm, ts):
         outputfile = os.path.join(self.outputdir,
@@ -832,7 +851,7 @@ class ResultingImageWriter (PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         """
         We change self.img.pixels just for the ts_out.write_image call.
         Once we have written, we revert self.img.pixels to its original value.
@@ -899,7 +918,7 @@ class DerandomizeTimeStreams (PipeComponent):
         self._numPotPerMid = self.refreshMids(timestamp=None)
         self._numMid = len(self._mids)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         img = TimeStreamImage(args[0])
         img.pixels = self.createCompoundImage(args[0])
