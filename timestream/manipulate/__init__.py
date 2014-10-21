@@ -115,4 +115,10 @@ class PCExSkippedImage(PCException):
         """Raised when user skips an image"""
         self.message = "Image timestamp %s skipped by user" % imgTimestamp
 
+class PCExExistingImage(PCException):
+    id = 7
+    def __init__(self, imgTimestamp):
+        """Raised when img is said to already be calculated"""
+        self.message = "Image timestamp %s has already been calculated" \
+                % imgTimestamp
 

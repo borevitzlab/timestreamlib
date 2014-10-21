@@ -58,7 +58,8 @@ from timestream.util.imgmeta import (
 from timestream.manipulate import (
         PCException,
         PCExSkippedImage,
-        PCExMissingImage
+        PCExMissingImage,
+        PCExExistingImage
 )
 
 # versioneer
@@ -458,7 +459,7 @@ class TimeStreamTraverser(TimeStream):
 
     def __init__(self, ts_path=None, version=None, interval=None,
                  start=None, end=None, start_hour=None, end_hour=None,
-                 ignored_timestamps=[], live_except=False):
+                 ignore_ts=[], existing_ts=[], err_on_access=False):
         """Class to got back and forth on a TimeStream
 
         Use This class when you need to traverse the timestream both forwards
@@ -471,10 +472,10 @@ class TimeStreamTraverser(TimeStream):
           end(datetime): End of time stream
           start_hour(datetime): Starting hour within every day of time stream
           end_hour(datetime): Ending hour within every day of time stream
-          ignored_timestamps(list): List of ignore time stamps.
-          live_except(bool): Relevant for ignored and error images. If true raise
-                             exception in self.curr(), else silently ignore.
-                             Default is False
+          ignore_ts(list): Timestamps to be ignored.
+          existing_ts(list): existing timestamps that should not be recalculated.
+          err_on_access: If false we make all error checks silently in __init__.
+                         If true we raise errors when accessing imgs.
 
         Attributes:
           _timestamps(list): List of strings that index all existing image files
@@ -485,7 +486,10 @@ class TimeStreamTraverser(TimeStream):
         super(TimeStreamTraverser, self).__init__(version=version)
         self.load(ts_path)
 
-        self.live_except = live_except
+        self._err_on_access = err_on_access
+        self._ignore_ts = ignore_ts
+        self._existing_ts = existing_ts
+
         self._offset = 0
         self._timestamps = []
         # FIXME: Following is practically equal to
@@ -515,17 +519,21 @@ class TimeStreamTraverser(TimeStream):
                 if time > hrend:
                     continue
 
-            # skip images in ignored_timestamps
-            self._ignored_timestamps = ignored_timestamps
-            if ts_format_date(time) in self._ignored_timestamps:
-                if not self.live_except:
+            # skip images in ignore_ts
+            if ts_format_date(time) in self._ignore_ts:
+                if not self._err_on_access:
+                    continue
+
+            # skip images in existing_ts
+            if ts_format_date(time) in self._existing_ts:
+                if not self._err_on_access:
                     continue
 
             # Do not add if path dosn't exist
             relpath = _ts_date_to_path(self.name, self.extension, time, 0)
             img_path = path.join(self.path, relpath)
             if not path.exists(img_path):
-                if not self.live_except:
+                if not self._err_on_access:
                     continue
 
             self._timestamps.append(time)
@@ -561,9 +569,11 @@ class TimeStreamTraverser(TimeStream):
         relpath = _ts_date_to_path(self.name, self.extension, timestamp, 0)
         img_path = path.join(self.path, relpath)
 
-        if self.live_except:
-            if ts_format_date(timestamp) in self._ignored_timestamps:
+        if self._err_on_access:
+            if ts_format_date(timestamp) in self._ignore_ts:
                 raise PCExSkippedImage(timestamp)
+            if ts_format_date(timestamp) in self._existing_ts:
+                raise PCExExistingImage(timestamp)
             if not path.exists(img_path):
                 raise PCExMissingImage(timestamp, img_path)
 
