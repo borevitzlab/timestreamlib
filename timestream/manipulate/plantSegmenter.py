@@ -241,6 +241,104 @@ class StatParamCalculator(object):
 
         return StatParamLeafCount("leafcount1", centers)
 
+    def height(self, mask, img=None):
+        bbox = regionprops(mask.astype("int8"), ["bbox"])
+        if len(bbox) == 0:
+            return (0.0)  # FIXME: is this the best default?
+        min_row, min_col, max_row, max_col = bbox[0]["bbox"]
+        return (max_row - min_row)
+
+    def height2(self, mask, img=None):
+        '''
+        This is supposed to provide a more stable plant height
+        Plant top and bottom are at 5% and 95% respectively of
+        green pixel integration.
+        '''
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i,:])
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+
+        # Plant top when reaching 5% of total green pixels
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.05:
+                PlantTop = i
+                break
+        # Plant bottom when reaching 5% of total green pixels
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.95:
+                PlantBottom = i
+                break
+
+        return (PlantBottom-PlantTop)
+
+    def wilting(self, mask, img=None):
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i,:])
+
+        # get range of plant height
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixels[i] != 0:
+                PlantTop = i
+                break
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]-1,-1,-1):
+            if GreenPixels[i] != 0:
+                PlantBottom = i
+                break
+
+        # get wilting height
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        WiltedHeight = PlantTop
+        for i in range(PlantTop, PlantBottom):
+            if GreenPixelsCumSum[i] >= 0.5:
+                WiltedHeight = i
+                break
+        Wilting = float(WiltedHeight-PlantTop)/float(PlantBottom-PlantTop)
+        return (Wilting)
+
+    def wilting2(self, mask, img=None):
+        '''
+        This is supposed to provide a more stable wilting measure
+        Plant top and bottom are at 5% and 95% respectively of
+        green pixels. Plant wilting is at 50% of green pixel integration.
+         '''
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i,:])
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+
+        # Plant top when reaching 5% of total green pixels
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.05:
+                PlantTop = i
+                break
+        # Plant bottom when reaching 5% of total green pixels
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.95:
+                PlantBottom = i
+                break
+        # Plantt wilting height at 50% of total green pixels
+        WiltedHeight = PlantTop
+        for i in range(PlantTop, PlantBottom):
+            if GreenPixelsCumSum[i] >= 0.5:
+                WiltedHeight = i
+                break
+        Wilting = float(WiltedHeight-PlantTop)/float(PlantBottom-PlantTop)
+        return (Wilting)
+
     @classmethod
     def statParamMethods(cls):
         ignore = ["statParamMethods"]
@@ -382,7 +480,7 @@ class FeatureCalculator(object):
         F = 4 * self.normRange(self._imgRGB[:, :, 1], rangeVal=(0, 255)) \
             - 3 * self.normRange(self._imgRGB[:, :, 2], rangeVal=(0, 255)) \
             - 1 * self.normRange(self._imgRGB[:, :, 0], rangeVal=(0, 255))
-        F = np.reshape(F, (F.shape[0], F.shape[0], 1))
+        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
         return(F)
 
     def getFeatures(self, feats, norm=RELATIVE_NORM):
