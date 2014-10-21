@@ -709,6 +709,9 @@ class ResultingFeatureWriter (PipeComponent):
         if not context.hasSubSecName("outputPrefix"):
             raise PCExBadContext(self.actName, outputPrefix,
                             "Must define an output prefix")
+        if self.ext is not "csv":
+            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
+
 
         if self.outname is None:
             self.outname = self.ext
@@ -718,14 +721,16 @@ class ResultingFeatureWriter (PipeComponent):
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
 
-        try:
-            func = {
-                "csv": self.csvCheck,
-                "ndarray": self.ndarrayCheck
-            }[self.ext]
-        except:
-            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
-        func()
+        # Are there any feature csv files? We check all possible features.
+        for fName in tm_ps.StatParamCalculator.statParamMethods():
+            outputfile = os.path.join(self.outputdir,
+                    self.outputPrefix + "-" + fName + "." + self.ext)
+            if os.path.exists(outputfile):
+                if self.overwrite:
+                    os.remove(outputfile)
+                else:
+                    raise PCExBreakInPipeline(self.actName,
+                                              "Cant overwrite %s"%outputfile)
 
     def __chkExcept__(self, context, *args):
         for arg in args:
@@ -746,30 +751,6 @@ class ResultingFeatureWriter (PipeComponent):
             except:
                 ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
 
-        try:
-            func = {
-                "csv": self.csvCall,
-                "ndarray": self.ndarrayCall
-            }[self.ext]
-        except:
-            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
-        func(ipm, ts)
-
-        return args
-
-    def csvCheck(self):
-        # Are there any feature csv files? We check all possible features.
-        for fName in tm_ps.StatParamCalculator.statParamMethods():
-            outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + fName + "." + self.ext)
-            if os.path.exists(outputfile):
-                if self.overwrite:
-                    os.remove(outputfile)
-                else:
-                    raise PCExBreakInPipeline(self.actName,
-                                              "Cant overwrite %s"%outputfile)
-
-    def csvCall(self, ipm, ts):
         for fName in ipm.potFeatures:
             outputfile = os.path.join(self.outputdir,
                     self.outputPrefix + "-" + fName + "." + self.ext)
@@ -794,48 +775,8 @@ class ResultingFeatureWriter (PipeComponent):
             fd.write("\n")
             fd.close()
 
-    def ndarrayCheck(self):
-        outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + self.outname + "." + self.ext)
-        if os.path.exists(outputfile):
-            if self.overwrite:
-                os.remove(outputfile)
-            else:
-                raise PCExBreakInPipeline(self.actName,
-                                          "Cant overwrite %s"%outputfile)
+        return args
 
-    def ndarrayCall(self, ipm, ts):
-        outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + self.outname + "." + self.ext)
-
-        if not os.path.isfile(outputfile):
-            fNames = np.array(ipm.potFeatures)
-            pIds = np.array(ipm.potIds)
-            tStamps = np.array([ts])
-
-        else:
-            npload = np.load(outputfile)
-            fNames = npload["fNames"]
-            pIds = npload["pIds"]
-            featMat = npload["featMat"]
-            tStamps = npload["tStamps"]
-            tStamps = np.append(tStamps, ts)  # New timestamp
-
-        tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
-        for pId, pot in ipm.iter_through_pots():
-            for fName, fVal in pot.getCalcedFeatures().iteritems():
-                fOff = np.where(fNames == fName)
-                pOff = np.where(pIds == pId)
-                tmpMat[fOff, pOff, 0] = fVal.value
-
-        if "featMat" not in locals():
-            featMat = tmpMat
-        else:
-            featMat = np.concatenate((featMat, tmpMat), axis=2)
-
-        np.savez_compressed(outputfile,
-                            **{"fNames": fNames, "pIds": pIds,
-                                "featMat": featMat, "tStamps": tStamps})
 
 class ResultingImageWriter (PipeComponent):
     actName = "imagewrite"
