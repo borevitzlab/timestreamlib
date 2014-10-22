@@ -206,8 +206,7 @@ class ColorCardDetector (PipeComponent):
                                 self.settingPath, self.colorcardFile)
         # for glasshouse experiment, color card is outside of timestream path
         if not os.path.exists(self.ccf):
-            configFilePath = os.path.dirname(
-                context.ints.data["settings"]['configFile'])
+            configFilePath = os.path.dirname(context.ints.data['configFile'])
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
     def __call__(self, context, *args):
@@ -523,7 +522,7 @@ class PotDetector (PipeComponent):
             # if no user vals, we try to calculate it.
             flattened = list(chain.from_iterable(self.potLocs2))
             sortDist = np.sort(spatial.distance.pdist(flattened))
-            sortDist = sortDist[0:len(flattened)] #
+            sortDist = sortDist[0:len(flattened)]
             growM = round(np.median(sortDist) / 2)
 
         tsi.ipm = tm_pot.ImagePotMatrix(
@@ -575,13 +574,50 @@ class PotDetector (PipeComponent):
         plt.show()
 
 
+class PotDetectorGlassHouse (PipeComponent):
+    actName = "potdetectglasshouse"
+    argNames = {
+        "mess": [False, "Just set pot position fron config file"],
+        "potRectangle": [True, "Pot bounding box"]}
+
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(PotDetectorGlassHouse, self).__init__(**kwargs)
+
+    def __call__(self, context, *args):
+        LOG.info(self.mess)
+        tsi = args[0]
+        self.image = tsi.pixels
+
+        tsi.ipm = tm_pot.ImagePotMatrix(tsi, pots=[])
+        potID = 1
+        r = tm_pot.ImagePotRectangle(self.potRectangle, tsi.pixels.shape)
+        p = tm_pot.ImagePotHandler(potID, r, tsi.ipm)
+        tsi.ipm.addPot(p)
+
+        self.PotLoc = [(self.potRectangle[0]+self.potRectangle[2])//2,
+                       (self.potRectangle[1]+self.potRectangle[3])//2]
+        context.outputwithimage["potLocs"] = self.PotLoc
+        return([tsi])
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image.astype(np.uint8))
+        plt.hold(True)
+        plt.plot([self.PotLoc[0]], [self.PotLoc[1]], 'ro')
+        plt.title('Pot Location')
+        plt.show()
+
+
 class PlantExtractor (PipeComponent):
     actName = "plantextract"
     argNames = {
         "mess": [False, "Extract plant biometrics", "default message"],
         "minIntensity": [False, "Skip if intensity below value", 0],
         "meth": [False, "Segmentation Method", "k-means-square"],
-        "methargs": [False, "Args: maxIter, epsilon, attempts",{}],
+        "methargs": [False, "Args: maxIter, epsilon, attempts", {}],
         "parallel": [False, "Whether to run in parallel", False]}
 
     runExpects = [TimeStreamImage]
@@ -615,7 +651,7 @@ class PlantExtractor (PipeComponent):
     def segAllPots(self):
         if not self.parallel:
             for key, iph in self.ipm.iter_through_pots():
-                _ = iph.mask # Property will trigger the segmentation
+                _ = iph.mask  # Property will trigger the segmentation (from where???)
             return
 
         # Parallel from here: We create a child process for each pot and pipe
@@ -677,13 +713,14 @@ class FeatureExtractor (PipeComponent):
 
         return [args[0]]
 
+
 class ResultingFeatureWriter (PipeComponent):
     actName = "writefeatures"
     argNames = {
         "mess": [False, "Default message", "Writing the features"],
         "overwrite": [False, "Whether to overwrite out files", True],
         "ext": [False, "Output Extension", "csv"],
-        "outname" : [False, "String to append to outputPathPrefix", None],
+        "outname": [False, "String to append to outputPathPrefix", None],
         "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
     }
 
@@ -777,8 +814,9 @@ class ResultingFeatureWriter (PipeComponent):
             fd.close()
 
     def ndarrayCheck(self):
-        outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + self.outname + "." + self.ext)
+        outputfile = os.path.join(
+            self.outputdir,
+            self.outputPrefix + "-" + self.outname + "." + self.ext)
         if os.path.exists(outputfile):
             if self.overwrite:
                 os.remove(outputfile)
@@ -786,8 +824,9 @@ class ResultingFeatureWriter (PipeComponent):
                 raise Exception("Can't overwrite %s" % outputfile)
 
     def ndarrayCall(self, ipm, ts):
-        outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + self.outname + "." + self.ext)
+        outputfile = os.path.join(
+            self.outputdir,
+            self.outputPrefix + "-" + self.outname + "." + self.ext)
 
         if not os.path.isfile(outputfile):
             fNames = np.array(ipm.potFeatures)
@@ -818,6 +857,7 @@ class ResultingFeatureWriter (PipeComponent):
                             **{"fNames": fNames, "pIds": pIds,
                                 "featMat": featMat, "tStamps": tStamps})
 
+
 class ResultingImageWriter (PipeComponent):
     actName = "imagewrite"
     argNames = {
@@ -846,9 +886,9 @@ class ResultingImageWriter (PipeComponent):
 
         if self.img.ipm is not None:
             for key, iph in self.img.ipm.iter_through_pots():
-                self.img.pixels = iph.getImage( masked = self.masked,
-                                                features = self.addStats,
-                                                inSuper = True )
+                self.img.pixels = iph.getImage(masked=self.masked,
+                                               features=self.addStats,
+                                               inSuper=True)
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
@@ -863,7 +903,7 @@ class ResultingImageWriter (PipeComponent):
 class DerandomizeTimeStreams (PipeComponent):
     actName = "derandomize"
     argNames = {"mess": [False, "Output Message", "Derandomizing"],
-            "derandStruct": [True, "Derandomization Structure"]}
+                "derandStruct": [True, "Derandomization Structure"]}
     # derandStruct(dict): {mid0:{TS0:[PotId, PotId...],
     #                            TS1:[PotId, PotId...]...},
     #                      mid1:{TS0:[PotId, PotId...],
