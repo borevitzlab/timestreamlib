@@ -691,7 +691,7 @@ class ResultingFeatureWriter (PipeComponent):
     actName = "writefeatures"
     argNames = {
         "mess": [False, "Default message", "Writing the features"],
-        "overwrite": [False, "Whether to overwrite out files", True],
+        "overwrite": [False, "Whether to overwrite out files", False],
         "ext": [False, "Output Extension", "csv"],
         "outname" : [False, "String to append to outputPathPrefix", None],
         "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
@@ -700,6 +700,7 @@ class ResultingFeatureWriter (PipeComponent):
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
 
+    errStr = "NaN"
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
@@ -721,61 +722,159 @@ class ResultingFeatureWriter (PipeComponent):
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
 
-        # Are there any feature csv files? We check all possible features.
+        # Filenames for every feature.
+        self._featFiles = {}
         for fName in tm_ps.StatParamCalculator.statParamMethods():
-            outputfile = os.path.join(self.outputdir,
+            self._featFiles[fName] = os.path.join(self.outputdir,
                     self.outputPrefix + "-" + fName + "." + self.ext)
-            if os.path.exists(outputfile):
-                if self.overwrite:
-                    os.remove(outputfile)
-                else:
-                    raise PCExBreakInPipeline(self.actName,
-                                              "Cant overwrite %s"%outputfile)
 
-    def __chkExcept__(self, context, *args):
-        for arg in args:
-            if isinstance(arg, PCException):
-                raise arg
+        self._prevCsvIndex = {}
+        if self.overwrite:
+            # Remove any conflicting csv
+            for fName, fPath in self._featFiles.iteritems():
+                if os.path.exists(fPath):
+                    os.remove(fPath)
+        else:
+            self._initPrevCsvIndex()
 
     def __exec__(self, context, *args):
         LOG.info(self.mess)
-        ipm = args[0].ipm
+        img = args[0]
+        ipm = img.ipm
 
+        # 1. Calculate time stamp (ts)
+        ts = None
         if self.timestamp == "LINUX_SEC" or self.timestamp is None:
-            ts = time.mktime(context.origImg.datetime.timetuple())
+            ts = time.mktime(img.datetime.timetuple())
         elif self.timestamp == "LINUX_MILISEC":
-            ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
+            ts = time.mktime(img.datetime.timetuple()) * 1000
         else:
             try:
-                ts = context.origImg.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
+                ts = img.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
             except:
-                ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
+                ts = time.mktime(img.datetime.timetuple()) * 1000
+        if ts is None:
+            raise PCExBreakInPipeline(self.actName,
+                    "Could not calculate time stamp")
 
-        for fName in ipm.potFeatures:
-            outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + fName + "." + self.ext)
+        # 2. If we have no features
+        if ipm is None or len(ipm.potFeatures) < 1:
+            #FIXME: We need to add this error to the audit file.
+            raise PCExBreakInPipeline(self.actName,
+                    "Did not find any features.")
 
-            # Sorted so we can easily append after.
-            potIds = sorted(ipm.potIds)
-
-            if not os.path.exists(outputfile):  # we initialize it.
-                fd = open(outputfile, "w+")
+        # 3. Write features
+        potIds = sorted(ipm.potIds) # Sorted to easily append
+        for fName, fPath in self._featFiles.iteritems():
+            if not os.path.exists(fPath):  # we initialize it.
+                fd = open(fPath, "w+")
                 fd.write("timestamp")
                 for potId in potIds:
                     fd.write(",%s" % potId)
                 fd.write("\n")
                 fd.close()
 
-            fd = open(outputfile, 'a')
-            fd.write("%s" % str(ts))
-            for potId in potIds:
-                pot = ipm.getPot(potId)
-                fet = pot.getCalcedFeatures()[fName]
-                fd.write(",%f" % fet.value)
-            fd.write("\n")
-            fd.close()
+            outputline = None
+            if not self.overwrite: # Search in previous csvs
+                outputline = self._recoverFromPrev(ts, fName)
 
+            if outputline is None:
+                outputline = str(ts)
+                for potId in potIds:
+                    pot = ipm.getPot(potId)
+                    fet = pot.getCalcedFeatures()[fName]
+                    outputline = "%s,%f"%(outputline,fet.value)
+                outputline = outputline+"\n"
+
+            fd = open(fPath, 'a')
+            fd.write("%s"%outputline)
+            fd.close()
         return args
+
+    def __chkExcept__(self, context, *args):
+        for arg in args:
+            if isinstance(arg, PCException):
+                raise arg
+
+    def _addErrStr(self, filename):
+        """appends a row of cls.errStr using first row as a referenc"""
+        if not os.path.exists(filename):
+            return
+
+        fd = open(filename, 'r')
+        l = fd.readline()
+        fd.close()
+
+        if len(l) < 1:
+            return
+
+        numElem = l.count(",")+1
+        strOut = (ResultingFeatureWriter.errStr+",")*numElem
+        strOut = strOut[:-1] # eliminate last comma
+        strOut = strOut+"\n"
+
+        fd = open(filename, 'a')
+        fd.write("%s" % strOut)
+        fd.close()
+
+        return strOut
+
+    def _recoverFromPrev(self, timestamp, featName):
+        """Searches timestamp in previous csv files
+
+        self._prevCsvIndex has correspondence between feature names and
+        timestamps. It also links tmp files to feature names.
+        """
+        if featName not in self._prevCsvIndex.keys():
+            return
+        tss = self._prevCsvIndex[featName][1]
+        if timestamp not in tss.keys():
+            return
+
+        boffset = tss[timestamp]
+        tsf = self.prevCsvindex[featName][0]
+        fd = open(tsf, 'r')
+        fd.seek(boffset)
+        l = fd.readline()
+        fd.close()
+
+        # del line from index
+        del(tss[timestamp])
+        if (len(tss)<1):
+            del(self._prevCsvIndex[featName])
+            os.remove(tsf)
+
+        return l
+
+    def _initPrevCsvIndex(self):
+        """ Ths structure of self._prevCsvIndex:
+        {featName:[tmpFile,{timestamp:byteoffset,timestamps:byteoffset...}],
+         featName:[tmpFile, {...}...]}
+
+        """
+        for fName, fpath in self._featFiles.iteritems():
+            if not os.path.exists(fpath):
+                continue
+            if fName in self._prevCsvIndex.keys():
+                continue
+
+            # (1) rename to a tempfile
+            H, T = os.path.split(fpath)
+            tmpFilePath = os.path.join(H, "tmp"+str(int(time.time()) * 1000)+T)
+            os.rename(fpath, tmpFilePath)
+            self._prevCsvIndex[fName] = [tmpFilePath, {}]
+
+            # (2) read all timestamps
+            fd = open(tmpFilePath, "r")
+            while True:
+                byteoffset = fd.tell()
+                l = fd.readline()
+                if l == "":
+                    break
+                ind = l.split(",")[0]
+                self._prevCsvIndex[fName][1][ind] = byteoffset
+
+            fd.close()
 
 
 class ResultingImageWriter (PipeComponent):
