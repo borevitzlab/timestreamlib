@@ -701,6 +701,8 @@ class ResultingFeatureWriter (PipeComponent):
     runReturns = [TimeStreamImage]
 
     errStr = "NaN"
+    #FIXME: hardcoded "timestamp" as header for timestamp.
+    tsHName = "timestamp" # Timestamp column name
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
@@ -743,16 +745,7 @@ class ResultingFeatureWriter (PipeComponent):
         ipm = img.ipm
 
         # 1. Calculate time stamp (ts)
-        ts = None
-        if self.timestamp == "LINUX_SEC" or self.timestamp is None:
-            ts = time.mktime(img.datetime.timetuple())
-        elif self.timestamp == "LINUX_MILISEC":
-            ts = time.mktime(img.datetime.timetuple()) * 1000
-        else:
-            try:
-                ts = img.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
-            except:
-                ts = time.mktime(img.datetime.timetuple()) * 1000
+        ts = self._guessTimeStamp(img)
         if ts is None:
             raise PCExBreakInPipeline(self.actName,
                     "Could not calculate time stamp")
@@ -768,7 +761,7 @@ class ResultingFeatureWriter (PipeComponent):
         for fName, fPath in self._featFiles.iteritems():
             if not os.path.exists(fPath):  # we initialize it.
                 fd = open(fPath, "w+")
-                fd.write("timestamp")
+                fd.write(ResultingFeatureWriter.tsHName)
                 for potId in potIds:
                     fd.write(",%s" % potId)
                 fd.write("\n")
@@ -792,11 +785,72 @@ class ResultingFeatureWriter (PipeComponent):
         return args
 
     def __chkExcept__(self, context, *args):
+        recExcept = None # received exception
         for arg in args:
             if isinstance(arg, PCException):
-                raise arg
+                recExcept = arg
 
-    def _addErrStr(self, filename):
+        if recExcept is None:
+            return # No exceptions, we should continue normally.
+
+        if not context.hasSubSecName("ints"):
+            raise recExcept # We can't guess time stamp.
+
+        # 1. Guess time stamp (ts) from ints
+        #FIXME: HACK!!! Here we want to ignore the _err_on_access of the
+        #       TimeStreamTraverser instance.
+        eoa = context.ints._err_on_access
+        context.ints._err_on_access = False
+        img = context.ints.curr()
+        context.ints._err_on_access = eoa
+
+        ts = self._guessTimeStamp(img)
+        if ts is None:
+            raise recExcept
+
+        # 2. Write features
+        for fName, fPath in self._featFiles.iteritems():
+            if not os.path.exists(fPath):  # we initialize it.
+                res = self._recoverFromPrev(ResultingFeatureWriter.tsHName,
+                        fName)
+                # If no header row, continue without header.
+                if res is not None:
+                    fd = open(fPath, 'a+')
+                    fd.write("%s"%res)
+                    fd.close()
+
+            if self.overwrite:
+                self._addErrStr(ts, fPath)
+            else:
+                res = self._recoverFromPrev(ts, fName)
+                if res is None:
+                    self._addErrStr(ts, fPath)
+                else:
+                    fd = open(fPath, 'a+')
+                    fd.write("%s"%res)
+                    fd.close()
+
+        raise recExcept
+
+    def _guessTimeStamp(self, img):
+        ts = None
+        if not isinstance(img, TimeStreamImage):
+            return ts
+
+        if self.timestamp == "LINUX_SEC" or self.timestamp is None:
+            ts = time.mktime(img.datetime.timetuple())
+        elif self.timestamp == "LINUX_MILISEC":
+            ts = time.mktime(img.datetime.timetuple()) * 1000
+        else:
+            try:
+                ts = img.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
+            except:
+                ts = time.mktime(img.datetime.timetuple()) * 1000
+
+        return ts
+
+
+    def _addErrStr(self, timestamp, filename):
         """appends a row of cls.errStr using first row as a referenc"""
         if not os.path.exists(filename):
             return
@@ -808,8 +862,8 @@ class ResultingFeatureWriter (PipeComponent):
         if len(l) < 1:
             return
 
-        numElem = l.count(",")+1
-        strOut = (ResultingFeatureWriter.errStr+",")*numElem
+        numElem = l.count(",")
+        strOut = str(timestamp)+(","+ResultingFeatureWriter.errStr)*numElem
         strOut = strOut[:-1] # eliminate last comma
         strOut = strOut+"\n"
 
@@ -832,7 +886,7 @@ class ResultingFeatureWriter (PipeComponent):
             return
 
         boffset = tss[timestamp]
-        tsf = self.prevCsvindex[featName][0]
+        tsf = self._prevCsvIndex[featName][0]
         fd = open(tsf, 'r')
         fd.seek(boffset)
         l = fd.readline()
@@ -840,7 +894,9 @@ class ResultingFeatureWriter (PipeComponent):
 
         # del line from index
         del(tss[timestamp])
-        if (len(tss)<1):
+        if ( (len(tss)<1)
+                or (len(tss)==1
+                    and ResultingFeatureWriter.tsHName in tss.keys()[0]) ):
             del(self._prevCsvIndex[featName])
             os.remove(tsf)
 

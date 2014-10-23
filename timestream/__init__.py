@@ -560,7 +560,6 @@ class TimeStreamTraverser(TimeStream):
 
     def getImgByTimeStamp(self, timestamp, update_index=False):
         if timestamp not in self._timestamps:
-            import pdb; pdb.set_trace()
             raise RuntimeError("Timestamp not found")
 
         if update_index:
