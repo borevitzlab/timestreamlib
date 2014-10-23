@@ -724,6 +724,10 @@ class ResultingFeatureWriter (PipeComponent):
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
 
+        # Output audit file
+        self._auditFile = os.path.join(self.outputdir,
+                    self.outputPrefix + "-audit." + self.ext)
+
         # Filenames for every feature.
         self._featFiles = {}
         for fName in tm_ps.StatParamCalculator.statParamMethods():
@@ -747,12 +751,14 @@ class ResultingFeatureWriter (PipeComponent):
         # 1. Calculate time stamp (ts)
         ts = self._guessTimeStamp(img)
         if ts is None:
+            self._appendToAudit(ResultingFeatureWriter.errStr,
+                    PCExBreakInPipeline.id)
             raise PCExBreakInPipeline(self.actName,
                     "Could not calculate time stamp")
 
         # 2. If we have no features
         if ipm is None or len(ipm.potFeatures) < 1:
-            #FIXME: We need to add this error to the audit file.
+            self._appendToAudit(ts, PCExBreakInPipeline.id)
             raise PCExBreakInPipeline(self.actName,
                     "Did not find any features.")
 
@@ -782,6 +788,8 @@ class ResultingFeatureWriter (PipeComponent):
             fd = open(fPath, 'a')
             fd.write("%s"%outputline)
             fd.close()
+
+        self._appendToAudit(ts, str(-1))
         return args
 
     def __chkExcept__(self, context, *args):
@@ -792,6 +800,8 @@ class ResultingFeatureWriter (PipeComponent):
 
         if recExcept is None:
             return # No exceptions, we should continue normally.
+
+        self._appendToAudit(ResultingFeatureWriter.errStr, recExcept.id)
 
         if not context.hasSubSecName("ints"):
             raise recExcept # We can't guess time stamp.
@@ -932,6 +942,10 @@ class ResultingFeatureWriter (PipeComponent):
 
             fd.close()
 
+    def _appendToAudit(self, ts, val):
+        fd = open(self._auditFile, 'a')
+        fd.write("%s,%s\n" % (str(ts), val))
+        fd.close()
 
 class ResultingImageWriter (PipeComponent):
     actName = "imagewrite"
