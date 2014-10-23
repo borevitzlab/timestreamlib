@@ -234,7 +234,6 @@ for timestamp in ts.timestamps:
         # Detach img from timestream. We don't need it!
         img.parent_timestream = None
         LOG.info("Process {} ...".format(img.path))
-        ctx.setVal("origImg", img)
     except PCException as pcex:
         # Propagate PCException to components.
         img = pcex
