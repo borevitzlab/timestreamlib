@@ -18,6 +18,8 @@
 
 from __future__ import absolute_import, division, print_function
 
+from timestream.manipulate import PCException
+
 from timestream.manipulate.pipecomponents import (
     ImageUndistorter,
     ColorCardDetector,
@@ -86,12 +88,19 @@ class ImagePipeline (object):
     #           Name are predefined for all pipe components.
     # initArgs: argument list to get the pipeline going.
     def process(self, contArgs, initArgs, visualise=False):
-        # First elem with input image
         res = initArgs
         for elem in self.pipeline:
-            res = elem(contArgs, *res)
-            if visualise:
-                elem.show()
+            try:
+                res = elem(contArgs, *res)
+                if visualise:
+                    elem.show()
+            except PCException as e:
+                res = [e] # propagate exception
+
+        for e in res:
+            if isinstance(e, PCException):
+                raise e
+
         return (res)
 
     @classmethod

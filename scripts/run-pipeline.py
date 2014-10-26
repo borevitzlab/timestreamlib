@@ -20,6 +20,8 @@
 
 from __future__ import absolute_import, division, print_function
 
+from timestream.manipulate import PCException
+
 import docopt
 import sys
 import os
@@ -27,7 +29,6 @@ import timestream
 import logging
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
-from timestream.manipulate.pipecomponents import PCExBrakeInPipeline
 import yaml
 import datetime
 
@@ -36,8 +37,8 @@ LOG = logging.getLogger("timestreamlib")
 
 CLI_OPTS = """
 USAGE:
-    pipeline_demo.py -i IN [-o OUT] [-p YML] [-t YML] [--set=CONFIG]
-    pipeline_demo.py (-h | --help)
+    run-pipeline -i IN [-o OUT] [-p YML] [-t YML] [--set=CONFIG] [--recalculate]
+    run-pipeline (-h | --help)
 
 OPTIONS:
     -h --help   Show this screen.
@@ -47,10 +48,11 @@ OPTIONS:
                 IN/_data/pipeline.yml
     -t YML      Path to timestream yaml configuration. Defaults to
                 IN/_data/timestream.yml
-
-    --set=CONFIG        Overwrite any configuration value. CONFIG is
-                        a coma (,) separated string of name=value
-                        pairs. E.g: --set=a.b=value,c.d.e=val2,...
+    --set=CONFIG    Overwrite any configuration value. CONFIG is a coma (,)
+                    separated string of name=value pairs.
+                    E.g: --set=a.b=value,c.d.e=val2
+    --recalculate   By default we don't re-calculate images. Passing this option
+                    forces recalculation
 """
 opts = docopt.docopt(CLI_OPTS)
 
@@ -129,19 +131,11 @@ else:
 # Show the user the resulting configuration:
 print(plConf)
 
-# initialise input timestream for processing
-ts = timestream.TimeStream()
-ts.load(inputRootPath)
-# FIXME: ts.data cannot have plConf because it cannot be handled by json.
-ts.data["settings"] = plConf.asDict()
-print(ts)
-
 # Initialize the context
 ctx = pipeconf.PCFGSection("--")
-ctx.setVal("ints",ts)
 
 #create new timestream for output data
-existing_timestamps = []
+existing_ts = []
 for k, outstream in plConf.outstreams.asDict().iteritems():
     ts_out = timestream.TimeStream()
     ts_out.data["settings"] = plConf.asDict()
@@ -160,29 +154,22 @@ for k, outstream in plConf.outstreams.asDict().iteritems():
         ts_out.create(tsoutpath)
         print("Timestream instance created:")
         print("   ts_out.path:", ts_out.path)
-        existing_timestamps.append([])
     else:
         ts_out.load(tsoutpath)
         print("Timestream instance loaded:")
         print("   ts_out.path:", ts_out.path)
-        existing_timestamps.append(ts_out.image_data.keys())
+        existing_ts.append(ts_out.image_data.keys())
     ctx.setVal("outts."+outstream["name"], ts_out)
 
-# get ignored list as intersection of all time stamp lists
-for i,timestamps in enumerate(existing_timestamps):
-    if i == 0:
-        ts_set = set(timestamps)
-    else:
-        ts_set = ts_set & set(timestamps)
-# set this to [] if want to process everything again
-ignored_timestamps = list(ts_set)
-print('ignored_timestamps = ', ignored_timestamps)
+if not opts["--recalculate"]:
+    # Remove repeated timestamps and flatten list
+    existing_ts = list(set([item for sl in existing_ts for item in sl]))
+else:
+    existing_ts = []
+print('existing_timestamps = ', existing_ts)
 
 ctx.setVal("outputPathPrefix", plConf.general.outputPathPrefix)
 ctx.setVal("outputPrefix", plConf.general.outputPrefix)
-
-# initialise processing pipeline
-pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
 
 if plConf.general.hasSubSecName("startDate"):
     sd = plConf.general.startDate
@@ -226,25 +213,38 @@ if plConf.general.hasSubSecName("endHourRange"):
 else:
     endHourRange = None #datetime.time(23,59,59)
 
-for img in ts.iter_by_timepoints(remove_gaps=False, start=startDate,
-                                 end=endDate, interval=timeInterval,
-                                 start_hour = startHourRange, end_hour = endHourRange,
-                                 ignored_timestamps = ignored_timestamps):
+# initialise input timestream for processing
+ts = timestream.TimeStreamTraverser(ts_path=inputRootPath,
+        interval=timeInterval, start=startDate, end=endDate,
+        start_hour = startHourRange, end_hour=endHourRange,
+        existing_ts=existing_ts, err_on_access=True)
+#ts.load(inputRootPath)
+# FIXME: ts.data cannot have plConf because it cannot be handled by json.
+ts.data["settings"] = plConf.asDict()
+ctx.setVal("ints",ts)
+print(ts)
 
-    if len(img.pixels) == 0:
-        LOG.info('Missing image at {}'.format(img.datetime))
-        continue
+# initialise processing pipeline
+pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
 
-    # Detach img from timestream. We don't need it!
-    img.parent_timestream = None
-    LOG.info("Process {} ...".format(img.path))
-    LOG.info("Time stamp {}".format(img.datetime))
-    ctx.setVal("origImg", img)
+for timestamp in ts.timestamps:
+
+    try:
+        img = ts.getImgByTimeStamp(timestamp, update_index=True)
+        # Detach img from timestream. We don't need it!
+        img.parent_timestream = None
+        LOG.info("Process {} ...".format(img.path))
+        ctx.setVal("origImg", img)
+    except PCException as pcex:
+        # Propagate PCException to components.
+        img = pcex
+
     try:
         result = pl.process(ctx, [img], visualise)
-    except PCExBrakeInPipeline as bip:
+    except PCException as bip:
         LOG.info(bip.message)
         continue
+
     LOG.info("Done")
 
 # TODO: This should move from the script to documentation

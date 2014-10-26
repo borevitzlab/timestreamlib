@@ -55,6 +55,12 @@ from timestream.util.imgmeta import (
     get_exif_date,
 )
 
+from timestream.manipulate import (
+        PCException,
+        PCExSkippedImage,
+        PCExMissingImage,
+        PCExExistingImage
+)
 
 # versioneer
 from ._version import get_versions
@@ -453,7 +459,7 @@ class TimeStreamTraverser(TimeStream):
 
     def __init__(self, ts_path=None, version=None, interval=None,
                  start=None, end=None, start_hour=None, end_hour=None,
-                 ignored_timestamps=[]):
+                 ignore_ts=[], existing_ts=[], err_on_access=False):
         """Class to got back and forth on a TimeStream
 
         Use This class when you need to traverse the timestream both forwards
@@ -466,7 +472,10 @@ class TimeStreamTraverser(TimeStream):
           end(datetime): End of time stream
           start_hour(datetime): Starting hour within every day of time stream
           end_hour(datetime): Ending hour within every day of time stream
-          ignored_timestamps(list): List of ignore time stamps.0
+          ignore_ts(list): Timestamps to be ignored.
+          existing_ts(list): existing timestamps that should not be recalculated.
+          err_on_access: If false we make all error checks silently in __init__.
+                         If true we raise errors when accessing imgs.
 
         Attributes:
           _timestamps(list): List of strings that index all existing image files
@@ -476,6 +485,10 @@ class TimeStreamTraverser(TimeStream):
         """
         super(TimeStreamTraverser, self).__init__(version=version)
         self.load(ts_path)
+
+        self._err_on_access = err_on_access
+        self._ignore_ts = ignore_ts
+        self._existing_ts = existing_ts
 
         self._offset = 0
         self._timestamps = []
@@ -494,12 +507,8 @@ class TimeStreamTraverser(TimeStream):
         if end_hour is not None:
             end = dt.datetime.combine(end.date(), end_hour)
 
-        # iterate thru times
+        # iterate threw times
         for time in iter_date_range(start, end, interval):
-            # skip images in ignored_timestamps
-            if ts_format_date(time) in ignored_timestamps:
-                continue
-
             # apply hour range if given
             if start_hour is not None:
                 hrstart = dt.datetime.combine(time.date(), start_hour)
@@ -510,11 +519,24 @@ class TimeStreamTraverser(TimeStream):
                 if time > hrend:
                     continue
 
-            # If path exists add index to _timestamps
+            # skip images in ignore_ts
+            if ts_format_date(time) in self._ignore_ts:
+                if not self._err_on_access:
+                    continue
+
+            # skip images in existing_ts
+            if ts_format_date(time) in self._existing_ts:
+                if not self._err_on_access:
+                    continue
+
+            # Do not add if path dosn't exist
             relpath = _ts_date_to_path(self.name, self.extension, time, 0)
             img_path = path.join(self.path, relpath)
-            if path.exists(img_path):
-                self._timestamps.append(time)
+            if not path.exists(img_path):
+                if not self._err_on_access:
+                    continue
+
+            self._timestamps.append(time)
 
     def next(self):
         if self._offset == len(self._timestamps) - 1:
@@ -534,12 +556,29 @@ class TimeStreamTraverser(TimeStream):
 
     def curr(self):
         time = self._timestamps[self._offset]
-        relpath = _ts_date_to_path(self.name, self.extension, time, 0)
+        return (self.getImgByTimeStamp(time))
+
+    def getImgByTimeStamp(self, timestamp, update_index=False):
+        if timestamp not in self._timestamps:
+            raise RuntimeError("Timestamp not found")
+
+        if update_index:
+            self._offset = self._timestamps.index(timestamp)
+
+        relpath = _ts_date_to_path(self.name, self.extension, timestamp, 0)
         img_path = path.join(self.path, relpath)
 
-        img = self.load_pickled_image(time)
+        if self._err_on_access:
+            if ts_format_date(timestamp) in self._ignore_ts:
+                raise PCExSkippedImage(timestamp)
+            if ts_format_date(timestamp) in self._existing_ts:
+                raise PCExExistingImage(timestamp)
+            if not path.exists(img_path):
+                raise PCExMissingImage(timestamp, img_path)
+
+        img = self.load_pickled_image(timestamp)
         if img is None:
-            img = TimeStreamImage(dt=time)
+            img = TimeStreamImage(dt=timestamp)
 
         img.parent_timestream = self
         img.path = img_path
@@ -555,26 +594,6 @@ class TimeStreamTraverser(TimeStream):
     @property
     def timestamps(self):
         return self._timestamps
-
-    def getImgByTimeStamp(self, timestamp):
-        if timestamp not in self._timestamps:
-            raise RuntimeError("Timestamp not found")
-
-        # FIXME: This code is basically the same as curr()
-        relpath = _ts_date_to_path(self.name, self.extension, timestamp, 0)
-        img_path = path.join(self.path, relpath)
-
-        img = self.load_pickled_image(timestamp)
-        if img is None:
-            img = TimeStreamImage(dt=timestamp)
-
-        try:
-            img_date = ts_format_date(img.datetime)
-            img.data = self.image_data[img_date]
-        except KeyError:
-            img.data = {}
-
-        return img
 
 
 class TimeStreamImage(object):

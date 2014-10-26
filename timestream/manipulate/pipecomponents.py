@@ -36,8 +36,18 @@ import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
 
+from timestream.manipulate import (
+    PCException,
+    PCExBadRunExpects,
+    PCExBreakInPipeline,
+    PCExBadConfig,
+    PCExBadContext,
+)
+
+
 setup_console_logger(level=logging.INFO)
 LOG = logging.getLogger("CONSOLE")
+
 
 class PipeComponent (object):
     # Name has to be unique among pipecomponents
@@ -64,16 +74,39 @@ class PipeComponent (object):
                     # if optional set the default
                     setattr(self, attrKey, attrVal[2])
                 else:
+                    # This check runs during instantiation.
                     raise PCExBadRunExpects(self.__class__, attrKey)
 
     def __call__(self, context, *args):
         """ Is executed every time a component needs to do something.
 
+        Procedure:
+          1. Check for propagated exceptions
+          2. Check argument consistency against runExpects
+          3. Call self.__exec__ (should be overridden by children )
         Args:
           context(PCFGSection): a tree containing context arguments. Same names
             for all components
           args(list): What this components receives
         """
+        self.__chkExcept__(context, *args)
+
+        for i in range(len(self.runExpects)):
+            if not isinstance(args[i], self.runExpects[i]):
+                raise PCExBadRunExpects(self.__class__,
+                        "Call Expected %s but got %s"
+                        % (self.runExpects[i], type(args[i])))
+
+        return(self.__exec__(context, *args))
+
+    def __chkExcept__(self, context, *args):
+        # Separated from __call__ so it might be overridden by children that
+        # need special treatment of propagated exceptions.
+        for arg in args:
+            if isinstance(arg, PCException):
+                raise arg
+
+    def __exec__(self, context, *args):
         raise NotImplementedError()
 
     @classmethod
@@ -106,30 +139,6 @@ class PipeComponent (object):
         pass
 
 
-class PCException(Exception):
-
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        return ("PipeComp_Error: %s" % self.message)
-
-
-class PCExBadRunExpects(PCException):
-
-    def __init__(self, cls, attrKey=None):
-        self.message = "The call to %s should consider \n%s" % \
-            (cls.actName, cls.info())
-        if attrKey is not None:
-            self.message = self.message + \
-                " Error: missing entry for '%s'" % attrKey
-
-
-class PCExBrakeInPipeline(PCException):
-
-    def __init__(self, name, msg):
-        self.message = "Unrecoverable error at %s: %s" % (name, msg)
-
 
 class ImageUndistorter (PipeComponent):
     actName = "undistort"
@@ -154,7 +163,7 @@ class ImageUndistorter (PipeComponent):
             tuple(self.imageSize),
             cv2.CV_32FC1)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -198,7 +207,7 @@ class ColorCardDetector (PipeComponent):
             "Max intensity when using white background", 255]}
 
     runExpects = [TimeStreamImage]
-    runReturns = [TimeStreamImage, list]
+    runReturns = [TimeStreamImage, tuple]
 
     def __init__(self, context, **kwargs):
         super(ColorCardDetector, self).__init__(**kwargs)
@@ -209,7 +218,7 @@ class ColorCardDetector (PipeComponent):
             configFilePath = os.path.dirname(context.ints.data['configFile'])
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -222,7 +231,8 @@ class ColorCardDetector (PipeComponent):
             self.imagePyramid = cd.createImagePyramid(self.image)
             ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
             if ccdImg is None:
-                raise ValueError("Failed to read %s" % self.ccf)
+                raise PCExBreakInPipeline(self.actName,
+                        "Failed to read %s"%self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
             SearchRange = [self.ccdPyramid[0].shape[1],
@@ -297,13 +307,13 @@ class ImageColorCorrector (PipeComponent):
         "mess": [False, "Correct image color"],
         "minIntensity": [False, "Skip when below this value", 0]}
 
-    runExpects = [TimeStreamImage, list]
+    runExpects = [TimeStreamImage, tuple]
     runReturns = [TimeStreamImage]
 
     def __init__(self, context, **kwargs):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, colorcardParam = args
         image = tsi.pixels
@@ -356,7 +366,7 @@ class TrayDetector (PipeComponent):
     def __init__(self, context, **kwargs):
         super(TrayDetector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
@@ -389,9 +399,8 @@ class TrayDetector (PipeComponent):
                 EstimatedLocation=self.trayPositions[i],
                 SearchRange=SearchRange)
             if score < 0.3:
-                # FIXME: For now we don't handle missing trays.
-                raise PCExBrakeInPipeline(
-                    self.actName,
+                # FIXME: Is there a better way to handler this?
+                raise PCExBreakInPipeline( self.actName,
                     "Low tray matching score. Likely tray %d is missing." % i)
 
             self.trayLocs.append(loc)
@@ -430,7 +439,7 @@ class PotDetector (PipeComponent):
     def __init__(self, context, **kwargs):
         super(PotDetector, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
         self.image = tsi.pixels
@@ -626,11 +635,12 @@ class PlantExtractor (PipeComponent):
     def __init__(self, context, **kwargs):
         super(PlantExtractor, self).__init__(**kwargs)
         if self.meth not in tm_ps.segmentingMethods.keys():
-            raise ValueError("%s is not a valid method" % self.meth)
+            raise PCExBadConfig(self.actName, self.meth,
+                                "Invalid method for component")
         # FIXME: Check the arg names. Inform an error in yaml file if error.
         self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
         img = tsi.pixels
@@ -673,8 +683,8 @@ class PlantExtractor (PipeComponent):
                 cOut.write(msk)
                 cOut.close()
             except Exception as exc:
-                raise RuntimeError("Unknown error segmenting %s %s" %
-                                   (iph.id, str(exc)))
+                raise PCExBreakInPipeline("Unknown error segmenting %s %s" %
+                                          (iph.id, str(exc)))
             finally:
                 os._exit(0)
             # Child Section
@@ -705,7 +715,7 @@ class FeatureExtractor (PipeComponent):
     def __init__(self, context, **kwargs):
         super(FeatureExtractor, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
@@ -718,7 +728,7 @@ class ResultingFeatureWriter (PipeComponent):
     actName = "writefeatures"
     argNames = {
         "mess": [False, "Default message", "Writing the features"],
-        "overwrite": [False, "Whether to overwrite out files", True],
+        "overwrite": [False, "Whether to overwrite out files", False],
         "ext": [False, "Output Extension", "csv"],
         "outname": [False, "String to append to outputPathPrefix", None],
         "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
@@ -727,13 +737,21 @@ class ResultingFeatureWriter (PipeComponent):
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
 
+    errStr = "NaN"
+    #FIXME: hardcoded "timestamp" as header for timestamp.
+    tsHName = "timestamp" # Timestamp column name
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
         if not context.hasSubSecName("outputPathPrefix"):
-            raise Exception("Must define output prefix directory")
+            raise PCExBadContext(self.actName, outputPathPrefix,
+                                 "Must define output prefix directory")
         if not context.hasSubSecName("outputPrefix"):
-            raise Exception("Must define an output prefix")
+            raise PCExBadContext(self.actName, outputPrefix,
+                            "Must define an output prefix")
+        if self.ext is not "csv":
+            raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
+
 
         if self.outname is None:
             self.outname = self.ext
@@ -743,119 +761,228 @@ class ResultingFeatureWriter (PipeComponent):
         if not os.path.exists(self.outputdir):
             os.makedirs(self.outputdir)
 
-        try:
-            func = {
-                "csv": self.csvCheck,
-                "ndarray": self.ndarrayCheck
-            }[self.ext]
-        except:
-            raise Exception("Invalid extension %s" % self.ext)
-        func()
+        # Output audit file
+        self._auditFile = os.path.join(self.outputdir,
+                    self.outputPrefix + "-audit." + self.ext)
 
-    def __call__(self, context, *args):
-        LOG.info(self.mess)
-        ipm = args[0].ipm
-
-        if self.timestamp == "LINUX_SEC" or self.timestamp is None:
-            ts = time.mktime(context.origImg.datetime.timetuple())
-        elif self.timestamp == "LINUX_MILISEC":
-            ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
-        else:
-            try:
-                ts = context.origImg.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
-            except:
-                ts = time.mktime(context.origImg.datetime.timetuple()) * 1000
-
-        try:
-            func = {
-                "csv": self.csvCall,
-                "ndarray": self.ndarrayCall
-            }[self.ext]
-        except:
-            raise Exception("Invalid extension %s" % self.ext)
-        func(ipm, ts)
-
-        return args
-
-    def csvCheck(self):
-        # Are there any feature csv files? We check all possible features.
+        # Filenames for every feature.
+        self._featFiles = {}
         for fName in tm_ps.StatParamCalculator.statParamMethods():
-            outputfile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + fName + "." + self.ext)
-            if os.path.exists(outputfile):
-                if self.overwrite:
-                    os.remove(outputfile)
-                else:
-                    raise Exception("Can't overwrite %s" % outputfile)
-
-    def csvCall(self, ipm, ts):
-        for fName in ipm.potFeatures:
-            outputfile = os.path.join(self.outputdir,
+            self._featFiles[fName] = os.path.join(self.outputdir,
                     self.outputPrefix + "-" + fName + "." + self.ext)
 
-            # Sorted so we can easily append after.
-            potIds = sorted(ipm.potIds)
+        self._prevCsvIndex = {}
+        if self.overwrite:
+            # Remove any conflicting csv
+            for fName, fPath in self._featFiles.iteritems():
+                if os.path.exists(fPath):
+                    os.remove(fPath)
+        else:
+            self._initPrevCsvIndex()
 
-            if not os.path.exists(outputfile):  # we initialize it.
-                fd = open(outputfile, "w+")
-                fd.write("timestamp")
+    def __exec__(self, context, *args):
+        LOG.info(self.mess)
+        img = args[0]
+        ipm = img.ipm
+
+        # 1. Calculate time stamp (ts)
+        ts = self._guessTimeStamp(img)
+        if ts is None:
+            self._appendToAudit(ResultingFeatureWriter.errStr,
+                    PCExBreakInPipeline.id)
+            raise PCExBreakInPipeline(self.actName,
+                    "Could not calculate time stamp")
+
+        # 2. If we have no features
+        if ipm is None or len(ipm.potFeatures) < 1:
+            self._appendToAudit(ts, PCExBreakInPipeline.id)
+            raise PCExBreakInPipeline(self.actName,
+                    "Did not find any features.")
+
+        # 3. Write features
+        potIds = sorted(ipm.potIds) # Sorted to easily append
+        for fName, fPath in self._featFiles.iteritems():
+            if not os.path.exists(fPath):  # we initialize it.
+                fd = open(fPath, "w+")
+                fd.write(ResultingFeatureWriter.tsHName)
                 for potId in potIds:
                     fd.write(",%s" % potId)
                 fd.write("\n")
                 fd.close()
 
-            fd = open(outputfile, 'a')
-            fd.write("%s" % str(ts))
-            for potId in potIds:
-                pot = ipm.getPot(potId)
-                fet = pot.getCalcedFeatures()[fName]
-                fd.write(",%f" % fet.value)
-            fd.write("\n")
+            outputline = None
+            if not self.overwrite: # Search in previous csvs
+                outputline = self._recoverFromPrev(ts, fName)
+
+            if outputline is None:
+                outputline = str(ts)
+                for potId in potIds:
+                    pot = ipm.getPot(potId)
+                    fet = pot.getCalcedFeatures()[fName]
+                    outputline = "%s,%f"%(outputline,fet.value)
+                outputline = outputline+"\n"
+
+            fd = open(fPath, 'a')
+            fd.write("%s"%outputline)
             fd.close()
 
-    def ndarrayCheck(self):
-        outputfile = os.path.join(
-            self.outputdir,
-            self.outputPrefix + "-" + self.outname + "." + self.ext)
-        if os.path.exists(outputfile):
+        self._appendToAudit(ts, str(-1))
+        return args
+
+    def __chkExcept__(self, context, *args):
+        recExcept = None # received exception
+        for arg in args:
+            if isinstance(arg, PCException):
+                recExcept = arg
+
+        if recExcept is None:
+            return # No exceptions, we should continue normally.
+
+        self._appendToAudit(ResultingFeatureWriter.errStr, recExcept.id)
+
+        if not context.hasSubSecName("ints"):
+            raise recExcept # We can't guess time stamp.
+
+        # 1. Guess time stamp (ts) from ints
+        #FIXME: HACK!!! Here we want to ignore the _err_on_access of the
+        #       TimeStreamTraverser instance.
+        eoa = context.ints._err_on_access
+        context.ints._err_on_access = False
+        img = context.ints.curr()
+        context.ints._err_on_access = eoa
+
+        ts = self._guessTimeStamp(img)
+        if ts is None:
+            raise recExcept
+
+        # 2. Write features
+        for fName, fPath in self._featFiles.iteritems():
+            if not os.path.exists(fPath):  # we initialize it.
+                res = self._recoverFromPrev(ResultingFeatureWriter.tsHName,
+                        fName)
+                # If no header row, continue without header.
+                if res is not None:
+                    fd = open(fPath, 'a+')
+                    fd.write("%s"%res)
+                    fd.close()
+
             if self.overwrite:
-                os.remove(outputfile)
+                self._addErrStr(ts, fPath)
             else:
-                raise Exception("Can't overwrite %s" % outputfile)
+                res = self._recoverFromPrev(ts, fName)
+                if res is None:
+                    self._addErrStr(ts, fPath)
+                else:
+                    fd = open(fPath, 'a+')
+                    fd.write("%s"%res)
+                    fd.close()
 
-    def ndarrayCall(self, ipm, ts):
-        outputfile = os.path.join(
-            self.outputdir,
-            self.outputPrefix + "-" + self.outname + "." + self.ext)
+        raise recExcept
 
-        if not os.path.isfile(outputfile):
-            fNames = np.array(ipm.potFeatures)
-            pIds = np.array(ipm.potIds)
-            tStamps = np.array([ts])
+    def _guessTimeStamp(self, img):
+        ts = None
+        if not isinstance(img, TimeStreamImage):
+            return ts
 
+        if self.timestamp == "LINUX_SEC" or self.timestamp is None:
+            ts = time.mktime(img.datetime.timetuple())
+        elif self.timestamp == "LINUX_MILISEC":
+            ts = time.mktime(img.datetime.timetuple()) * 1000
         else:
-            npload = np.load(outputfile)
-            fNames = npload["fNames"]
-            pIds = npload["pIds"]
-            featMat = npload["featMat"]
-            tStamps = npload["tStamps"]
-            tStamps = np.append(tStamps, ts)  # New timestamp
+            try:
+                ts = img.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
+            except:
+                ts = time.mktime(img.datetime.timetuple()) * 1000
 
-        tmpMat = np.zeros([fNames.shape[0], pIds.shape[0], 1])
-        for pId, pot in ipm.iter_through_pots():
-            for fName, fVal in pot.getCalcedFeatures().iteritems():
-                fOff = np.where(fNames == fName)
-                pOff = np.where(pIds == pId)
-                tmpMat[fOff, pOff, 0] = fVal.value
+        return ts
 
-        if "featMat" not in locals():
-            featMat = tmpMat
-        else:
-            featMat = np.concatenate((featMat, tmpMat), axis=2)
 
-        np.savez_compressed(outputfile,
-                            **{"fNames": fNames, "pIds": pIds,
-                                "featMat": featMat, "tStamps": tStamps})
+    def _addErrStr(self, timestamp, filename):
+        """appends a row of cls.errStr using first row as a referenc"""
+        if not os.path.exists(filename):
+            return
+
+        fd = open(filename, 'r')
+        l = fd.readline()
+        fd.close()
+
+        if len(l) < 1:
+            return
+
+        numElem = l.count(",")
+        strOut = str(timestamp)+(","+ResultingFeatureWriter.errStr)*numElem
+        strOut = strOut[:-1] # eliminate last comma
+        strOut = strOut+"\n"
+
+        fd = open(filename, 'a')
+        fd.write("%s" % strOut)
+        fd.close()
+
+        return strOut
+
+    def _recoverFromPrev(self, timestamp, featName):
+        """Searches timestamp in previous csv files
+
+        self._prevCsvIndex has correspondence between feature names and
+        timestamps. It also links tmp files to feature names.
+        """
+        if featName not in self._prevCsvIndex.keys():
+            return
+        tss = self._prevCsvIndex[featName][1]
+        if timestamp not in tss.keys():
+            return
+
+        boffset = tss[timestamp]
+        tsf = self._prevCsvIndex[featName][0]
+        fd = open(tsf, 'r')
+        fd.seek(boffset)
+        l = fd.readline()
+        fd.close()
+
+        # del line from index
+        del(tss[timestamp])
+        if ( (len(tss)<1)
+                or (len(tss)==1
+                    and ResultingFeatureWriter.tsHName in tss.keys()[0]) ):
+            del(self._prevCsvIndex[featName])
+            os.remove(tsf)
+
+        return l
+
+    def _initPrevCsvIndex(self):
+        """ Ths structure of self._prevCsvIndex:
+        {featName:[tmpFile,{timestamp:byteoffset,timestamps:byteoffset...}],
+         featName:[tmpFile, {...}...]}
+
+        """
+        for fName, fpath in self._featFiles.iteritems():
+            if not os.path.exists(fpath):
+                continue
+            if fName in self._prevCsvIndex.keys():
+                continue
+
+            # (1) rename to a tempfile
+            H, T = os.path.split(fpath)
+            tmpFilePath = os.path.join(H, "tmp"+str(int(time.time()) * 1000)+T)
+            os.rename(fpath, tmpFilePath)
+            self._prevCsvIndex[fName] = [tmpFilePath, {}]
+
+            # (2) read all timestamps
+            fd = open(tmpFilePath, "r")
+            while True:
+                byteoffset = fd.tell()
+                l = fd.readline()
+                if l == "":
+                    break
+                ind = l.split(",")[0]
+                self._prevCsvIndex[fName][1][ind] = byteoffset
+
+            fd.close()
+
+    def _appendToAudit(self, ts, val):
+        fd = open(self._auditFile, 'a')
+        fd.write("%s,%s\n" % (str(ts), val))
+        fd.close()
 
 
 class ResultingImageWriter (PipeComponent):
@@ -872,7 +999,7 @@ class ResultingImageWriter (PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         """
         We change self.img.pixels just for the ts_out.write_image call.
         Once we have written, we revert self.img.pixels to its original value.
@@ -939,7 +1066,7 @@ class DerandomizeTimeStreams (PipeComponent):
         self._numPotPerMid = self.refreshMids(timestamp=None)
         self._numMid = len(self._mids)
 
-    def __call__(self, context, *args):
+    def __exec__(self, context, *args):
         LOG.info(self.mess)
         img = TimeStreamImage(args[0])
         img.pixels = self.createCompoundImage(args[0])
