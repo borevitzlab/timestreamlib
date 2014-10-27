@@ -18,13 +18,13 @@
 
 import csv
 import sys
+import yaml
 import os.path
 from PyQt4 import QtGui, QtCore, uic
 from timestream import TimeStreamTraverser, TimeStream
-from collections import namedtuple
+from collections import OrderedDict
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
-import yaml
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -35,42 +35,41 @@ class DerandomizeGUI(QtGui.QMainWindow):
           _scene(QGraphicsScene): Where we put the pixmap
           _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
             and zoom.
-          _activeTS(int): Selected offset in tstable. -1 is no tems
         """
         QtGui.QMainWindow.__init__(self)
 
-        self._activeTS = -1
         self._ui = uic.loadUi("derandui.ui")
 
-        # Setup Image viewer
-        # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
-        self._scene = QtGui.QGraphicsScene()
-        self._gvImg = PanZoomGraphicsView()
-        self._gvImg.setScene(self._scene)
-        self.showImage(None)
-
-        # self._ui.csv and self._gvImg take up 50-50 of the vertical space
-        sp = self._gvImg.sizePolicy()
-        sp.setVerticalPolicy(QtGui.QSizePolicy.Preferred)
-        sp.setVerticalStretch(1)
-        self._gvImg.setSizePolicy(sp)
-        self._ui.vRight.addWidget(self._gvImg)
-
-        # Setup the timestream list
+#        # Setup Image viewer
+#        # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
+#        self._scene = QtGui.QGraphicsScene()
+#        self._gvImg = PanZoomGraphicsView()
+#        self._gvImg.setScene(self._scene)
+#        self.showImage(None)
+#
+        # Setup timestream & csvlist
         self._ui.tslist.horizontalHeader().resizeSection(0,20)
         self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
         self.addTsItem = self._ui.tslist.item(0,0)
-
-        # Setup first two columns
-        self._ftc = BindingTable(self._ui.csv, self)
-        self._ftc.c02RelationChange.connect(self.imgRefresh)
-        self._ftc.cb0Change.connect(self._trackTSComboBoxOffset)
-
-        # Button connection
-        self._ui.bAddCsv.clicked.connect(self._ftc.selectCsv)
         self._ui.bAddTs.clicked.connect(self._addTS)
-        self._ui.bDerand.clicked.connect(self._derandomize)
+        self._ui.csvlist.horizontalHeader().resizeSection(0,20)
+        self._ui.csvlist.cellClicked.connect(self.onClickCsvList)
+        self.addCsvItem = self._ui.csvlist.item(0,0)
+        self._ui.bAddCsv.clicked.connect(self._addCsv)
+
+        # Comboboxes & genMaster
+        self._origCbCsvMousePress = self._ui.cbCsv.mousePressEvent
+        self._ui.cbCsv.mousePressEvent = self._pressCbCsv
+        self._origCbTsMousePress = self._ui.cbTs.mousePressEvent
+        self._ui.cbTs.mousePressEvent = self._pressCbTs
+        self._origCbDerandMousePress = self._ui.cbderand.mousePressEvent
+        self._ui.cbderand.mousePressEvent = self._pressCbDerand
+        self._ui.cbderand.currentIndexChanged.connect(self._indexChangedCbDerand)
+        self._ui.bGenMaster.clicked.connect(self._genMaster)
+
+        # Add Additional buttons
         self._ui.bGenConf.clicked.connect(self._genConfig)
+        self._ui.bDerand.clicked.connect(self._derandomize)
 
         # Hide the progress bar stuff
         self._ui.pbts.setVisible(False)
@@ -80,23 +79,159 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         self._ui.show()
 
+    def _indexChangedCbDerand(self, ind):
+        if ind == -1:
+            return
+
+        c,_ = self._ui.cbderand.itemData(ind).toUInt()
+        self._ui.masterlist.sortItems(c, QtCore.Qt.DescendingOrder)
+
+    def _pressCbDerand(self, mouseEvent):
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1:
+            return
+        self._ui.cbderand.clear()
+        self._ui.cbderand.blockSignals(True)
+        for c in range(self._ui.masterlist.columnCount()):
+            hhi = self._ui.masterlist.horizontalHeaderItem(c)
+            self._ui.cbderand.addItem(hhi.text(), QtCore.QVariant(c))
+        self._ui.cbderand.blockSignals(False)
+
+        self._origCbDerandMousePress(mouseEvent)
+
+    def _pressCbCsv(self, mouseEvent):
+        if self._ui.csvtable.columnCount() < 2:
+            return
+        self._ui.cbCsv.clear()
+        for c in range(self._ui.csvtable.columnCount()):
+            hhi = self._ui.csvtable.horizontalHeaderItem(c)
+            self._ui.cbCsv.addItem(hhi.text(), QtCore.QVariant(c))
+
+        self._origCbCsvMousePress(mouseEvent)
+
+    def _pressCbTs(self, mouseEvent):
+        if self._ui.tstable.columnCount() < 2:
+            return
+        self._ui.cbTs.clear()
+        for c in range(self._ui.tstable.columnCount()):
+            hhi = self._ui.tstable.horizontalHeaderItem(c)
+            self._ui.cbTs.addItem(hhi.text(), QtCore.QVariant(c))
+
+        self._origCbTsMousePress(mouseEvent)
+
+    def _genMaster(self):
+        # 0. Make sure we can create the master.
+        errMsg = None
+        if self._ui.tstable.columnCount() < 2 \
+                or self._ui.csvtable.columnCount() < 2 \
+                or self._ui.tslist.rowCount() < 2 \
+                or self._ui.csvlist.rowCount() < 2:
+            errMsg = "Add a csv file and at least one Time Stream"
+        if self._ui.cbCsv.currentText() == "" \
+                or self._ui.cbCsv.currentText() == "CSV Name" \
+                or self._ui.cbTs.currentText() == "" \
+                or self._ui.cbTs.currentText() == "TS Name":
+            errMsg = "Please choose column relation"
+        if errMsg is not None:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error Generating Master")
+            errmsg.showMessage(errMsg)
+            return
+
+        # 1. Initialize table
+        self._ui.masterlist.setRowCount(0)
+        self._ui.masterlist.setColumnCount(0)
+        self._ui.masterlist.setColumnCount(self._ui.csvtable.columnCount()-1
+                + self._ui.tstable.columnCount()-1)
+
+        # set csv related headers
+        for c in range(1,self._ui.csvtable.columnCount()):
+            hName = self._ui.csvtable.horizontalHeaderItem(c).text()
+            i = QtGui.QTableWidgetItem()
+            i.setText(hName)
+            self._ui.masterlist.setHorizontalHeaderItem(c-1,i)
+
+        # set ts related headers
+        cOffset = self._ui.csvtable.columnCount()-1
+        for c in range(1,self._ui.tstable.columnCount()):
+            hName = self._ui.tstable.horizontalHeaderItem(c).text()
+            i = QtGui.QTableWidgetItem()
+            i.setText(hName)
+            self._ui.masterlist.setHorizontalHeaderItem(c-1+cOffset,i)
+
+
+        # 2. Copy csv table. Not col 0. Ignore row where selected col is "".
+        cInd = self._ui.cbCsv.currentIndex()
+        selColNum,_ = self._ui.cbCsv.itemData(cInd).toUInt()
+
+        masterR = 0
+        for csvR in range(self._ui.csvtable.rowCount()):
+            if self._ui.csvtable.item(csvR, selColNum).text() == "":
+                continue
+
+            self._ui.masterlist.insertRow(self._ui.masterlist.rowCount())
+            for csvC in range(1,self._ui.csvtable.columnCount()):
+                istr = self._ui.csvtable.item(csvR, csvC).text()
+                i = QtGui.QTableWidgetItem()
+                i.setTextAlignment(QtCore.Qt.AlignCenter)
+                i.setText(istr)
+                i.setBackground(QtGui.QColor(220,220,220))
+                self._ui.masterlist.setItem(masterR, csvC-1, i)
+            masterR += 1
+
+        # 3. Copy tstable rows to masterlist that agree with Relation
+        cInd = self._ui.cbTs.currentIndex()
+        tsColNum,_ = self._ui.cbTs.itemData(cInd).toUInt()
+        cInd = self._ui.cbCsv.currentIndex()
+        masterColNum,_ = self._ui.cbCsv.itemData(cInd).toUInt()
+        masterColNum -= 1 # because we don't have CSV Name in master list.
+
+        # valRow: given the val, returns the row in tstable
+        valRow = {}
+        for csvR in range(self._ui.tstable.rowCount()):
+            val = self._ui.tstable.item(csvR, tsColNum).text()
+            valRow[val] = csvR
+
+        # Copy all row values from tstable to masterlist.
+        for mRow in range(self._ui.masterlist.rowCount()):
+            masterVal = self._ui.masterlist.item(mRow, masterColNum).text()
+            if masterVal not in valRow.keys():
+                continue
+
+            # Copy all tstable columns from tsRow to masterlist
+            tsRow = valRow[masterVal]
+            for tsCol in range(1, self._ui.tstable.columnCount()):
+                tsI = self._ui.tstable.item(tsRow, tsCol)
+                tsT = tsI.text()
+                tsD = tsI.data(QtCore.Qt.UserRole)
+                i = QtGui.QTableWidgetItem()
+                i.setTextAlignment(QtCore.Qt.AlignCenter)
+                i.setText(tsT)
+                i.setData(QtCore.Qt.UserRole, tsD)
+                self._ui.masterlist.setItem(mRow, cOffset-1+tsCol, i)
+
     def _cancelDerand(self):
         self._ui.bCancelClicked = True
 
     def _genConfig(self):
+        if self._ui.cbderand.currentIndex() < 0:
+            return
 
         cFile = QtGui.QFileDialog.getSaveFileName(self, \
                 "Select Filename for Config File", "", \
                 options=QtGui.QFileDialog.DontResolveSymlinks)
 
-        # FIXME: Make sure we are not overwriting
         if cFile == "": # Handle the cancel
             return
 
-        derandStruct, _, tsts = self._createDerandStruct()
+        derandStruct = self._createDerandStruct()
 
-        for i in range(len(tsts.keys())):
-            tsts[tsts.keys()[i]] = i
+        # unique list of tsbasedir
+        tsts = {}
+        tsbds = list(set([x for _,l in derandStruct.iteritems() \
+                                for x in l.keys()]))
+        for i in range(len(tsbds)):
+            tsts[tsbds[i]] = i
 
         for mid, midlist in derandStruct.iteritems():
             for p, _ in midlist.iteritems():
@@ -111,75 +246,67 @@ class DerandomizeGUI(QtGui.QMainWindow):
         f.close()
 
     def _createDerandStruct(self):
-        # FIXME check if we have all the information.
-        # 1.Temp struct to relate tspath with metaid list.
-        tsts = {}
-        timestamps = [] # needed for pipeline execution.
-        for r in range(self._ui.tslist.rowCount()-1):
-            i = self._ui.tslist.item(r,1)
-            d = i.data(QtCore.Qt.UserRole).toPyObject()
-            tspath = d[0].path
-            # FIXME: make sure d[2] is within range
-            # FIXME: make sure settings.general.metas.midname exists
-            midname = str(d[1][d[2]])
-            midlist = d[0].data["settings"]["general"]["metas"][midname]
-            # switch key<->values in midlist
-            midlist = {y:x for x,y in midlist.iteritems()}
-            tsts[tspath] = midlist
-            timestamps = timestamps + d[0].timestamps
-        timestamps = sorted(set(timestamps))
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1 \
+                or self._ui.cbderand.currentIndex() < 0:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle(
+                    "Generate Master before selecting derandomization column")
+            errmsg.showMessage(errMsg)
+            return
 
-        # 2. Create derandStruct needed for drandomize component.
-        # Column 2 will have all the meta id names
         derandStruct = {}
-        for r in range(1, self._ui.csv.rowCount()):
-            # skip if empty
-            r1cell = self._ui.csv.item(r,1)
-            if str(r1cell.data(QtCore.Qt.UserRole).toPyObject()) \
-                    == BindingTable.E:
+
+        # Column in master list where mids are located
+        cInd = self._ui.cbderand.currentIndex()
+        midCol,_ = self._ui.cbderand.itemData(cInd).toUInt()
+
+        # Data in the last column of master list should contain potId and ts
+        tsCol = self._ui.masterlist.columnCount()-1
+
+        for mRow in range(self._ui.masterlist.rowCount()):
+            midItem = self._ui.masterlist.item(mRow, midCol)
+            tsItem = self._ui.masterlist.item(mRow, tsCol)
+
+            if midItem is None or str(midItem.text()) is "" \
+                    or tsItem is None or str(tsItem.text()) is "" \
+                    or tsItem.data(QtCore.Qt.UserRole) is None:
                 continue
 
-            r2cell = self._ui.csv.item(r,2)
-            mid = str(r2cell.text())
+            mid = str(midItem.text())
+            potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
 
-            # ingore if only whitespace
-            if all(c in " " for c in mid):
-                continue
-
-            if mid not in derandStruct:
+            if mid not in derandStruct.keys():
                 derandStruct[mid] = {}
+            if tsbasedir not in derandStruct[mid]:
+                derandStruct[mid][tsbasedir] = []
+            if potid not in derandStruct[mid][tsbasedir]:
+                derandStruct[mid][tsbasedir].append(potid)
 
-            # We search for r1cell.text() in every TS
-            for path, midlist in tsts.iteritems():
-                # Don't know if midlist keys will be ints or strs.
-                midlistkey = None
-                if str(r1cell.text()) in midlist:
-                    midlistkey = str(r1cell.text())
-                elif int(r1cell.text()) in midlist:
-                    midlistkey = int(r1cell.text())
-
-                if midlistkey is not None:
-                    if path not in derandStruct[mid]:
-                        derandStruct[mid][path] = []
-                    derandStruct[mid][path].append(midlist[midlistkey])
-                    break
-
-        return derandStruct, timestamps, tsts
+        return derandStruct
 
     def _derandomize(self):
         # 0. Get the output directory
-        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                "Select Output Derandomization Directory", "", \
-                QtGui.QFileDialog.ShowDirsOnly \
-                | QtGui.QFileDialog.DontResolveSymlinks)
+        tsoutpath = QtGui.QFileDialog.getExistingDirectory(self, \
+                    "Select Output Derandomization Directory", "", \
+                    QtGui.QFileDialog.ShowDirsOnly \
+                    | QtGui.QFileDialog.DontResolveSymlinks)
+        tsoutpath = str(tsoutpath)
 
-        if tsdir == "": # Handle the cancel
+        if tsoutpath == "": # Handle the cancel
             return
 
-        tsoutpath = os.path.basename(str(tsdir))
+        # 1. Gather all timestamps
+        timestamps = []
+        for r in range(self._ui.tslist.rowCount()-1):
+            i = self._ui.tslist.item(r,1)
+            tst = i.data(QtCore.Qt.UserRole).toPyObject()
+            timestamps = timestamps + tst.timestamps
+        timestamps = sorted(set(timestamps))
 
-        # 1,2 create timestamps and derand struct.
-        derandStruct, timestamps, _ = self._createDerandStruct()
+
+        # 2. Get derandStruct
+        derandStruct = self._createDerandStruct()
 
         # 3. Create pipeline components
         plc = pipeconf.PCFGSection("--")
@@ -224,23 +351,60 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.pbts.setVisible(False)
         self._ui.bCancel.setVisible(False)
 
-    # FIXME: handle returning differently now that _addTS is a separate method.
+
+    # col: Column to add the list
+    # row: Row where we will start adding
+    # l: List of values
+    # d: List of data
+    # t: Talbe to add to.
+    def _addListTable_asCol(self, col, row, l, t, d=None, colName=None):
+        if d is not None:
+            if len(l) is not len(d):
+                raise RuntimeError("Lengths do not agree")
+        # Grow Rows
+        fromRow = row
+        toRow = fromRow+len(l)
+        if t.rowCount() < toRow:
+            t.setRowCount(toRow)
+        rowNums = range(fromRow, toRow)
+
+        # Grow Cols
+        if t.columnCount() < col+1:
+            t.setColumnCount(col+1)
+
+        if colName is not None:
+            i = QtGui.QTableWidgetItem()
+            i.setText(QtCore.QString(str(colName)))
+            t.setHorizontalHeaderItem(col, i)
+
+        # add list as column
+        for ri in range(len(l)):
+            rowNum = rowNums[ri]
+            i = QtGui.QTableWidgetItem()
+            i.setText(str(l[ri]))
+            i.setTextAlignment(QtCore.Qt.AlignCenter)
+            if d is not None:
+                i.setData(QtCore.Qt.UserRole, d[ri])
+            t.setItem(rowNum, col, i)
+
     def _addTS(self):
+        # 1. Get location of Time Stream
         tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
                 "Select Time Stream", "", \
                 QtGui.QFileDialog.ShowDirsOnly \
                 | QtGui.QFileDialog.DontResolveSymlinks)
-
         if tsdir == "": # Handle the cancel
             return
 
         tsbasedir = os.path.basename(str(tsdir))
-
         try: # See if TS has needed information.
             tst = TimeStreamTraverser(str(tsdir))
             if "metas" not in tst.data["settings"]["general"].keys():
                 msg = "metas needs to be defined in TS {} settings.".\
                         format(tst.name)
+                raise RuntimeError(msg)
+            if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
+                msg = "There are no meta ids in Timestream %s" % tst.path
                 raise RuntimeError(msg)
         except Exception as e:
             errmsg = QtGui.QErrorMessage(self)
@@ -248,7 +412,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                     format(tsbasedir))
             errmsg.showMessage(str(e))
             return
+        tsbasedir = os.path.basename(tst.path)
 
+        # 2. Insert Time Stream
         self._ui.tslist.insertRow(0)
 
         i = QtGui.QTableWidgetItem("-")
@@ -257,15 +423,47 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         i = QtGui.QTableWidgetItem(tsbasedir)
         i.setTextAlignment(QtCore.Qt.AlignLeft)
-        midnames = tst.data["settings"]["general"]["metas"].keys()
-        midnames.append("potid") # potid is the default.
-        tstdata = [tst, midnames, 0] # TimeStream object, items, offset
-        i.setData(QtCore.Qt.UserRole, tstdata)
+        i.setData(QtCore.Qt.UserRole, tst)
         self._ui.tslist.setItem(0,1,i)
 
-        # Show if it is the first.
-        self.selectRowTS(self._activeTS+1)
+        # 3. Append Time Stream data to tstable
+        # Metadata IDs in tst.data
+        mids = tst.data["settings"]["general"]["metas"].keys()
 
+        # Pot Ids in tst.data. We make sure we have a set of potIds that are in
+        # every mid dict
+        potIds = set(tst.data["settings"]["general"]["metas"][mids[0]].keys())
+        for mid in mids:
+            potIds = potIds \
+                    & set(tst.data["settings"]["general"]["metas"][mid].keys())
+
+        # column names from Timestream and table
+        colNames = []
+        for c in range(self._ui.tstable.columnCount()):
+            hhi = self._ui.tstable.horizontalHeaderItem(c)
+            colNames.append(str(hhi.text()))
+        for mid in mids:
+            if mid not in colNames:
+                colNames.append(mid)
+
+        # Append from this row.
+        fromRow = self._ui.tstable.rowCount()
+
+        # Add Time Stream Name
+        l = [tsbasedir] * len(potIds)
+        self._addListTable_asCol(0, fromRow, l, self._ui.tstable)
+
+        for ci in range(len(colNames)):
+            mid = colNames[ci]
+            if mid not in mids:
+                continue
+
+            colNum = colNames.index(mid)
+            midDict = tst.data["settings"]["general"]["metas"][mid]
+            mvals = [midDict[x] for x in potIds]
+            mobjs = [(x,tst.path) for x in potIds]
+            self._addListTable_asCol(colNum, fromRow, mvals,
+                    self._ui.tstable, d=mobjs, colName=mid)
 
     def onClickTimeStreamList(self, row, column):
         # Adding
@@ -275,517 +473,148 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Deleting
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
+            i = self._ui.tslist.item(row,1)
+            tst = i.data(QtCore.Qt.UserRole).toPyObject()
+            tsbasedir = os.path.basename(tst.path)
+            for ri in reversed(range(self._ui.tstable.rowCount())):
+                item = self._ui.tstable.item(ri, 0)
+                if item.text() == tsbasedir:
+                    self._ui.tstable.removeRow(ri)
             self._ui.tslist.removeRow(row)
-            self._activeTS = -1
 
-            if self._ui.tslist.rowCount() > 1:
-                self.selectRowTS(0)
-            else:
-                self.selectRowTS(self._activeTS)
-
-        # Selecting
-        elif row != self._ui.tslist.rowCount()-1:
-            self.selectRowTS(row)
-
-        else:
-            pass
-
-    def _trackTSComboBoxOffset(self):
-        # Keep track of the combobox offset.
-        if self._activeTS != -1:
-            i = self._ui.tslist.item(self._activeTS,1)
-            d = i.data(QtCore.Qt.UserRole).toPyObject()
-            d[2] = self._ui.csv.cellWidget(0,0).currentIndex()
-            i.setData(QtCore.Qt.UserRole, d)
-
-
-    def selectRowTS(self, row):
-        # Clear all cell coloring
-        #FIXME: Clearing with a forloop, but there must be a better way!!!
-        for r in range(self._ui.tslist.rowCount()-1):
-            for c in range(2):
-                self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
-
-        self._trackTSComboBoxOffset()
-
-        # change self._activeTS
-        self._activeTS = row
-        if self._activeTS >= 0:
-            i = self._ui.tslist.item(self._activeTS,1)
-            d = i.data(QtCore.Qt.UserRole).toPyObject()
-            color = QtGui.QColor(100,100,200)
-            for c in range(2):
-                self._ui.tslist.item(self._activeTS,c).setBackground(color)
-        else:
-            d = [None, None, None]
-        self._ftc.refreshCol0Header(d)
-
-        # Show image of self._activeTS
-        self.showImage(d[0])
-
-    def showImage(self, tst=None):
-        if tst is None:
-            pixmap = QtGui.QPixmap(0,0)
-        else:
-            img = tst.curr()
-            pixmap = QtGui.QPixmap(img.path)
-
-        self._scene.clear()
-        pixItem = self._scene.addPixmap(pixmap)
-        pixItem.setZValue(-100)
-
-    def imgRefresh(self):
-        # FIXME: check to see if col{0,2} have elements.
-        font=QtGui.QFont('White Rabbit')
-        font.setPointSize(30)
-        C = QtGui.QColor("red")
-
-        # Remove all text items before rereshing
-        for item in self._scene.items():
-            if isinstance(item, QtGui.QGraphicsTextItem):
-                self._scene.removeItem(item)
-
-        for c0, c1, c2 in self._ftc.iter_active_rows():
-            pot = c0.data(QtCore.Qt.UserRole).toPyObject()
-            pRectList = pot.rect.asList()
-            x = pRectList[0]
-            y = pRectList[1]
-
-            c0text = QtGui.QGraphicsTextItem(c0.text())
-            c0text.setFont(font)
-            c0text.setZValue(100)
-            c0text.setOpacity(1)
-            c0text.setDefaultTextColor(C)
-            c0text.setPos(x,y)
-            self._scene.addItem(c0text)
-
-            c2text = QtGui.QGraphicsTextItem(c2.text())
-            c2text.setFont(font)
-            c2text.setZValue(100)
-            c2text.setOpacity(1)
-            c2text.setDefaultTextColor(C)
-            c2text.setPos(x,y+50)
-            self._scene.addItem(c2text)
-
-class BindingTable(QtCore.QObject):
-    E = "--empty--"
-    RICN = 3 # Reserved Initial Column Number (RICN)
-    RIRN = 1 # Reserved Initial Row Number (RIRN)
-    c02RelationChange = QtCore.pyqtSignal() # Emit when col0 & col2 changes
-    cb0Change = QtCore.pyqtSignal() # Emit when combo box in col0 changes
-
-    def __init__(self, csvTable, parent):
-        """Class in charge of the first three columns in self._ui.csv
-
-        The object gives access to selectCsv and refreshCol{0,1,2}Header.
-        Attribures:
-          _parent(QMainWindow): The parent window.
-          _csvTable(QTableWidget): The table widget where everything is.
-          _tst(TimeStreamTraverser): Current time stream traverser related to
-            BindingTable
-          _tscb(QComboBox): Combo box containing timestream data
-          _csvcb(QComboBox): Combo box containing csv data
-          _num0Rows(int): Number of rows in Column zero.
-        """
-        super(BindingTable, self).__init__(parent)
-        self._parent = parent
-        self._csvTable = csvTable
-
-        # item(0,0) TimeStream pot id combobox
-        self._tst = None
-        self._num0Rows = 0
-        self._tscb = QtGui.QComboBox(self._parent)
-        self._csvTable.setCellWidget(0,0,self._tscb)
-        self._tscb.setEditText("Select TS MetaID")
-        self._tscb.currentIndexChanged.connect(self._colActionDispatcher)
-
-        # item(0,1) TimeStream to CSV binding combobox
-        self._csvcb = QtGui.QComboBox(self._parent)
-        self._csvTable.setCellWidget(0,1, self._csvcb)
-        self._csvcb.setEditText("Select CSV Column")
-        self._csvcb.currentIndexChanged.connect(self._colActionDispatcher)
-
-        # item(0.2) Derandomization parameter
-        self._derandcb = QtGui.QComboBox(self._parent)
-        self._csvTable.setCellWidget(0,2, self._derandcb)
-        self._derandcb.setEditText("Select Derandomization Param")
-        self._derandcb.currentIndexChanged.connect(self._colActionDispatcher)
-
-        self._indSelect = [self._tscb.currentIndex(),
-                           self._csvcb.currentIndex(),
-                           self._derandcb.currentIndex()]
-
-    def getDerandId(self):
-        if self._indSelect[2] < 0:
-            raise RuntimeError("No derand offset selected")
-        return str(self._derandcb.itemText(self._indSelect[2]))
-
-    def selectCsv(self):
-        fname = QtGui.QFileDialog.getOpenFileName(self._parent,
+    def _addCsv(self):
+        # 1. Get location of csv file.
+        csvPath = QtGui.QFileDialog.getOpenFileName(self,
                 "Select CSV", "", "CSV (*.csv)")
-
-        if fname == "":
+        if csvPath == "":
             return
+        csvName = os.path.split(str(csvPath))[1].split(".")[0]
 
-        f = file(fname, "r")
+        # 2. Insert Csv
+        self._ui.csvlist.insertRow(0)
+        i = QtGui.QTableWidgetItem("-")
+        i.setTextAlignment(QtCore.Qt.AlignCenter)
+        self._ui.csvlist.setItem(0,0,i)
+
+        i = QtGui.QTableWidgetItem(csvName)
+        i.setTextAlignment(QtCore.Qt.AlignLeft)
+        i.setData(QtCore.Qt.UserRole, csvName)
+        self._ui.csvlist.setItem(0,1,i)
+
+        # 3. csv per column
+        f = file(csvPath, "r")
         csvreader = csv.reader(f, delimiter=",")
-        csvFile = []
-        maxCols = 0
-        for row in csvreader:
-            csvFile.append(row)
-            if maxCols < len(row):
-                maxCols = len(row)
-        maxRows = len(csvFile)
-        f.close()
+        csvCol = {}
 
-        if self._csvTable.rowCount() < maxRows:
-            self._csvTable.setRowCount(maxRows)
-        if self._csvTable.columnCount() - BindingTable.RICN < maxCols:
-            self._csvTable.setColumnCount(maxCols + BindingTable.RICN)
-        for r in range(self._csvTable.rowCount()):
-            for c in range(BindingTable.RICN, self._csvTable.columnCount()):
-                try:
-                    csvelem = csvFile[r][c-BindingTable.RICN]
-                    item = QtGui.QTableWidgetItem(csvelem)
-                except:
-                    item = QtGui.QTableWidgetItem(" ")
-                self._csvTable.setItem(r,c,item)
+        # first row is always header
+        hIndexes = csvreader.next() # header index
+        for hIndex in hIndexes:
+            csvCol[hIndex] = []
 
-        # Fill the csv combobox
-        self.refreshCol1Header()
-        self.refreshCol2Header()
+        rowNum = 0
+        for l in csvreader:
+            rowNum += 1
+            for hIndex in hIndexes:
+                lOffset = hIndexes.index(hIndex) # Line offset for hIndex
+                csvCol[hIndex].append(l[lOffset])
 
-    def refreshCol0Header(self, tstuple):
-        # tstuple (tst, items, offset)
-        """Menu widget at position self._csvTable(0,0)"""
-        self._tst = tstuple[0]
+        # column names from csv file and table
+        colNames = []
+        for c in range(self._ui.csvtable.columnCount()):
+            hhi = self._ui.csvtable.horizontalHeaderItem(c)
+            colNames.append(str(hhi.text()))
+        for h in csvCol.keys():
+            if h not in colNames:
+                colNames.append(h)
 
-        if self._tst is not None:
-            if tstuple[1] is None:
-                midnames = tst.data["settings"]["general"]["metas"].keys()
-                midnames.append("potid")
-                tstuple[1] = midnames
-            if tstuple[2] is None or tstuple[2] < 0:
-                tstuple[2] = offset
+        # Add Csv name
+        fromRow = self._ui.csvtable.rowCount()
+        l = [csvName] * rowNum
+        self._addListTable_asCol(0, fromRow, l, self._ui.csvtable)
 
-            self._tscb.blockSignals(True)
-            self._tscb.clear()
-            for item in tstuple[1]:
-                self._tscb.addItem(str(item), QtCore.QVariant(item))
-            self._tscb.setCurrentIndex(tstuple[2])
-            self._indSelect[0] = -1
-            self._tscb.blockSignals(False)
-            self._colActionDispatcher()
-        else:
-            self._tscb.clear()
+        # Add each csv column to csv list
+        for key, l in csvCol.iteritems():
+            colNum = colNames.index(key)
+            self._addListTable_asCol(colNum, fromRow, l,
+                    self._ui.csvtable, colName=key)
 
-    def refreshCol1Header(self):
-        """Menu widget at position self._csvTable(0,1)"""
-        self._csvcb.blockSignals(True)
-        self._csvcb.clear()
-        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
-            colName = self._csvTable.item(0, c).text()
-            self._csvcb.addItem(colName, c)
-        self._csvcb.setCurrentIndex(0)
-        self._indSelect[1] = -1
-        self._csvcb.blockSignals(False)
-        self._colActionDispatcher()
+    def onClickCsvList(self, row, column):
+        # Adding
+        if self._ui.csvlist.item(row,column) is self.addCsvItem:
+            self._addCsv()
 
-    def refreshCol2Header(self):
-        self._derandcb.blockSignals(True)
-        self._derandcb.clear()
-        for c in range(BindingTable.RICN, self._csvTable.columnCount()):
-            colName = self._csvTable.item(0,c).text()
-            self._derandcb.addItem(colName, c)
-        self._derandcb.setCurrentIndex(0)
-        self._indSelect[2] = -1
-        self._derandcb.blockSignals(False)
-        self._colActionDispatcher()
+        elif column == 0 \
+                and self._ui.csvlist.item(row,column) is not self.addCsvItem:
+            i = self._ui.csvlist.item(row,1)
+            csvname = i.data(QtCore.Qt.UserRole).toPyObject()
+            for ri in reversed(range(self._ui.csvtable.rowCount())):
+                i = self._ui.csvtable.item(ri,0)
+                if i.text() == csvname:
+                    self._ui.csvtable.removeRow(ri)
+            self._ui.csvlist.removeRow(row)
 
-    def _colActionDispatcher(self):
-        """Will dispatch actions depending on changed column"""
-        currSelect =  [self._tscb.currentIndex(),
-                       self._csvcb.currentIndex(),
-                       self._derandcb.currentIndex()]
-
-        changedCol = [self._indSelect[i] != currSelect[i] for i in range(3)]
-
-        # If there is no change return
-        if True not in changedCol:
-            return
-        # We should only receive one change per callback
-        if sum(changedCol) > 1:
-            raise RuntimeError("Too many columns changed")
-
-        if changedCol[0]: # Refresh cols{0,1,2}
-            self._refreshCol0()
-            self._refreshCol1()
-            self._refreshCol2()
-            self.cb0Change.emit()
-
-        elif changedCol[1]: # Refresh cols{1,2}
-            self._refreshCol1()
-            self._refreshCol2()
-
-        elif changedCol[2]: # Refresh col2
-            self._refreshCol2()
-
-        else:
-            raise RuntimeError("Unknown Error")
-
-        self._indSelect =  [self._tscb.currentIndex(),
-                            self._csvcb.currentIndex(),
-                            self._derandcb.currentIndex()]
-
-        # Emit col{0,2} signal if both not empty
-        col0empty = self._tst is None or self._tscb.count() < 1 \
-                or self._tscb.currentIndex() < 0
-        col2empty = self._derandcb.count() < 1 \
-                or self._derandcb.currentIndex() < 0
-        if not col0empty and not col2empty:
-            self.c02RelationChange.emit()
-
-    # FIXME: We don't differentiate creating and uptating col0. When we update
-    # we should be able to leave the data in each cell and just change the text.
-    def _refreshCol0(self):
-        index = self._tscb.currentIndex()
-        if self._tst is None or self._tscb.count() < 1 or index < 0:
-            self._blankCol(0)
-            self._num0Rows = 0
-            return
-
-        # If we don't find an ipm in the first 10, something is wrong
-        img = None
-        for i in range(10):
-            if self._tst.next().ipm is not None:
-                img = self._tst.curr()
-                break
-        if img is None:
-            msg = "Could not find pot specific metadata"
-            raise IndexError(msg)
-
-        # Append sufficient rows.
-        if img.ipm.numPots > self._csvTable.rowCount()-BindingTable.RIRN:
-            self._csvTable.setRowCount( img.ipm.numPots + BindingTable.RIRN )
-
-        # Fill first Column with active action mid
-        self._num0Rows = 0
-        mid = str(self._tscb.itemData(index).toPyObject())
-        if mid != "potid":
-            mids = self._tst.data["settings"]["general"]["metas"][mid]
-        potIds = img.ipm.potIds
-
-        for r in range(1, self._csvTable.rowCount()):
-            item = QtGui.QTableWidgetItem(" ")
-            if len(potIds) > 0:
-                self._num0Rows += 1
-                pot = img.ipm.getPot(potIds.pop(0))
-                metaval = pot.id
-                if mid != "potid":
-                    # Due to Json changing dict keys from int to str, We need to
-                    # transform
-                    metaval = mids[str(pot.id)]
-                item.setText(str(metaval))
-                item.setData(QtCore.Qt.UserRole, QtCore.QVariant(pot))
-
-            item.setTextAlignment(QtCore.Qt.AlignCenter)
-            self._csvTable.setItem(r, 0, item)
-
-    def _refreshCol1(self):
-        index = self._csvcb.currentIndex()
-        if self._csvcb.count() < 1 or index < 0:
-            self._blankCol(1)
-            return
-
-        # If Column 0 is empty
-        if self._num0Rows < 1 or self._tscb.count() < 1 \
-                or self._tst is None:
-            # Make sure we remove all "--empty--" rows.
-            self._removeEmpties(1,self._csvTable.rowCount())
-            return
-
-        col = self._csvcb.itemData(index).toPyObject()
-        self._copyCol(col, 1)
-
-        # c1dict[element] = row number
-        c1dict = {}
-        for c1r in range(1, self._csvTable.rowCount()):
-            item = self._csvTable.item(c1r,1)
-            if str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                    == BindingTable.E:
-                continue
-            c1dict[item.text()] = c1r
-
-        for c0r in range(BindingTable.RIRN, self._num0Rows+1):
-            c0item = self._csvTable.item(c0r,0)
-            try:
-                # c0item in c1
-                c1r = c1dict[c0item.text()]
-                self._swapRow(c0r, c1r)
-                del c1dict[c0item.text()]
-
-                # Update c1dict if necessary
-                item = self._csvTable.item(c1r,1)
-                if item.text() in c1dict.keys():
-                    c1dict[item.text()] = c1r
-
-            except KeyError:
-                # c0item not in c1
-                c0data = str(c0item.data(QtCore.Qt.UserRole).toPyObject())
-                if c0data != BindingTable.E:
-                    # Not a empty row: Add null row and swap
-                    self._csvTable.insertRow(self._csvTable.rowCount())
-                    lastRow = self._csvTable.rowCount()-1
-                    item = QtGui.QTableWidgetItem(" ")
-                    item.setData(QtCore.Qt.UserRole, BindingTable.E)
-                    self._csvTable.setItem(lastRow, 1, item)
-
-                    self._swapRow(c0r, lastRow)
-
-                    # Update c1dict if necessary
-                    item = self._csvTable.item(lastRow,1)
-                    if item.text() in c1dict.keys():
-                        c1dict[item.text()] = lastRow
-                continue
-
-        self._removeEmpties(self._num0Rows+1, self._csvTable.rowCount())
-
-    def _refreshCol2(self):
-        index = self._derandcb.currentIndex()
-        if index == -1 or self._derandcb.count() < 1 or self._csvcb.count() < 1:
-            self._blankCol(2)
-            return
-
-        # If Column 0 is empty
-        if self._num0Rows < 1 or self._tscb.count() < 1 \
-                or self._tst is None:
-            return
-
-        col = self._derandcb.itemData(index).toPyObject()
-        self._copyCol(col, 2)
-
-    def _blankCol(self, c):
-            for r in range(1, self._csvTable.rowCount()):
-                item = QtGui.QTableWidgetItem(" ")
-                item.setTextAlignment(QtCore.Qt.AlignCenter)
-                self._csvTable.setItem(r, c, item)
-
-    def _removeEmpties(self, f, t):
-        # Remove empty rows. In reverse to allow removal.
-        for r in range (f,t)[::-1]:
-            item = self._csvTable.item(r,1)
-            if item is None:
-                continue
-            data = str(item.data(QtCore.Qt.UserRole).toPyObject())
-            if data ==  BindingTable.E:
-                self._csvTable.removeRow(r)
-
-    def _copyCol(self, f, t):
-        for r in range(BindingTable.RIRN, self._csvTable.rowCount()):
-            # Don't copy for empty rows.
-            item = self._csvTable.item(r,1)
-            if item is not None \
-                    and str(item.data(QtCore.Qt.UserRole).toPyObject()) \
-                        == BindingTable.E:
-                continue
-            item = QtGui.QTableWidgetItem(self._csvTable.item(r, f))
-            self._csvTable.setItem(r,t, item)
-
-    def _swapRow(self, r1, r2):
-        """Swap all columns except 0
-
-        In general: Put r1 in temp, copy r2 to r1, copy temp to r2
-        """
-        if r1 < 0 or r2 < 0 \
-                or r1 > self._csvTable.rowCount() \
-                or r2 > self._csvTable.rowCount():
-            msg = "Row number swap error"
-            raise IndexError(msg)
-
-        for c in range(1, self._csvTable.columnCount()):
-            try:
-                tmpr1 = QtGui.QTableWidgetItem(self._csvTable.item(r1,c))
-            except:
-                tmpr1 = QtGui.QTableWidgetItem(" ")
-            self._csvTable.removeCellWidget(r1,c)
-            try:
-                tmpr2 = QtGui.QTableWidgetItem(self._csvTable.item(r2,c))
-            except:
-                tmpr2 = QtGui.QTableWidgetItem(" ")
-            self._csvTable.removeCellWidget(r2,c)
-
-            self._csvTable.setItem(r2, c, tmpr1)
-            self._csvTable.setItem(r1, c, tmpr2)
-
-    def iter_active_rows(self):
-        for r in range(1,self._num0Rows+BindingTable.RIRN):
-            yield self._csvTable.item(r,0), \
-                    self._csvTable.item(r,1), \
-                    self._csvTable.item(r,2)
-
-
-class PanZoomGraphicsView(QtGui.QGraphicsView):
-
-    def __init__(self):
-        super(PanZoomGraphicsView, self).__init__()
-        self.setDragMode(QtGui.QGraphicsView.RubberBandDrag)
-        self._isPanning = False
-        self._mousePressed = False
-
-    def mousePressEvent(self,  event):
-        if event.button() == QtCore.Qt.LeftButton:
-            self._mousePressed = True
-            if self._isPanning:
-                self.setCursor(QtCore.Qt.ClosedHandCursor)
-                self._dragPos = event.pos()
-                event.accept()
-            else:
-                super(PanZoomGraphicsView, self).mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
-            if event.modifiers() & QtCore.Qt.ControlModifier:
-                self.setCursor(QtCore.Qt.OpenHandCursor)
-            else:
-                self._isPanning = False
-                self.setCursor(QtCore.Qt.ArrowCursor)
-            self._mousePressed = False
-        super(PanZoomGraphicsView, self).mouseReleaseEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self._mousePressed and self._isPanning:
-            newPos = event.pos()
-            diff = newPos - self._dragPos
-            self._dragPos = newPos
-            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - diff.x())
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - diff.y())
-            event.accept()
-        else:
-            super(PanZoomGraphicsView, self).mouseMoveEvent(event)
-
-    def wheelEvent(self,  event):
-        factor = 1.2;
-        if event.delta() < 0:
-            factor = 1.0 / factor
-        self.scale(factor, factor)
-
-    def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key_Control and not self._mousePressed:
-            self._isPanning = True
-            self.setCursor(QtCore.Qt.OpenHandCursor)
-        else:
-            super(PanZoomGraphicsView, self).keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        if event.key() == QtCore.Qt.Key_Control:
-            if not self._mousePressed:
-                self._isPanning = False
-                self.setCursor(QtCore.Qt.ArrowCursor)
-        else:
-            super(PanZoomGraphicsView, self).keyPressEvent(event)
-
-    #def mouseDoubleClickEvent(self, event): pass
-
+#class PanZoomGraphicsView(QtGui.QGraphicsView):
+#
+#    def __init__(self):
+#        super(PanZoomGraphicsView, self).__init__()
+#        self.setDragMode(QtGui.QGraphicsView.RubberBandDrag)
+#        self._isPanning = False
+#        self._mousePressed = False
+#
+#    def mousePressEvent(self,  event):
+#        if event.button() == QtCore.Qt.LeftButton:
+#            self._mousePressed = True
+#            if self._isPanning:
+#                self.setCursor(QtCore.Qt.ClosedHandCursor)
+#                self._dragPos = event.pos()
+#                event.accept()
+#            else:
+#                super(PanZoomGraphicsView, self).mousePressEvent(event)
+#
+#    def mouseReleaseEvent(self, event):
+#        if event.button() == QtCore.Qt.LeftButton:
+#            if event.modifiers() & QtCore.Qt.ControlModifier:
+#                self.setCursor(QtCore.Qt.OpenHandCursor)
+#            else:
+#                self._isPanning = False
+#                self.setCursor(QtCore.Qt.ArrowCursor)
+#            self._mousePressed = False
+#        super(PanZoomGraphicsView, self).mouseReleaseEvent(event)
+#
+#    def mouseMoveEvent(self, event):
+#        if self._mousePressed and self._isPanning:
+#            newPos = event.pos()
+#            diff = newPos - self._dragPos
+#            self._dragPos = newPos
+#            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - diff.x())
+#            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - diff.y())
+#            event.accept()
+#        else:
+#            super(PanZoomGraphicsView, self).mouseMoveEvent(event)
+#
+#    def wheelEvent(self,  event):
+#        factor = 1.2;
+#        if event.delta() < 0:
+#            factor = 1.0 / factor
+#        self.scale(factor, factor)
+#
+#    def keyPressEvent(self, event):
+#        if event.key() == QtCore.Qt.Key_Control and not self._mousePressed:
+#            self._isPanning = True
+#            self.setCursor(QtCore.Qt.OpenHandCursor)
+#        else:
+#            super(PanZoomGraphicsView, self).keyPressEvent(event)
+#
+#    def keyReleaseEvent(self, event):
+#        if event.key() == QtCore.Qt.Key_Control:
+#            if not self._mousePressed:
+#                self._isPanning = False
+#                self.setCursor(QtCore.Qt.ArrowCursor)
+#        else:
+#            super(PanZoomGraphicsView, self).keyPressEvent(event)
+#
+#    #def mouseDoubleClickEvent(self, event): pass
+#
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     win = DerandomizeGUI()
