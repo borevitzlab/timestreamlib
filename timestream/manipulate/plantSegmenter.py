@@ -242,17 +242,22 @@ class StatParamCalculator(object):
         return StatParamLeafCount("leafcount1", centers)
 
     def height(self, mask, img=None):
+        '''
+        Plant height
+        Only used for images taken from the side of a plant.
+        '''
         bbox = regionprops(mask.astype("int8"), ["bbox"])
         if len(bbox) == 0:
-            return (0.0)  # FIXME: is this the best default?
+            return StatParamValue("height", 0.0)  # FIXME: is this the best default?
         min_row, min_col, max_row, max_col = bbox[0]["bbox"]
-        return StatParamMinCircle("height", max_row - min_row,
-                                  rMax=float("Inf"))
+        return StatParamValue("height", max_row - min_row,
+                              rMax=float("Inf"))
 
     def height2(self, mask, img=None):
         '''
         Plant top and bottom are at 5% and 95% respectively of green pixel
         integration. This is supposed to provide a more less noisy height
+        Only used for images taken from the side of a plant.
         '''
         GreenPixels = np.zeros(mask.shape[0])
         for i in range(mask.shape[0]):
@@ -260,6 +265,8 @@ class StatParamCalculator(object):
         GreenPixelsCumSum = np.cumsum(GreenPixels)
         if GreenPixelsCumSum[-1] != 0:
             GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("height2", 0.0, rMax=float("Inf"))
 
         # Plant top when reaching 5% of total green pixels
         PlantTop = 0
@@ -274,12 +281,13 @@ class StatParamCalculator(object):
                 PlantBottom = i
                 break
 
-        return StatParamMinCircle("height2", PlantBottom-PlantTop,
-                                  rMax=float("Inf"))
+        return StatParamValue("height2", PlantBottom-PlantTop,
+                              rMax=float("Inf"))
 
     def wilting(self, mask, img=None):
         '''
         Plant wilting is at 50% of green pixel integration.
+        Only used for images taken from the side of a plant.
         '''
         GreenPixels = np.zeros(mask.shape[0])
         for i in range(mask.shape[0]):
@@ -301,19 +309,23 @@ class StatParamCalculator(object):
         GreenPixelsCumSum = np.cumsum(GreenPixels)
         if GreenPixelsCumSum[-1] != 0:
             GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("wilting", 0.0, rMax=float("Inf"))
+
         WiltedHeight = PlantTop
         for i in range(PlantTop, PlantBottom):
             if GreenPixelsCumSum[i] >= 0.5:
                 WiltedHeight = i
                 break
         Wilting = float(PlantBottom-WiltedHeight)
-        return StatParamMinCircle("wilting", Wilting)
+        return StatParamValue("wilting", Wilting)
 
     def wilting2(self, mask, img=None):
         '''
         This is a normalised wilting with the height calculated from
         Plant top and bottom are at 5% and 95% respectively of
         green pixels. Plant wilting is at 50% of green pixel integration.
+        Only used for images taken from the side of a plant.
          '''
         GreenPixels = np.zeros(mask.shape[0])
         for i in range(mask.shape[0]):
@@ -321,6 +333,8 @@ class StatParamCalculator(object):
         GreenPixelsCumSum = np.cumsum(GreenPixels)
         if GreenPixelsCumSum[-1] != 0:
             GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("wilting", 0.0, rMax=float("Inf"))
 
         # Plant top when reaching 5% of total green pixels
         PlantTop = 0
@@ -341,7 +355,7 @@ class StatParamCalculator(object):
                 WiltedHeight = i
                 break
         Wilting = float(PlantBottom - WiltedHeight)/float(PlantBottom-PlantTop)
-        return StatParamMinCircle("wilting2", Wilting)
+        return StatParamValue("wilting2", Wilting)
 
     @classmethod
     def statParamMethods(cls):
