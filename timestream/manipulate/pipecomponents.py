@@ -174,18 +174,19 @@ class ImageUndistorter (PipeComponent):
         else:
             self.imageUndistorted = self.image
 
-        tsi.pixels = cd.rotateImage(self.imageUndistorted, self.rotationAngle)
+        tsi.pixels = cd.rotateImage(self.imageUndistorted,
+                                    self.rotationAngle)
         return [tsi]
 
     def show(self):
         plt.figure()
-        plt.subplot(211)
         plt.imshow(cd.rotateImage(self.image))
         plt.title('Original image')
 
-        plt.subplot(212)
+        plt.figure()
         plt.imshow(self.imageUndistorted)
         plt.title('Undistorted image')
+
         plt.show()
 
 
@@ -305,7 +306,8 @@ class ImageColorCorrector (PipeComponent):
     actName = "colorcorrect"
     argNames = {
         "mess": [False, "Correct image color"],
-        "minIntensity": [False, "Skip when below this value", 0]}
+        "minIntensity": [False, "Skip when below this value", 0],
+        "fieldOfView": [False, "Field of view in degrees", None]}
 
     runExpects = [TimeStreamImage, tuple]
     runReturns = [TimeStreamImage]
@@ -326,8 +328,8 @@ class ImageColorCorrector (PipeComponent):
                 colorMatrix,
                 colorConstant,
                 colorGamma)
-            self.imageCorrected[np.where(self.imageCorrected < 0)] = 0
-            self.imageCorrected[np.where(self.imageCorrected > 255)] = 255
+            self.imageCorrected = np.clip(np.round(self.imageCorrected),
+                                          0, 255)
             self.imageCorrected = self.imageCorrected.astype(np.uint8)
         else:
             # FIXME: This should be handled with an exception.
@@ -335,18 +337,52 @@ class ImageColorCorrector (PipeComponent):
             self.imageCorrected = image
         self.image = image  # display
 
-        tsi.pixels = self.imageCorrected
+        # adjust intensity due to angle in field of view
+        if self.fieldOfView is not None:
+            imageSize = self.image.shape[1::-1]
+            xp, yp = np.meshgrid(range(imageSize[0]),
+                                 range(imageSize[1]))
+            xp -= imageSize[0]/2
+            yp -= imageSize[1]/2
+            W = 2.0*np.tan(self.fieldOfView[0]/2.0/180.0*np.pi)
+            H = 2.0*np.tan(self.fieldOfView[1]/2.0/180.0*np.pi)
+            angleX = np.arctan(W/imageSize[0]*xp)
+            angleY = np.arctan(H/imageSize[1]*yp)
+            self.angles = np.sqrt(angleX**2 + angleY**2)
+
+            # scale intensity with inverse of angle cosine
+            temp0 = self.imageCorrected[:, :, 0]/np.cos(self.angles)
+            temp1 = self.imageCorrected[:, :, 1]/np.cos(self.angles)
+            temp2 = self.imageCorrected[:, :, 2]/np.cos(self.angles)
+
+            # clip to range between 0 and 255 before converting to uint8
+            self.imageAdjusted = np.zeros_like(self.imageCorrected)
+            self.imageAdjusted[:, :, 0] = np.clip(np.round(temp0), 0, 255)
+            self.imageAdjusted[:, :, 1] = np.clip(np.round(temp1), 0, 255)
+            self.imageAdjusted[:, :, 2] = np.clip(np.round(temp2), 0, 255)
+
+            tsi.pixels = self.imageAdjusted
+        else:
+            tsi.pixels = self.imageCorrected
+
         return([tsi])
 
     def show(self):
         plt.figure()
-        plt.subplot(211)
         plt.imshow(self.image)
         plt.title('Image without color correction')
 
-        plt.subplot(212)
-        plt.imshow(self.imageCorrected)
+        plt.figure()
+        plt.imshow(self.imageCorrected.astype(np.uint8))
         plt.title('Color-corrected image')
+
+        if self.fieldOfView is not None:
+            plt.figure()
+            plt.imshow(self.imageAdjusted)
+            plt.title('Color- and intensity-corrected image')
+            plt.figure()
+            plt.imshow(np.cos(self.angles))
+
         plt.show()
 
 
