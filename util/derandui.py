@@ -20,9 +20,12 @@ import csv
 import sys
 import yaml
 import os.path
+import random
+import numpy as np
 from PyQt4 import QtGui, QtCore, uic
 from timestream import TimeStreamTraverser, TimeStream
 from collections import OrderedDict
+from timestream.manipulate.pipecomponents import DerandomizeTimeStreams
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
 
@@ -37,16 +40,8 @@ class DerandomizeGUI(QtGui.QMainWindow):
             and zoom.
         """
         QtGui.QMainWindow.__init__(self)
-
         self._ui = uic.loadUi("derandui.ui")
 
-#        # Setup Image viewer
-#        # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
-#        self._scene = QtGui.QGraphicsScene()
-#        self._gvImg = PanZoomGraphicsView()
-#        self._gvImg.setScene(self._scene)
-#        self.showImage(None)
-#
         # Setup timestream & csvlist
         self._ui.tslist.horizontalHeader().resizeSection(0,20)
         self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
@@ -70,6 +65,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Add Additional buttons
         self._ui.bGenConf.clicked.connect(self._genConfig)
         self._ui.bDerand.clicked.connect(self._derandomize)
+        self._ui.bPrevImg.clicked.connect(self._showPrev)
 
         # Hide the progress bar stuff
         self._ui.pbts.setVisible(False)
@@ -79,10 +75,51 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         self._ui.show()
 
+    def _showPrev(self):
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1 \
+                or self._ui.tslist.rowCount < 2 \
+                or self._ui.csvlist.rowCount < 2:
+            return
+
+        derandStruct = self._createDerandStruct()
+        if derandStruct is None:
+            return
+
+        # Get a random timestamp
+        tsI = self._ui.tslist.item(0,1)
+        tsD = tsI.data(QtCore.Qt.UserRole).toPyObject()
+        timestamp = tsD.timestamps[random.randint(0,len(tsD.timestamps))]
+
+        # Create the image
+        derandTS = DerandomizeTimeStreams(None, derandStruct=derandStruct)
+        img = derandTS.__exec__(None, timestamp)[0].pixels
+        h,w,d = img.shape
+        img2 = np.empty((h, w, 4), np.uint8, 'C')
+        img2[...,0] = img[...,2]
+        img2[...,1] = img[...,1]
+        img2[...,2] = img[...,0]
+        qimg = QtGui.QImage(img2.data,w,h,QtGui.QImage.Format_RGB32)
+
+        prevWidget = QtGui.QDialog(parent=self)
+        prevWidget.setGeometry(QtCore.QRect(0,0,700,700))
+        layout = QtGui.QVBoxLayout()
+        prevWidget.setLayout(layout)
+
+        # Setup Image viewer
+        scene = QtGui.QGraphicsScene()
+        gvImg = PanZoomGraphicsView(parent=self)
+        gvImg.setScene(scene)
+        pixmap = QtGui.QPixmap(qimg)
+        pixItem = scene.addPixmap(pixmap)
+        pixItem.setZValue(-100)
+        layout.addWidget(gvImg)
+
+        prevWidget.exec_()
+
     def _indexChangedCbDerand(self, ind):
         if ind == -1:
             return
-
         c,_ = self._ui.cbderand.itemData(ind).toUInt()
         self._ui.masterlist.sortItems(c, QtCore.Qt.DescendingOrder)
 
@@ -252,7 +289,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
             errmsg = QtGui.QErrorMessage(self)
             errmsg.setWindowTitle(
                     "Generate Master before selecting derandomization column")
-            errmsg.showMessage(errMsg)
+            errmsg.showMessage(errmsg)
             return
 
         derandStruct = {}
@@ -553,68 +590,66 @@ class DerandomizeGUI(QtGui.QMainWindow):
                     self._ui.csvtable.removeRow(ri)
             self._ui.csvlist.removeRow(row)
 
-#class PanZoomGraphicsView(QtGui.QGraphicsView):
-#
-#    def __init__(self):
-#        super(PanZoomGraphicsView, self).__init__()
-#        self.setDragMode(QtGui.QGraphicsView.RubberBandDrag)
-#        self._isPanning = False
-#        self._mousePressed = False
-#
-#    def mousePressEvent(self,  event):
-#        if event.button() == QtCore.Qt.LeftButton:
-#            self._mousePressed = True
-#            if self._isPanning:
-#                self.setCursor(QtCore.Qt.ClosedHandCursor)
-#                self._dragPos = event.pos()
-#                event.accept()
-#            else:
-#                super(PanZoomGraphicsView, self).mousePressEvent(event)
-#
-#    def mouseReleaseEvent(self, event):
-#        if event.button() == QtCore.Qt.LeftButton:
-#            if event.modifiers() & QtCore.Qt.ControlModifier:
-#                self.setCursor(QtCore.Qt.OpenHandCursor)
-#            else:
-#                self._isPanning = False
-#                self.setCursor(QtCore.Qt.ArrowCursor)
-#            self._mousePressed = False
-#        super(PanZoomGraphicsView, self).mouseReleaseEvent(event)
-#
-#    def mouseMoveEvent(self, event):
-#        if self._mousePressed and self._isPanning:
-#            newPos = event.pos()
-#            diff = newPos - self._dragPos
-#            self._dragPos = newPos
-#            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - diff.x())
-#            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - diff.y())
-#            event.accept()
-#        else:
-#            super(PanZoomGraphicsView, self).mouseMoveEvent(event)
-#
-#    def wheelEvent(self,  event):
-#        factor = 1.2;
-#        if event.delta() < 0:
-#            factor = 1.0 / factor
-#        self.scale(factor, factor)
-#
-#    def keyPressEvent(self, event):
-#        if event.key() == QtCore.Qt.Key_Control and not self._mousePressed:
-#            self._isPanning = True
-#            self.setCursor(QtCore.Qt.OpenHandCursor)
-#        else:
-#            super(PanZoomGraphicsView, self).keyPressEvent(event)
-#
-#    def keyReleaseEvent(self, event):
-#        if event.key() == QtCore.Qt.Key_Control:
-#            if not self._mousePressed:
-#                self._isPanning = False
-#                self.setCursor(QtCore.Qt.ArrowCursor)
-#        else:
-#            super(PanZoomGraphicsView, self).keyPressEvent(event)
-#
-#    #def mouseDoubleClickEvent(self, event): pass
-#
+class PanZoomGraphicsView(QtGui.QGraphicsView):
+
+    def __init__(self, parent=None):
+        super(PanZoomGraphicsView, self).__init__(parent=parent)
+        self.setDragMode(QtGui.QGraphicsView.RubberBandDrag)
+        self._isPanning = False
+        self._mousePressed = False
+
+    def mousePressEvent(self,  event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self._mousePressed = True
+            if self._isPanning:
+                self.setCursor(QtCore.Qt.ClosedHandCursor)
+                self._dragPos = event.pos()
+                event.accept()
+            else:
+                super(PanZoomGraphicsView, self).mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            if event.modifiers() & QtCore.Qt.ControlModifier:
+                self.setCursor(QtCore.Qt.OpenHandCursor)
+            else:
+                self._isPanning = False
+                self.setCursor(QtCore.Qt.ArrowCursor)
+            self._mousePressed = False
+        super(PanZoomGraphicsView, self).mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._mousePressed and self._isPanning:
+            newPos = event.pos()
+            diff = newPos - self._dragPos
+            self._dragPos = newPos
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() - diff.x())
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - diff.y())
+            event.accept()
+        else:
+            super(PanZoomGraphicsView, self).mouseMoveEvent(event)
+
+    def wheelEvent(self,  event):
+        factor = 1.2;
+        if event.delta() < 0:
+            factor = 1.0 / factor
+        self.scale(factor, factor)
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Control and not self._mousePressed:
+            self._isPanning = True
+            self.setCursor(QtCore.Qt.OpenHandCursor)
+        else:
+            super(PanZoomGraphicsView, self).keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Control:
+            if not self._mousePressed:
+                self._isPanning = False
+                self.setCursor(QtCore.Qt.ArrowCursor)
+        else:
+            super(PanZoomGraphicsView, self).keyPressEvent(event)
+
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     win = DerandomizeGUI()
