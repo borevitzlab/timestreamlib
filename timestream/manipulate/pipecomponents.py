@@ -1214,11 +1214,11 @@ class DerandomizeTimeStreams (PipeComponent):
             if timestamp is None:
                 tsimgs[pth] = ts.curr()
             else:
-                try:
-                    tsimgs[pth] = ts.getImgByTimeStamp(timestamp)
-                except RuntimeError:
-                    # Not all timestamps exist for all TimeStreams.
-                    pass
+                # Get the closest image to timestamp
+                deltas = [abs(timestamp-t) for t in ts.timestamps]
+                tInd = deltas.index(min(deltas))
+                tsimgs[pth] = ts.getImgByTimeStamp(ts.timestamps[tInd],
+                        update_index=True)
 
         # mid -> meta ids
         # pth -> TimeStream path
