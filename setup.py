@@ -16,7 +16,7 @@ install_requires = [
         "ExifRead==1.4.2",
         "docopt==0.6.2",
         "voluptuous==0.8.4",
-        "netCDF4==1.1.0",
+        "netCDF4>=1.1.0",
         "scikit-image>=0.10.1"
         ]
 
