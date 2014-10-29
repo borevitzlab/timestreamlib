@@ -157,14 +157,10 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
-        ts_path = ts_path.rstrip(os.sep)
-        # This is required to ensure that path.dirname() of timestreams with
-        # relative paths rooted at the current directory returns ".", not "",
-        # or the timestream itself.
-        dotslash = ".{}".format(os.sep)
-        if not ts_path.startswith(os.sep):
-            if not ts_path.startswith(dotslash):
-                ts_path = "{}{}".format(dotslash, ts_path)
+        if not path.isabs(ts_path):
+            msg = "Path to Time Stream must be absolute"
+            LOG.error(msg)
+            raise TypeError(msg)
         self._path = ts_path
         self.data_dir = path.join(self._path, "_data")
         if (not path.isdir(self.data_dir)) and path.isdir(ts_path):
@@ -203,15 +199,12 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        if not path.isabs(ts_path):
+            msg = "Path to Time Stream must be absolute"
+            LOG.error(msg)
+            raise TypeError(msg)
         # Basename will trip over the trailing slash, if given.
         ts_path = ts_path.rstrip(os.sep)
-        # This is required to ensure that path.dirname() of timestreams with
-        # relative paths rooted at the current directory returns ".", not "",
-        # or the timestream itself.
-        dotslash = ".{}".format(os.sep)
-        if not ts_path.startswith(os.sep):
-            if not ts_path.startswith(dotslash):
-                ts_path = "{}{}".format(dotslash, ts_path)
         if not path.exists(path.dirname(ts_path)):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
