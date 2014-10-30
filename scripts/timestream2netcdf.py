@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+# NB: this additionally requires the netCDF4 package
 from itertools import izip, imap
 import logging
 import netCDF4 as ncdf
