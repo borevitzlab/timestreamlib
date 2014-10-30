@@ -324,7 +324,9 @@ class TestTimeStreamCreate(TestCase):
         with self.assertRaises(ValueError):
             ts.create(self.tmp_path, version=3)
         with self.assertRaises(ValueError):
-            ts.create("not_a/valid/path")
+            ts.create("/not_a/valid/path")
+        with self.assertRaises(TypeError):
+            ts.create("relative/path")
         with self.assertRaises(TypeError):
             ts.create(123)
 
