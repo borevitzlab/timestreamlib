@@ -13,7 +13,7 @@ before_install:
  - sudo rm -rf /dev/shm
  - sudo ln -s /run/shm /dev/shm
  - sudo apt-get update
- - sudo apt-get install -y ufraw-batch libhdf5-serial-dev libnetcdf-dev libatlas-base-dev gfortran
+ - sudo apt-get install -y ufraw-batch libhdf5-serial-dev libnetcdf-dev libatlas-base-dev gfortran libfreeimage-dev
  - sudo apt-get install -y python-scipy python-matplotlib python-opencv python-dateutil python-pyparsing
  - pip install -q nose coverage
  - pip install -q coveralls six
