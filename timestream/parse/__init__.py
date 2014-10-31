@@ -344,6 +344,7 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
+
 def read_image(img):
     try:
         import skimage.io as imgio
@@ -358,6 +359,7 @@ def read_image(img):
                  "Raw images not supported")
         return cv2.imread(img)
 
+
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
     numpy array, via ``cv2.imread``. The image is returned as a tuple of
@@ -365,6 +367,7 @@ def ts_iter_numpy(fname_iter):
     """
     for img in fname_iter:
         yield (img, read_image(img))
+
 
 def _is_ts_v2(ts_path):
     """Check if ``ts_path`` is a v2 timestream stored in netcdf4, i.e HDF5."""

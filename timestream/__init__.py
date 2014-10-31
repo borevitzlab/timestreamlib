@@ -22,17 +22,16 @@
 """
 
 from copy import deepcopy
-import cv2
 import datetime as dt
 import json
 import logging
 import numpy as np
 import os
 from os import path
+from skimage import io as imgio
 from sys import stderr
 from timestream.manipulate.pot import ImagePotMatrix
 import cPickle
-
 from timestream.parse.validate import (
     validate_timestream_manifest,
 )
@@ -54,18 +53,17 @@ from timestream.parse.validate import (
 from timestream.util.imgmeta import (
     get_exif_date,
 )
-
 from timestream.manipulate import (
-        PCException,
-        PCExSkippedImage,
-        PCExMissingImage,
-        PCExExistingImage
+    PCExSkippedImage,
+    PCExMissingImage,
+    PCExExistingImage
 )
 
 # versioneer
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
+
 
 LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
@@ -160,7 +158,7 @@ class TimeStream(object):
         if not path.isabs(ts_path):
             msg = "Path to Time Stream must be absolute"
             LOG.error(msg)
-            raise TypeError(msg)
+            raise ValueError(msg)
         self._path = ts_path
         self.data_dir = path.join(self._path, "_data")
         if (not path.isdir(self.data_dir)) and path.isdir(ts_path):
@@ -675,7 +673,7 @@ class TimeStreamImage(object):
         if not path.exists(path.dirname(fpath)):
             os.makedirs(path.dirname(fpath))
 
-        cv2.imwrite(fpath, self._pixels[:, :, ::-1])
+        imgio.imsave(fpath, self._pixels)
 
         # Once we have written its ok to set property
         self.path = fpath
@@ -693,20 +691,11 @@ class TimeStreamImage(object):
                   "``path`` of TimeStreamImage must point to existing file"
             LOG.error(msg)
             raise ValueError(msg)
-
         try:
-            import skimage.io
-            self._pixels = skimage.io.imread(fpath, plugin="freeimage")
-        except (RuntimeError, ValueError, ImportError) as exc:
+            self._pixels = imgio.imread(fpath, plugin="freeimage")
+        except (RuntimeError, ValueError) as exc:
             LOG.error(str(exc))
-            if isinstance(exc, ImportError):
-                LOG.warn("Couln't load scikit image io module. " +
-                         "Raw images will not be loaded correctly")
-            try:
-                self._pixels = cv2.imread(fpath)[:, :, ::-1]
-            except:
-                self._pixels = None
-
+            self._pixels = None
         self.path = fpath
 
     @property
