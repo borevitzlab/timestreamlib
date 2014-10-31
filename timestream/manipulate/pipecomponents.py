@@ -257,9 +257,7 @@ class ColorCardDetector (PipeComponent):
                 # for displaying
                 self.loc = loc
             else:
-                # FIXME: this should be handled with an error.
-                LOG.warn('Cannot find color card')
-                self.ccdParams = [None, None, None]
+                raise PCExBreakInPipeline( self.actName, "Cannot find color card")
         else:
             self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
