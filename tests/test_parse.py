@@ -2,7 +2,9 @@ import datetime as dt
 from inspect import (
     isgenerator,
 )
+import numpy as np
 import os
+import warnings
 from unittest import TestCase
 
 from tests import helpers
@@ -13,11 +15,11 @@ from timestream.parse import (
     ts_iter_images,
     ts_get_image,
     ts_parse_date,
+    read_image,
 )
 
 
 class TestAllFilesWithExt(TestCase):
-
     """Test function timestream.parse.all_files_with_ext"""
     _multiprocess_can_split_ = True
     maxDiff = None
@@ -70,7 +72,6 @@ class TestAllFilesWithExt(TestCase):
 
 
 class TestAllFilesWithExts(TestCase):
-
     """Test function timestream.parse.all_files_with_exts"""
     _multiprocess_can_split_ = True
     maxDiff = None
@@ -95,7 +96,6 @@ class TestAllFilesWithExts(TestCase):
 
 
 class TestIterImages(TestCase):
-
     """Test function timestream.parse.ts_iter_images"""
     _multiprocess_can_split_ = True
     maxDiff = None
@@ -108,7 +108,6 @@ class TestIterImages(TestCase):
 
 
 class TestGuessManifest(TestCase):
-
     """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
@@ -125,7 +124,6 @@ class TestGuessManifest(TestCase):
 
 
 class TestGetImage(TestCase):
-
     """Test function timestream.parse.ts_get_image"""
     _multiprocess_can_split_ = True
     maxDiff = None
@@ -178,7 +176,6 @@ class TestGetImage(TestCase):
 
 
 class TestParseDate(TestCase):
-
     """Test function timestream.parse.ts_parse_date"""
 
     def test_parse_date_valid(self):
@@ -203,3 +200,18 @@ class TestParseDate(TestCase):
         date_str = "2013_12_11"
         with self.assertRaises(ValueError):
             ts_parse_date(date_str)
+
+class TestReadImage(TestCase):
+    """Test function timestream.parse.read_image"""
+
+    def test_read_image_missing(self):
+        """check a warning is raised on non-existant image"""
+        with warnings.catch_warnings(record=True) as wrn:
+            warnings.simplefilter("always")
+            self.assertIsNone(read_image("nonexistant_image.jpg"))
+            self.assertEqual(len(wrn), 1)
+
+    def test_read_image_zeros(self):
+        """check read_image reads in a png correctly"""
+        path = helpers.FILES["zeros_jpg"]
+        np.testing.assert_array_equal(read_image(path), helpers.ZEROS_PIXELS)

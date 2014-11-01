@@ -34,6 +34,7 @@ import json
 import logging
 import os
 from os import path
+import skimage.io
 from voluptuous import MultipleInvalid
 from warnings import warn
 
@@ -345,19 +346,19 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     return date.strftime(pth)
 
 
-def read_image(img):
+def read_image(path):
+    """Reads a image in various formats at path ``path`` into an numpy array
+    and returns the array. Returns None on error, logging the error and raising
+    a warning.
+    """
     try:
-        import skimage.io as imgio
-        try:
-            return imgio.imread(img, plugin="freeimage")
-        except (ValueError, RuntimeError) as exc:
-            LOG.error(str(exc))
-            return None
-    except ImportError:
-        import cv2
-        LOG.warn("Couln't load scikit image io module. " +
-                 "Raw images not supported")
-        return cv2.imread(img)
+        # Read using skimage's io libary. The freeimage plugin is the most
+        # feature rich and works cross platform.
+        return skimage.io.imread(path, plugin="freeimage")
+    except (ValueError, RuntimeError) as exc:
+        LOG.error(str(exc))
+        warn(str(exc))
+        return None
 
 
 def ts_iter_numpy(fname_iter):

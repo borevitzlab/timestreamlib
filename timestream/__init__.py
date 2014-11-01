@@ -28,7 +28,7 @@ import logging
 import numpy as np
 import os
 from os import path
-from skimage import io as imgio
+import skimage.io
 from sys import stderr
 from timestream.manipulate.pot import ImagePotMatrix
 import cPickle
@@ -673,7 +673,7 @@ class TimeStreamImage(object):
         if not path.exists(path.dirname(fpath)):
             os.makedirs(path.dirname(fpath))
 
-        imgio.imsave(fpath, self._pixels)
+        skimage.io.imsave(fpath, self._pixels)
 
         # Once we have written its ok to set property
         self.path = fpath
@@ -692,7 +692,7 @@ class TimeStreamImage(object):
             LOG.error(msg)
             raise ValueError(msg)
         try:
-            self._pixels = imgio.imread(fpath, plugin="freeimage")
+            self._pixels = skimage.io.imread(fpath, plugin="freeimage")
         except (RuntimeError, ValueError) as exc:
             LOG.error(str(exc))
             self._pixels = None
