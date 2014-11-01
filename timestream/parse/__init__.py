@@ -363,8 +363,7 @@ def read_image(path):
 
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
-    numpy array, via ``cv2.imread``. The image is returned as a tuple of
-    ``(img_path, img_matrix)``.
+    numpy array. The image is returned as a tuple of ``(path, array)``.
     """
     for img in fname_iter:
         yield (img, read_image(img))

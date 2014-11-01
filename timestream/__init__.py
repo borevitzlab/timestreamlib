@@ -39,12 +39,13 @@ from timestream.parse import (
     _is_ts_v1,
     _is_ts_v2,
     _ts_date_to_path,
-    ts_guess_manifest_v1,
     all_files_with_ext,
-    ts_parse_date_path,
-    ts_parse_date,
-    ts_format_date,
     iter_date_range,
+    read_image,
+    ts_format_date,
+    ts_guess_manifest_v1,
+    ts_parse_date,
+    ts_parse_date_path,
 )
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,
@@ -692,7 +693,7 @@ class TimeStreamImage(object):
             LOG.error(msg)
             raise ValueError(msg)
         try:
-            self._pixels = skimage.io.imread(fpath, plugin="freeimage")
+            self._pixels = read_image(fpath)
         except (RuntimeError, ValueError) as exc:
             LOG.error(str(exc))
             self._pixels = None

@@ -35,7 +35,9 @@ from timestream.manipulate import setup_console_logger
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
-
+from timestream.parse import (
+    read_image,
+)
 from timestream.manipulate import (
     PCException,
     PCExBadRunExpects,
@@ -230,7 +232,7 @@ class ColorCardDetector (PipeComponent):
             return([self.image, [None, None, None]])
         if not self.useWhiteBackground:
             self.imagePyramid = cd.createImagePyramid(self.image)
-            ccdImg = cv2.imread(self.ccf)[:, :, ::-1]
+            ccdImg = read_image(self.ccf)
             if ccdImg is None:
                 raise PCExBreakInPipeline(self.actName,
                         "Failed to read %s"%self.ccf)
@@ -415,7 +417,7 @@ class TrayDetector (PipeComponent):
             trayFile = os.path.join(context.ints.path,
                                     self.settingPath,
                                     self.trayFiles % i)
-            trayImage = cv2.imread(trayFile)[:, :, ::-1]
+            trayImage = read_image(trayFile)
             if trayImage is None:
                 LOG.error("Fail to read", trayFile)
             trayImage[:, :, 1] = 0  # suppress green channel
@@ -482,12 +484,12 @@ class PotDetector (PipeComponent):
             context.ints.path,
             self.settingPath,
             self.potFile)
-        potImage = cv2.imread(potFile)[:, :, ::-1]
+        potImage = read_image(potFile)
         potTemplateFile = os.path.join(
             context.ints.path,
             self.settingPath,
             self.potTemplateFile)
-        potTemplateImage = cv2.imread(potTemplateFile)[:, :, ::-1]
+        potTemplateImage = read_image(potTemplateFile)
         potTemplateImage[:, :, 1] = 0  # suppress green channel
         potTemplateImage = cv2.resize(
             potTemplateImage.astype(np.uint8),
