@@ -191,7 +191,7 @@ class TimeStream(object):
             self.data = {}
         self.read_metadata()
 
-    def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
+    def create(self, ts_path, version=1, ext="jpg", type=None, start=NOW,
                end=NOW, name=None):
         self.version = version
         if not isinstance(ts_path, str):
