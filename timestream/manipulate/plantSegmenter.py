@@ -354,7 +354,10 @@ class StatParamCalculator(object):
             if GreenPixelsCumSum[i] >= 0.5:
                 WiltedHeight = i
                 break
-        Wilting = float(PlantBottom - WiltedHeight)/float(PlantBottom-PlantTop)
+        if PlantBottom-PlantBottom != 0:
+            Wilting = float(PlantBottom - WiltedHeight)/float(PlantBottom-PlantTop)
+        else:
+            Wilting = 0.0
         return StatParamValue("wilting2", Wilting)
 
     @classmethod

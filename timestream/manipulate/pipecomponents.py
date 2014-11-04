@@ -169,6 +169,10 @@ class ImageUndistorter (PipeComponent):
         LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
+        if self.image is None:
+             raise PCExBreakInPipeline(self.actName,
+                     "Bad image %s"%tsi.path)
+
         if self.UndistMapX is not None and self.UndistMapY is not None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8),
                                               self.UndistMapX, self.UndistMapY,
