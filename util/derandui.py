@@ -89,7 +89,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Get a random timestamp
         tsI = self._ui.tslist.item(0,1)
         tsD = tsI.data(QtCore.Qt.UserRole).toPyObject()
-        timestamp = tsD.timestamps[random.randint(0,len(tsD.timestamps))]
+        if len(tsD.timestamps) < 2:
+            return
+        timestamp = tsD.timestamps[random.randint(0,len(tsD.timestamps)-1)]
 
         # Create the image
         derandTS = DerandomizeTimeStreams(None, derandStruct=derandStruct)
@@ -313,12 +315,20 @@ class DerandomizeGUI(QtGui.QMainWindow):
             mid = str(midItem.text())
             potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
 
+            # Construct the pot string.
+            potStr = ""
+            for c in range(self._ui.masterlist.columnCount()):
+                i = self._ui.masterlist.item(mRow,c)
+                if not i.isSelected():
+                    continue
+                potStr = potStr+"|"+str(i.text().toUtf8())
+
             if mid not in derandStruct.keys():
                 derandStruct[mid] = {}
             if tsbasedir not in derandStruct[mid]:
                 derandStruct[mid][tsbasedir] = []
-            if potid not in derandStruct[mid][tsbasedir]:
-                derandStruct[mid][tsbasedir].append(potid)
+            if (potid, potStr) not in derandStruct[mid][tsbasedir]:
+                derandStruct[mid][tsbasedir].append((potid,potStr))
 
         return derandStruct
 
@@ -340,7 +350,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
             tst = i.data(QtCore.Qt.UserRole).toPyObject()
             timestamps = timestamps + tst.timestamps
         timestamps = sorted(set(timestamps))
-
 
         # 2. Get derandStruct
         derandStruct = self._createDerandStruct()

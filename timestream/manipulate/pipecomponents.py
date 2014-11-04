@@ -1067,13 +1067,14 @@ class DerandomizeTimeStreams (PipeComponent):
     actName = "derandomize"
     argNames = {"mess": [False, "Output Message", "Derandomizing"],
                 "derandStruct": [True, "Derandomization Structure"]}
-    # derandStruct(dict): {mid0:{TS0:[PotId, PotId...],
-    #                            TS1:[PotId, PotId...]...},
-    #                      mid1:{TS0:[PotId, PotId...],
-    #                            TS1:[PotId, PotId...],...},...}
+    # derandStruct(dict): {mid0:{TS0:[(PotId,Text), (PotId,Text)...],
+    #                            TS1:[(PotId,Text), (PotId,Text)...]...},
+    #                      mid1:{TS0:[(PotId,Text), (PotId,Text)...],
+    #                            TS1:[(PotId,Text), (PotId,Text)...],...},...}
     # mid*(str): is the metaid string
     # TS*(str): is the path to the TimeStreamTraverser
     # PotId(str): is the Pot number in TS*
+    # Text(str): is the string that we put on every pot
 
     runExpects = [datetime.datetime]
     runReturns = [TimeStreamImage]
@@ -1091,9 +1092,10 @@ class DerandomizeTimeStreams (PipeComponent):
         for tspath in tspaths:
             self._tsts[tspath] = TimeStreamTraverser(str(tspath))
 
-        # Create _mids(dict): {mid0:[PotObj,PotObj...],
-        #                      mid1:[PotObj,PotObj...]...}
+        # Create _mids(dict): {mid0:[(PotObj:Text),(PotObj:Text)...],
+        #                      mid1:[(PotObj:Text),(PotObj:Text)...]...}
         # PotObj(PyObject): is the Pot Object.
+        # Text(str): Text that is output on top of image.
         # Easy direct relation between mids and pot objects
         self._mids = {}
         for mid in [i for i,_ in self.derandStruct.iteritems()]:
@@ -1102,6 +1104,11 @@ class DerandomizeTimeStreams (PipeComponent):
         self._numPotPerMid = self.refreshMids(timestamp=None)
         self._numMid = len(self._mids)
 
+        # Variables for putText
+        self._font = cv2.FONT_HERSHEY_SIMPLEX
+        self._scale = 1
+        self._color = (255,0,0)
+
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         img = TimeStreamImage(args[0])
@@ -1109,11 +1116,12 @@ class DerandomizeTimeStreams (PipeComponent):
         return [img]
 
     def createCompoundImage(self, timestamp):
+
         # 1. Max size of pot imgs. All pots are checked.
         self.refreshMids(timestamp=timestamp)
         maxPotRect = (0,0)
         for _, potlist in self._mids.iteritems():
-            for pot in potlist:
+            for pot,_ in potlist:
                 if pot.rect.width > maxPotRect[0] \
                         or pot.rect.height > maxPotRect[1]:
                     maxPotRect = (pot.rect.width, pot.rect.height)
@@ -1162,7 +1170,7 @@ class DerandomizeTimeStreams (PipeComponent):
                 dtype=np.dtype("uint8"))
 
         j = 0 # j'th pot being added
-        for pot in potList:
+        for pot, pottext in potList:
             potGrpRow = j % numPotPerMidSize[0]
             potGrpCol = int(np.floor(float(j)/numPotPerMidSize[0]))
 
@@ -1180,19 +1188,22 @@ class DerandomizeTimeStreams (PipeComponent):
                 pot.increaseRect(leftby=0, topby=0,
                         rightby=wdiff, bottomby=hdiff)
 
-            midGrpImg[wF:wT, hF:hT, :] = pot.getImage()
+            img = pot.getImage()
+            if len(pottext) > 11:
+                pottext = pottext[:4]+"..."+pottext[-4:]
+            cv2.putText(img, pottext, (10,img.shape[1]-5),
+                    self._font, self._scale*.7, self._color, 2)
+            midGrpImg[wF:wT, hF:hT, :] = img
             j += 1
 
-        # Wite image Primter
+        # Wite image Perimeter
         midGrpImg[:, [0,(midGrpImgWidth-1)], :] = (255,255,255)
         midGrpImg[[0,(midGrpImgHeight-1)], :, :] = (255,255,255)
 
         # Write the mid name on the midgrpimg
         txt = str(mid)
-        font=cv2.FONT_HERSHEY_SIMPLEX
-        scale=1
-        color=(255,0,0)
-        cv2.putText(midGrpImg, txt, (30,30), font, scale, color, 3)
+        cv2.putText(midGrpImg, txt, (30,30),
+                self._font, self._scale, self._color, 3)
 
         return midGrpImg
 
@@ -1229,9 +1240,9 @@ class DerandomizeTimeStreams (PipeComponent):
             img = tsimgs[pth]
             if img.ipm is None:
                 continue
-            for potnum in pts:
+            for potnum, pottext in pts:
                 pot = img.ipm.getPot(int(potnum))
-                self._mids[mid].append(pot)
+                self._mids[mid].append((pot, pottext))
 
             # Find the max number of elements for one mid
             if len(self._mids[mid]) > maxPotPerMid:
