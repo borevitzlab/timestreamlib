@@ -532,6 +532,8 @@ class ImagePotMatrix(object):
                      [r[1], r[1], r[3], r[3], r[1]],
                      linestyle="-", color="r")
 
+        a = plt.gca()
+        a.axis('tight')
         plt.title('Pot Rectangles')
         plt.show()
 

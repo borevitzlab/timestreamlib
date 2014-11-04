@@ -459,6 +459,8 @@ class TrayDetector (PipeComponent):
             plt.plot([Loc[0]], [Loc[1]], 'bo')
             PotIndex = PotIndex + 1
         plt.title('Detected trays')
+        a = plt.gca()
+        a.axis('tight')
         plt.show()
 
 
@@ -619,6 +621,8 @@ class PotDetector (PipeComponent):
                     color='red')
                 plt.plot([PotLoc_[0]], [PotLoc_[1]], 'rx')
                 PotIndex = PotIndex + 1
+        a = plt.gca()
+        a.axis('tight')
         plt.title('Detected trays and pots')
         plt.show()
 
