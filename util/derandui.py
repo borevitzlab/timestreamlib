@@ -91,7 +91,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         tsD = tsI.data(QtCore.Qt.UserRole).toPyObject()
         if len(tsD.timestamps) < 2:
             return
-        timestamp = tsD.timestamps[random.randint(0,len(tsD.timestamps)-1)]
+        timestamp = tsD.timestamps[random.randrange(0,len(tsD.timestamps))]
 
         # Create the image
         derandTS = DerandomizeTimeStreams(None, derandStruct=derandStruct)
@@ -445,6 +445,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
         tsbasedir = os.path.basename(str(tsdir))
         try: # See if TS has needed information.
             tst = TimeStreamTraverser(str(tsdir))
+            if "settings" not in tst.data.keys():
+                msg = "settings needs to be defined in Timestream %s" \
+                        % tst.name
+                raise RuntimeError(msg)
             if "metas" not in tst.data["settings"]["general"].keys():
                 msg = "metas needs to be defined in TS {} settings.".\
                         format(tst.name)
@@ -452,6 +456,17 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
                 msg = "There are no meta ids in Timestream %s" % tst.path
                 raise RuntimeError(msg)
+            # if 10 random img don't have ipms, we assume we can't derandomize
+            tmsps = [tst.timestamps[x]
+                        for x in random.sample(xrange(len(tsD.timestamps)), 10)]
+            for i in range(len(tmsps)):
+                tmsp = tmpsps[i]
+                img = tsD.getImgByTimeStamp(tmsp)
+                if img.ipm is not None:
+                    break
+                if i == len(tmpsps)-1:
+                    msg = "Not enough data in %s" % tst.path
+                    raise RuntimeError(msg)
         except Exception as e:
             errmsg = QtGui.QErrorMessage(self)
             errmsg.setWindowTitle("Error Opening Time Stream {}". \
