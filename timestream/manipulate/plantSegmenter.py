@@ -125,6 +125,10 @@ class StatParamLeafCount(StatParamValue):
 
 class StatParamCalculator(object):
 
+    #FIXME: this should be the same as in pipecompoment.ResultingFeatureWriter.
+    #       Find a place to put this string so its in the general scope.
+    errStr = "NaN"
+
     def area(self, mask, img=None):
         retVal = 0.0
         area = regionprops(mask.astype("int8"), ["Area"])
@@ -158,7 +162,7 @@ class StatParamCalculator(object):
 
     def compactness(self, mask, img=None):
         # In skimage its called solidity
-        retVal = 0.0 # FIXME: is this the best default?
+        retVal = StatParamCalculator.errStr
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
         if len(compactness) > 0:
             retVal = compactness[0]["Solidity"]
@@ -168,7 +172,7 @@ class StatParamCalculator(object):
     def eccentricity(self, mask, img=None):
         # In skimage eccentricity ratio between minor and  major axis length of
         # the ellipse with the same second moment as the region.
-        retVal = 0.0 # FIXME: is this the best default?
+        retVal = StatParamCalculator.errStr
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) > 0:
             retVal = ecce[0]["Eccentricity"]
@@ -179,7 +183,7 @@ class StatParamCalculator(object):
         # RMS: Rotational Mass Symmetry. For PSI (Photon Systems Instruments) is
         #      the ratio between foci and major axis of the ellipse with the
         #      same second moment as the region. We calc with eccentricity
-        retVal = 0.0 # FIXME: is this the best default?
+        retVal = StatParamCalculator.errStr
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
         if len(ecce) > 0:
             retVal = 1 - (ecce[0]["Eccentricity"])**2
@@ -356,6 +360,40 @@ class StatParamCalculator(object):
                 break
         Wilting = float(PlantBottom - WiltedHeight)/float(PlantBottom-PlantTop)
         return StatParamValue("wilting2", Wilting)
+
+    def gcc(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        gcc = img[mask==1]
+        if gcc.shape[0] != 0:
+            gcc = np.float32(gcc)
+            # What is the best way to calculate total GCC? 1. The relation of
+            # the means or 2. the mean of the relation.??? We go with 2.
+            #gcc = np.mean(gcc[:,1]) / np.mean(gcc[:,0])
+            #                          + np.mean(gcc[:,1])
+            #                          + np.mean(gcc[:,2])))
+            gcc = np.mean(gcc[:,1] / (gcc[:,0]+gcc[:,1]+gcc[:,2]+1))
+            retVal = gcc
+        return StatParamValue("ColorGCC", retVal)
+
+    def exg(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        exg = img[mask==1]
+        if exg.shape[0] != 0:
+            exg = np.float32(exg)
+            exg = np.mean((2*exg[:,1]) - exg[:,0] - exg[:,2])
+            retVal = exg
+        return StatParamValue("ColorExG", retVal)
+
+    def hsv(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        hsv = img[mask==1]
+        if hsv.shape[0] != 0:
+            hsv = hsv.reshape((1,hsv.shape[0],hsv.shape[1]))
+            # FIXME: is it BGR2HSV or RGB2HSV
+            hsv = cv2.cvtColor(hsv, cv2.COLOR_BGR2HSV)
+            hsv = np.mean(hsv[0,:,1])
+            retVal = hsv
+        return StatParamValue("ColorHSV_H", retVal, rMax=360)
 
     @classmethod
     def statParamMethods(cls):

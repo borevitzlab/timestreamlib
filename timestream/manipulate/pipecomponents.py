@@ -855,7 +855,7 @@ class ResultingFeatureWriter (PipeComponent):
                 for potId in potIds:
                     pot = ipm.getPot(potId)
                     fet = pot.getCalcedFeatures()[fName]
-                    outputline = "%s,%f"%(outputline,fet.value)
+                    outputline = "%s,%s"%(outputline,str(fet.value))
                 outputline = outputline+"\n"
 
             fd = open(fPath, 'a')
