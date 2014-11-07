@@ -16,7 +16,7 @@ from timestream.parse import (
 )
 
 def ts_to_tsnc(ts_path, tsnc_path):
-    log = logging.getLogger("CONSOLE")
+    log = logging.getLogger("timestreamlib")
     # Get timestream images
     imgs = list(ts_iter_images(ts_path))
     # Make netcdf4 file

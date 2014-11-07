@@ -2,7 +2,7 @@ import sys
 import timestream
 import logging
 
-timestream.setup_module_logging(level=logging.INFO)
+timestream.add_log_handler(verbosity=timestream.LOGV.V)
 ts = timestream.TimeStream()
 ts.load(sys.argv[1])
 ts_out = timestream.TimeStream()

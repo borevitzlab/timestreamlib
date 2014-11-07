@@ -18,11 +18,13 @@ from sys import stderr
 from unittest import TestCase
 
 from timestream import (
-    setup_module_logging,
+    NoEOLStreamHandler,
+    add_log_handler,
+    LOGV
 )
 
 
-class TestSetupDebugLogging(TestCase):
+class TestLoggingVerbosity(TestCase):
 
     def setUp(self):
         """remove all existing handlers before each test"""
@@ -30,22 +32,23 @@ class TestSetupDebugLogging(TestCase):
         for handler in log.handlers:
             log.removeHandler(handler)
 
-    def _do_test(self, level, stream):
-        setup_module_logging(level=level, stream=stream)
+    def _do_test(self, verbosity, expectedLevel):
+        add_log_handler(verbosity=verbosity)
         log = logging.getLogger("timestreamlib")
         self.assertEqual(len(log.handlers), 1)
-        self.assertEqual(type(log.handlers[0]), logging.StreamHandler)
-        self.assertEqual(log.handlers[0].level, level)
-        self.assertEqual(log.getEffectiveLevel(), level)
+        self.assertEqual(type(log.handlers[0]), NoEOLStreamHandler)
+        self.assertEqual(log.handlers[0].level, expectedLevel)
+        self.assertEqual(log.getEffectiveLevel(), logging.DEBUG)
 
-    def test_setup_module_logging_info(self):
-        self._do_test(logging.INFO, stderr)
 
-    def test_setup_module_logging_debug(self):
-        self._do_test(logging.DEBUG, stderr)
+    def test_add_log_handler_V(self):
+        self._do_test(LOGV.V, logging.INFO)
 
-    def test_setup_module_logging_debug_devnull(self):
-        self._do_test(logging.DEBUG, None)
+    def test_add_log_handler_VV(self):
+        self._do_test(LOGV.VV, logging.DEBUG)
+
+    def test_add_log_handler_VVV(self):
+        self._do_test(LOGV.VV, logging.DEBUG)
 
     def tearDown(self):
         log = logging.getLogger("timestreamlib")

@@ -32,7 +32,8 @@ import timestream.manipulate.pipeline as pipeline
 import yaml
 import datetime
 
-timestream.setup_module_logging(level=logging.INFO)
+# We log to console by default
+timestream.add_log_handler(verbosity=timestream.LOGV.V)
 LOG = logging.getLogger("timestreamlib")
 
 CLI_OPTS = """

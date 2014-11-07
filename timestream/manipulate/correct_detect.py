@@ -15,7 +15,7 @@ import numpy as np
 from scipy import optimize
 
 
-LOG = logging.getLogger("CONSOLE")
+LOG = logging.getLogger("timestreamlib")
 
 """REVIEW COMMENTARY:
 
