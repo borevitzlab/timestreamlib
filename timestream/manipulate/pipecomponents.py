@@ -764,7 +764,7 @@ class ResultingFeatureWriter (PipeComponent):
         "mess": [False, "Default message", "Writing the features"],
         "overwrite": [False, "Whether to overwrite out files", False],
         "ext": [False, "Output Extension", "csv"],
-        "outname": [False, "String to append to outputPathPrefix", None],
+        "outname": [False, "String to append to outputPrefixPath", None],
         "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
     }
 
@@ -777,8 +777,8 @@ class ResultingFeatureWriter (PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
-        if not context.hasSubSecName("outputPathPrefix"):
-            raise PCExBadContext(self.actName, outputPathPrefix,
+        if not context.hasSubSecName("outputPrefixPath"):
+            raise PCExBadContext(self.actName, outputPrefixPath,
                                  "Must define output prefix directory")
         if not context.hasSubSecName("outputPrefix"):
             raise PCExBadContext(self.actName, outputPrefix,
@@ -789,7 +789,7 @@ class ResultingFeatureWriter (PipeComponent):
 
         if self.outname is None:
             self.outname = self.ext
-        self.outputdir = context.outputPathPrefix + "-" + self.outname
+        self.outputdir = context.outputPrefixPath + "-" + self.outname
         self.outputPrefix = context.outputPrefix
 
         if not os.path.exists(self.outputdir):

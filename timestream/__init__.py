@@ -139,7 +139,7 @@ def add_log_handler(stream=stderr, verbosity=None, level=None,
 
     if verbosity == LOGV.S:
         log.handlers = []
-        return None
+        return os.devnull
 
     # 1. Init handler
     if stream is None:
