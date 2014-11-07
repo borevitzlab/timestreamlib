@@ -8,6 +8,8 @@ Contents:
 
     starting
 
+    config
+
     spec
 ..    api
 ..    todo

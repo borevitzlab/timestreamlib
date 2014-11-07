@@ -14,37 +14,37 @@ Windows
 **Dependencies**
 
  * ``Python 2.x``: You will need python 2.x. We have not tested with python 3.x.
-   You can download for windows `Here <https://www.python.org/downloads/windows/>`_.
+   You can download for windows `<https://www.python.org/downloads/windows/>`_.
 
  * ``Qt for Python``: This is needed if you are going to run the timestreamlib
-   GUI. Download it from `here <http://www.riverbankcomputing.com/software/pyqt/download>`_.
+   GUI. Download it from `<http://www.riverbankcomputing.com/software/pyqt/download>`_.
 
- * ``GIT``: Download it `here <http://git-scm.com/download/win>`_.
+ * ``GIT``: Download it `<http://git-scm.com/download/win>`_.
 
- * ``pip-win``: To aid with pip install. Download it `here
-   <https://sites.google.com/site/pydatalog/python/pip-for-windows>`_.
+ * ``pip-win``: To aid with pip install. Download it
+   `<https://sites.google.com/site/pydatalog/python/pip-for-windows>`_.
 
- * ``numpy``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy>`_.
+ * ``numpy``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy>`_.
 
- * ``matplotlib``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#matplotlib>`_.
+ * ``matplotlib``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#matplotlib>`_.
 
- * ``scipy``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy>`_.
+ * ``scipy``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy>`_.
 
- * ``pip``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#pip>`_.
+ * ``pip``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#pip>`_.
 
- * ``python-opencv``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#opencv>`_.
+ * ``python-opencv``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#opencv>`_.
 
- * ``netcdf4``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#netcdf4>`_.
+ * ``netcdf4``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#netcdf4>`_.
 
- * ``scikit-image``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#scikit-image>`_.
+ * ``scikit-image``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#scikit-image>`_.
 
- * ``python-dateutil``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#python-dateutil>`_.
+ * ``python-dateutil``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#python-dateutil>`_.
 
- * ``pyyaml``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyyaml>`_.
+ * ``pyyaml``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyyaml>`_.
 
- * ``six``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#six>`_.
+ * ``six``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#six>`_.
 
- * ``pyparsing``: `Here <http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyparsing>`_.
+ * ``pyparsing``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyparsing>`_.
 
 .. _installing-windows-timestreamlib:
 
