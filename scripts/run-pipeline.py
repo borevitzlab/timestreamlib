@@ -28,17 +28,17 @@ import timestream
 import logging
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
-import yaml
 import datetime
 from docopt import (docopt,DocoptExit)
+from PyQt4 import (QtGui, QtCore, uic)
 
 def genConfig(opts):
     # input timestream directory
     inputRootPath = opts['-i']
     if os.path.isfile(inputRootPath):
-        raise DocoptExit("%s is a file. Expected a directory"%inputRootPath)
+        raise RuntimeError("%s is a file. Expected a directory"%inputRootPath)
     if not os.path.exists(inputRootPath):
-        raise DocoptExit("%s does not exists"%inputRootPath)
+        raise RuntimeError("%s does not exists"%inputRootPath)
 
     # Pipeline configuration.
     if opts['-p']:
@@ -46,7 +46,7 @@ def genConfig(opts):
     else:
         plConfPath = os.path.join(inputRootPath, '_data', 'pipeline.yml')
     if not os.path.isfile(plConfPath):
-        raise DocoptExit("%s is not a file"%plConfPath)
+        raise RuntimeError("%s is not a file"%plConfPath)
     plConf = pipeconf.PCFGConfig(plConfPath, 2)
     plConf.addSubSec("plConfPath", plConfPath)
     plConf.addSubSec("inputRootPath", inputRootPath)
@@ -58,7 +58,7 @@ def genConfig(opts):
         tsConfPath = os.path.join(plConf.inputRootPath, '_data',
                 'timestream.yml')
     if not os.path.isfile(tsConfPath):
-        raise DocoptExit("%s is not a file"%tsConfPath)
+        raise RuntimeError("%s is not a file"%tsConfPath)
     tsConf = pipeconf.PCFGConfig(tsConfPath, 1)
     tsConf.addSubSec("tsConfPath", tsConfPath)
 
@@ -86,7 +86,7 @@ def genConfig(opts):
                 cName, cVal = setelem.split("=")
                 plConf.setVal(cName, cVal)
             except:
-                raise DocoptExit("Error in the --set string")
+                raise RuntimeError("Error in the --set string")
 
     # There are two output variables:
     # outputPath : Directory where resulting directories will be put
@@ -100,7 +100,7 @@ def genConfig(opts):
         plConf.general.setVal("outputPath", opts['-o'])
 
         if os.path.isfile(plConf.general.outputPath):
-            raise DocoptExit("%s is a file"%plConf.general.outputPath)
+            raise RuntimeError("%s is a file"%plConf.general.outputPath)
         outputPrefixPath = os.path.join (plConf.general.outputPath,
                 plConf.general.outputPrefix)
         plConf.general.setVal("outputPrefixPath", outputPrefixPath)
@@ -157,7 +157,7 @@ def genConfig(opts):
 def createOutputs(plConf):
     if not plConf.hasSubSecName("general") \
             or not plConf.general.hasSubSecName("outputPath"):
-        raise DocoptExit("Configuration missing outputPath")
+        raise RuntimeError("Configuration missing outputPath")
     if not os.path.exists(plConf.general.outputPath):
         os.makedirs(plConf.general.outputPath)
 
@@ -175,18 +175,18 @@ def initlogging(opts):
 
     outlog = timestream.add_log_handler(verbosity=vbsty)
     if outlog is os.devnull:
-        raise DocoptExit("Error setting up output to console")
+        raise RuntimeError("Error setting up output to console")
 
     if "--logfile" in opts.keys():
         f = opts["--logfile"]
         outlog = timestream.add_log_handler(stream=f, verbosity=vbsty)
         if outlog is os.devnull:
-            raise DocoptExit("Error setting log to file {}".format(f))
+            raise RuntimeError("Error setting log to file {}".format(f))
 
 def genContext(plConf):
     if not plConf.hasSubSecName("outstreams") \
             or not plConf.hasSubSecName("general"):
-        raise DocoptExit("Error while generating context")
+        raise RuntimeError("Error while generating context")
 
     # Initialize the context
     ctx = pipeconf.PCFGSection("--")
@@ -214,8 +214,10 @@ def genContext(plConf):
     ctx.setVal("outputPrefixPath", plConf.general.outputPrefixPath)
     ctx.setVal("outputPrefix", plConf.general.outputPrefix)
 
-    return ctx
+    if not ctx.hasSubSecName("outts"):
+        raise RuntimeError("Could not identify output timestreams")
 
+    return ctx
 
 def genExistingTS(ctx):
     existing_ts = []
@@ -226,16 +228,227 @@ def genExistingTS(ctx):
     existing_ts = list(set([item for sl in existing_ts for item in sl]))
     return existing_ts
 
-CLI_OPTS = """
+def genInputTimestream(plConf, existing_ts):
+    # initialise input timestream for processing
+    ts = timestream.TimeStreamTraverser(
+            ts_path=plConf.inputRootPath,
+            interval=plConf.general.timeInterval,
+            start=plConf.general.startDate,
+            end=plConf.general.endDate,
+            start_hour=plConf.general.startHourRange,
+            end_hour=plConf.general.endHourRange,
+            existing_ts=existing_ts,
+            err_on_access=True)
+    # FIXME: asDict because it cannot be handled by json.
+    ts.data["settings"] = plConf.asDict()
+    return ts
+
+# Avoid repeating code in cli and gui
+def initPipeline(LOG, opts):
+    # configuration
+    plConf = genConfig(opts)
+    createOutputs(plConf)
+    LOG.info(str(plConf))
+
+    # context
+    ctx = genContext(plConf)
+    for tsname in ctx.outts.listSubSecNames():
+        ts_out = ctx.outts.getVal(tsname)
+        LOG.info("Output timestream instance:")
+        LOG.info("   ts_out.path: {}".format(ts_out.path))
+
+    # Skiping
+    existing_ts = []
+    if not opts["--recalculate"]:
+        existing_ts = genExistingTS(ctx)
+    LOG.info("Skipping time stamps {}".format(existing_ts))
+
+    # initialise input timestream for processing
+    ts = genInputTimestream(plConf, existing_ts)
+    ctx.setVal("ints",ts)
+    LOG.info(str(ts))
+
+    # initialise processing pipeline
+    pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
+
+    return (plConf, ctx, pl, ts)
+
+# Enclose in a class to be able to stop it
+class PipelineRunner():
+    def __init__(self):
+        self.running = False
+    def runPipeline(self, plConf, ctx, ts, pl, LOG, prsig=None, stsig=None):
+        self.running = True
+        for i in range(len(ts.timestamps)):
+            if prsig is not None:
+                prsig.emit(i)
+            timestamp = ts.timestamps[i]
+            try:
+                img = ts.getImgByTimeStamp(timestamp, update_index=True)
+                # Detach img from timestream. We don't need it!
+                img.parent_timestream = None
+                LOG.info("Process {} ...".format(img.path))
+            except PCException as pcex:
+                # Propagate PCException to components.
+                img = pcex
+
+            try:
+                result = pl.process(ctx, [img], plConf.general.visualise)
+            except PCException as bip:
+                LOG.info(bip.message)
+                continue
+
+            if not self.running:
+                break
+        LOG.info("Done")
+        if stsig is not None:
+            stsig.emit()
+
+def maincli(opts):
+    try:
+        # logging, re-initialize with user options.
+        initlogging(opts)
+        LOG = logging.getLogger("timestreamlib")
+
+        plConf, ctx, pl, ts = initPipeline(LOG, opts)
+
+        pr = PipelineRunner()
+        pr.runPipeline(plConf, ctx, ts, pl, LOG)
+    except RuntimeError as re:
+        raise DocoptExit(str(re))
+
+class PipelineRunnerGUI(QtGui.QMainWindow):
+    class TextEditStream:
+        def __init__(self, sig):
+            self._sig = sig
+        def write(self, m):
+            self._sig.emit(m)
+    class TextEditSignal(QtCore.QObject):
+        sig = QtCore.pyqtSignal(str)
+    class ProgressSignal(QtCore.QObject):
+        sig = QtCore.pyqtSignal(int) # offset of progress
+    class ThreadStopped(QtCore.QObject):
+        sig = QtCore.pyqtSignal()
+    class PipelineThread(QtCore.QThread):
+        def __init__(self, plConf, ctx, ts, pl, log, prsig, stsig, parent=None):
+            QtCore.QThread.__init__(self, parent)
+            self._plConf = plConf
+            self._ctx = ctx
+            self._ts = ts
+            self._pl = pl
+            self._log = log
+            self._prsig = prsig
+            self._stsig = stsig
+            self._pr = None
+            self._running = False
+        def setRunning(self, val):
+            self._running = val
+            if self._pr is not None:
+                self._pr.running = self._running
+        def run(self):
+            self._running = True
+            self._pr = PipelineRunner()
+            self._pr.runPipeline(self._plConf, self._ctx, self._ts,
+                    self._pl, self._log, prsig=self._prsig, stsig=self._stsig)
+    def __init__(self, opts):
+        QtGui.QMainWindow.__init__(self)
+        self._ui = uic.loadUi("run-pipeline.ui")
+        self._opts = opts
+        self.tesig = PipelineRunnerGUI.TextEditSignal()
+        self.tesig.sig.connect(self._outputLog)
+        self.prsig = PipelineRunnerGUI.ProgressSignal()
+        self.prsig.sig.connect(self._updateProgress)
+        self.stsig = PipelineRunnerGUI.ThreadStopped()
+        self.stsig.sig.connect(self._threadstopped)
+
+        # Hide the progress bar stuff
+        self._ui.pbpl.setVisible(False)
+        self._ui.bCancel.setVisible(False)
+
+        # buttons
+        self._ui.bCancel.clicked.connect(self._cancelRunPipeline)
+        self._ui.bRunPipe.clicked.connect(self._runPipeline)
+
+        # pipeline thread
+        self._plthread = None
+        self._ui.show()
+
+    def _cancelRunPipeline(self):
+        if self._plthread is not None:
+            self._plthread.setRunning(False)
+
+    def _threadstopped(self):
+        self._ui.pbpl.setValue(self._ui.pbpl.maximum())
+        self._ui.pbpl.setVisible(False)
+        self._ui.bCancel.setVisible(False)
+
+    def _outputLog(self, m):
+        self._ui.teOutput.append(QtCore.QString(m))
+
+    def _updateProgress(self, i):
+        self._ui.pbpl.setValue(i)
+        QtGui.qApp.processEvents()
+
+    def _runPipeline(self):
+        if self._plthread is not None and self._plthread.running:
+            return
+
+        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                "Select Time Stream", "", \
+                QtGui.QFileDialog.ShowDirsOnly \
+                | QtGui.QFileDialog.DontResolveSymlinks)
+        if tsdir == "": # Handle the cancel
+            return
+
+        try:
+            tsdir = os.path.realpath(str(tsdir))
+            if not os.path.isdir(tsdir):
+                raise RuntimeError("Directory {} does not exist".format(tsdir))
+            self._opts["-i"] = tsdir
+
+            # log to QTextEdit
+            stream = PipelineRunnerGUI.TextEditStream(self.tesig.sig)
+            outlog = timestream.add_log_handler(stream=stream,
+                    verbosity=timestream.LOGV.VV)
+            if outlog is os.devnull:
+                raise RuntimeError("Error setting up output to TextEdit")
+            LOG = logging.getLogger("timestreamlib")
+
+            plConf, ctx, pl, ts = initPipeline(LOG, self._opts)
+        except RuntimeError as re:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.showMessage(str(re))
+            return
+
+        self._ui.pbpl.setVisible(True)
+        self._ui.bCancel.setVisible(True)
+        self._ui.pbpl.setMinimum(0)
+        self._ui.pbpl.setMaximum(len(ts.timestamps))
+        self._ui.pbpl.reset()
+
+        self._plthread = PipelineRunnerGUI.PipelineThread(plConf, ctx, ts, pl,
+                LOG, self.prsig.sig, self.stsig.sig, parent=self)
+        self._plthread.start()
+
+def maingui(opts):
+    app = QtGui.QApplication(sys.argv)
+    win = PipelineRunnerGUI(opts)
+    app.exec_()
+    app.deleteLater()
+    sys.exit()
+
+OPTS = """
 USAGE:
     run-pipeline -i IN
                  [-o OUT] [-p YML] [-t YML]
                  [-v | -vv | -vvv | -s] [--logfile=FILE]
                  [--recalculate] [--set=CONFIG]
+    run-pipeline (-g | --gui)
     run-pipeline (-h | --help)
 
 OPTIONS:
     -h --help   Show this screen.
+    -g --gui    Open the QT Graphical User Interface
     -i IN       Input timestream directory
     -o OUT      Output root. Where results will be created.
     -p YML      Path to pipeline yaml configuration. Defaults to
@@ -253,72 +466,13 @@ OPTIONS:
                      E.g: --set=a.b=value,c.d.e=val2
     --recalculate    By default we don't re-calculate images. Passing this
                      option forces recalculation
-
 """
-
-#LOG = logging.getLogger("timestreamlib")
 def main():
-    opts = docopt(CLI_OPTS)
-
-    # logging, re-initialize with user options.
-    initlogging(opts)
-    LOG = logging.getLogger("timestreamlib")
-
-    # configuration
-    plConf = genConfig(opts)
-    createOutputs(plConf)
-    LOG.info(str(plConf))
-
-    # context
-    ctx = genContext(plConf)
-    if not ctx.hasSubSecName("outts"):
-        raise DocoptExit("Could not identify output timestreams")
-    for tsname in ctx.outts.listSubSecNames():
-        ts_out = ctx.outts.getVal(tsname)
-        LOG.info("Output timestream instance:")
-        LOG.info("   ts_out.path: {}".format(ts_out.path))
-
-    # Skiping
-    existing_ts = []
-    if not opts["--recalculate"]:
-        existing_ts = genExistingTS(ctx)
-    LOG.info("Skipping time stamps {}".format(existing_ts))
-
-    # initialise input timestream for processing
-    ts = timestream.TimeStreamTraverser(
-            ts_path=plConf.inputRootPath,
-            interval=plConf.general.timeInterval,
-            start=plConf.general.startDate,
-            end=plConf.general.endDate,
-            start_hour=plConf.general.startHourRange,
-            end_hour=plConf.general.endHourRange,
-            existing_ts=existing_ts,
-            err_on_access=True)
-    # FIXME: asDict because it cannot be handled by json.
-    ts.data["settings"] = plConf.asDict()
-    ctx.setVal("ints",ts)
-    LOG.info(str(ts))
-
-    # initialise processing pipeline
-    pl = pipeline.ImagePipeline(plConf.pipeline, ctx)
-
-    for timestamp in ts.timestamps:
-        try:
-            img = ts.getImgByTimeStamp(timestamp, update_index=True)
-            # Detach img from timestream. We don't need it!
-            img.parent_timestream = None
-            LOG.info("Process {} ...".format(img.path))
-        except PCException as pcex:
-            # Propagate PCException to components.
-            img = pcex
-
-        try:
-            result = pl.process(ctx, [img], plConf.general.visualise)
-        except PCException as bip:
-            LOG.info(bip.message)
-            continue
-
-        LOG.info("Done")
+    opts = docopt(OPTS)
+    if opts["--gui"]:
+        maingui(opts)
+    else:
+        maincli(opts)
 
 if __name__ == "__main__":
     main()
