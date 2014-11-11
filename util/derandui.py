@@ -458,13 +458,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 raise RuntimeError(msg)
             # if 10 random img don't have ipms, we assume we can't derandomize
             tmsps = [tst.timestamps[x]
-                        for x in random.sample(xrange(len(tsD.timestamps)), 10)]
+                        for x in random.sample(xrange(len(tst.timestamps)), 10)]
             for i in range(len(tmsps)):
-                tmsp = tmpsps[i]
-                img = tsD.getImgByTimeStamp(tmsp)
+                tmsp = tmsps[i]
+                img = tst.getImgByTimeStamp(tmsp)
                 if img.ipm is not None:
                     break
-                if i == len(tmpsps)-1:
+                if i == len(tmsps)-1:
                     msg = "Not enough data in %s" % tst.path
                     raise RuntimeError(msg)
         except Exception as e:
