@@ -368,7 +368,11 @@ class ImagePotHandler(object):
             # calc the ones we don't have
             if not featName in self._features.keys():
                 featFunc = getattr(fc, featName)
-                self._features[featName] = featFunc(msk, img=self._image)
+                try:
+                    self._features[featName] = featFunc(msk, img=self._image)
+                except:
+                    self._features[featName] = tm_ps.StatParamValue(featName,
+                            tm_ps.StatParamCalculator.errStr)
 
     def getCalcedFeatures(self):
         return self._features

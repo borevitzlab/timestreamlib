@@ -4,4 +4,4 @@ set -e
 set -x
 
 git submodule update --init
-nosetests $@ --logging-filter=timestream,CONSOLE --with-coverage --cover-package timestream
+nosetests $@ --logging-filter=timestream --with-coverage --cover-package timestream

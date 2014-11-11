@@ -89,7 +89,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # Get a random timestamp
         tsI = self._ui.tslist.item(0,1)
         tsD = tsI.data(QtCore.Qt.UserRole).toPyObject()
-        timestamp = tsD.timestamps[random.randint(0,len(tsD.timestamps))]
+        if len(tsD.timestamps) < 2:
+            return
+        timestamp = tsD.timestamps[random.randrange(0,len(tsD.timestamps))]
 
         # Create the image
         derandTS = DerandomizeTimeStreams(None, derandStruct=derandStruct)
@@ -313,12 +315,20 @@ class DerandomizeGUI(QtGui.QMainWindow):
             mid = str(midItem.text())
             potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
 
+            # Construct the pot string.
+            potStr = ""
+            for c in range(self._ui.masterlist.columnCount()):
+                i = self._ui.masterlist.item(mRow,c)
+                if not i.isSelected():
+                    continue
+                potStr = potStr+"|"+str(i.text().toUtf8())
+
             if mid not in derandStruct.keys():
                 derandStruct[mid] = {}
             if tsbasedir not in derandStruct[mid]:
                 derandStruct[mid][tsbasedir] = []
-            if potid not in derandStruct[mid][tsbasedir]:
-                derandStruct[mid][tsbasedir].append(potid)
+            if (potid, potStr) not in derandStruct[mid][tsbasedir]:
+                derandStruct[mid][tsbasedir].append((potid,potStr))
 
         return derandStruct
 
@@ -340,7 +350,6 @@ class DerandomizeGUI(QtGui.QMainWindow):
             tst = i.data(QtCore.Qt.UserRole).toPyObject()
             timestamps = timestamps + tst.timestamps
         timestamps = sorted(set(timestamps))
-
 
         # 2. Get derandStruct
         derandStruct = self._createDerandStruct()
@@ -436,6 +445,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
         tsbasedir = os.path.basename(str(tsdir))
         try: # See if TS has needed information.
             tst = TimeStreamTraverser(str(tsdir))
+            if "settings" not in tst.data.keys():
+                msg = "settings needs to be defined in Timestream %s" \
+                        % tst.name
+                raise RuntimeError(msg)
             if "metas" not in tst.data["settings"]["general"].keys():
                 msg = "metas needs to be defined in TS {} settings.".\
                         format(tst.name)
@@ -443,6 +456,17 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
                 msg = "There are no meta ids in Timestream %s" % tst.path
                 raise RuntimeError(msg)
+            # if 10 random img don't have ipms, we assume we can't derandomize
+            tmsps = [tst.timestamps[x]
+                        for x in random.sample(xrange(len(tsD.timestamps)), 10)]
+            for i in range(len(tmsps)):
+                tmsp = tmpsps[i]
+                img = tsD.getImgByTimeStamp(tmsp)
+                if img.ipm is not None:
+                    break
+                if i == len(tmpsps)-1:
+                    msg = "Not enough data in %s" % tst.path
+                    raise RuntimeError(msg)
         except Exception as e:
             errmsg = QtGui.QErrorMessage(self)
             errmsg.setWindowTitle("Error Opening Time Stream {}". \
@@ -545,8 +569,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # first row is always header
         hIndexes = csvreader.next() # header index
-        for hIndex in hIndexes:
-            csvCol[hIndex] = []
+        for j in range(len(hIndexes)):
+            hIndexes[j] = str(hIndexes[j].decode("utf-8", errors="ignore"))
+            csvCol[hIndexes[j]] = []
 
         rowNum = 0
         for l in csvreader:

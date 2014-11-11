@@ -65,23 +65,134 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-
-LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
+def enum(**enums):
+    return type("Enum", (), enums)
+LOGV = enum(V="V", VV="VV", VVV="VVV", S="S") # Verbosity
+NOEOL = logging.INFO + 1
+logging.addLevelName(NOEOL, 'NOEOL')
 
-def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
-                         stream=stderr):
-    """Setup debug console logging. Designed for interactive use."""
+
+class NoEOLStreamHandler(logging.StreamHandler):
+    """A StreamHandler subclass that optionally doesn't print an EOL."""
+
+    def __init__(self, stream=None):
+        super(NoEOLStreamHandler, self).__init__(stream)
+
+    def emit(self, record):
+        """
+        Emit a record. If level == NOEOL, don't add an EOL.
+        """
+        try:
+            # KDM: I've added this block, to get StreamHandler handle standard
+            # log levels.
+            if record.levelno != NOEOL:
+                return super(NoEOLStreamHandler, self).emit(record)
+            msg = self.format(record)
+            stream = self.stream
+            # KDM: this is the only other change from StreamHandler
+            # in StreamHandler, this is fs = "%s\n". We remove the EOL if
+            # log level is NOEOL. Everything else is the same.
+            fs = "%s"
+            if not logging._unicode:  # if no unicode support...
+                stream.write(fs % msg)
+            else:
+                try:
+                    if (isinstance(msg, unicode) and
+                            getattr(stream, 'encoding', None)):
+                        ufs = fs.decode(stream.encoding)
+                        try:
+                            stream.write(ufs % msg)
+                        except UnicodeEncodeError:
+                            # Printing to terminals sometimes fails. For example,
+                            # with an encoding of 'cp1251', the above write will
+                            # work if written to a stream opened or wrapped by
+                            # the codecs module, but fail when writing to a
+                            # terminal even when the codepage is set to cp1251.
+                            # An extra encoding step seems to be needed.
+                            stream.write((ufs % msg).encode(stream.encoding))
+                    else:
+                        stream.write(fs % msg)
+                except UnicodeError:
+                    stream.write(fs % msg.encode("UTF-8"))
+            self.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+
+def add_log_handler(stream=stderr, verbosity=None, level=None,
+        handler=NoEOLStreamHandler):
+    """Add a logging handler to the timestreamlib logger
+
+    Predefined verbosities
+      LOGV.S:: Silent. Remove all handlers from logger
+      LOGV.V: No timestamp, INFO if level is None
+      LOGV.VV: With timestamp, DEBUG if level is None
+      LOGV.VVV: Timestamp and Function name, DEBUG if level is None
+      format string: Regular format string. DEBUG if level is None
+    """
     log = logging.getLogger("timestreamlib")
-    fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
+    log.setLevel(logging.DEBUG)
+
+    if verbosity == LOGV.S:
+        log.handlers = []
+        return os.devnull
+
+    # 1. Init handler
     if stream is None:
-        stream = open("/dev/null", "w")
+        stream = open(os.devnull, "w")
+
+    elif isinstance(stream, str): # is filepath, try to open it.
+        try:
+            stream = path.realpath(stream)
+            if not path.exists(path.dirname(stream)):
+                os.makedirs(path.dirname(stream))
+            stream = open(stream, "a")
+        except:
+            stream = open(os.devnull, "w")
+
+    else:
+        try: # don't change stream if its a file descriptor
+            stream.write
+        except AttributeError:
+            stream = open(os.devnull, "w")
     cons = handler(stream=stream)
+
+    # 2. Init level
+    if level is None or not isinstance(level, int):
+        try:
+            level = {
+                LOGV.V:logging.INFO,
+                LOGV.VV:logging.DEBUG,
+                LOGV.VVV:logging.DEBUG,
+                None:logging.DEBUG
+            }[verbosity]
+        except:
+            level = logging.DEBUG
     cons.setLevel(level)
+
+    # 3. Init format
+    if verbosity == LOGV.V:
+        fmt = logging.Formatter('%(message)s')
+    elif verbosity == LOGV.VV \
+            or verbosity is None \
+            or not isinstance(verbosity, str):
+        fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
+    elif verbosity == LOG_INTROSPEC:
+        fmt = logging.Formatter(
+            '[%(asctime)s %(filename)s:%(lineno)s-%(funcName)20s()] %(message)s',
+            '%H:%M:%S')
+    else:
+        fmt = logging.Formatter(verbosity, '%H:%M:%S')
     cons.setFormatter(fmt)
     log.addHandler(cons)
-    log.setLevel(level)
+
+    return str(stream)
+
+LOG = logging.getLogger("timestreamlib")
 
 
 class TimeStream(object):
@@ -191,7 +302,7 @@ class TimeStream(object):
             self.data = {}
         self.read_metadata()
 
-    def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
+    def create(self, ts_path, version=1, ext="jpg", type=None, start=NOW,
                end=NOW, name=None):
         self.version = version
         if not isinstance(ts_path, str):
