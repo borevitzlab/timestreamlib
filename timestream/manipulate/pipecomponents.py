@@ -880,9 +880,9 @@ class ResultingFeatureWriter (PipeComponent):
         if recExcept is None:
             return # No exceptions, we should continue normally.
 
-        self._appendToAudit(ResultingFeatureWriter.errStr, recExcept.id)
 
         if not context.hasSubSecName("ints"):
+            self._appendToAudit(ResultingFeatureWriter.errStr, recExcept.id)
             raise recExcept # We can't guess time stamp.
 
         # 1. Guess time stamp (ts) from ints
@@ -895,7 +895,9 @@ class ResultingFeatureWriter (PipeComponent):
 
         ts = self._guessTimeStamp(img)
         if ts is None:
+            self._appendToAudit(ResultingFeatureWriter.errStr, recExcept.id)
             raise recExcept
+        self._appendToAudit(ts, recExcept.id)
 
         # 2. Write features
         for fName, fPath in self._featFiles.iteritems():
