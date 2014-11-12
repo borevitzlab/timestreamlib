@@ -773,7 +773,7 @@ class ResultingFeatureWriter (PipeComponent):
         "overwrite": [False, "Whether to overwrite out files", False],
         "ext": [False, "Output Extension", "csv"],
         "outname": [False, "String to append to outputPrefixPath", None],
-        "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_%02d"]
+        "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_00"]
     }
 
     runExpects = [TimeStreamImage]
@@ -932,7 +932,7 @@ class ResultingFeatureWriter (PipeComponent):
             ts = time.mktime(img.datetime.timetuple()) * 1000
         else:
             try:
-                ts = img.datetime.strftime("%Y_%m_%d_%H_%M_%S_%02d")
+                ts = img.datetime.strftime(self.timestamp)
             except:
                 ts = time.mktime(img.datetime.timetuple()) * 1000
 
