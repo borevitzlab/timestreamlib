@@ -210,7 +210,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
             self._ui.masterlist.insertRow(self._ui.masterlist.rowCount())
             for csvC in range(1,self._ui.csvtable.columnCount()):
-                istr = self._ui.csvtable.item(csvR, csvC).text()
+                istr = self._ui.csvtable.item(csvR, csvC)
+                if istr is not None:
+                    istr = self._ui.csvtable.item(csvR, csvC).text()
+                else:
+                    istr = " "
                 i = QtGui.QTableWidgetItem()
                 i.setTextAlignment(QtCore.Qt.AlignCenter)
                 i.setText(istr)
@@ -228,7 +232,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
         # valRow: given the val, returns the row in tstable
         valRow = {}
         for csvR in range(self._ui.tstable.rowCount()):
-            val = self._ui.tstable.item(csvR, tsColNum).text()
+            val = self._ui.tstable.item(csvR, tsColNum)
+            if val is not None:
+                val = self._ui.tstable.item(csvR, tsColNum).text()
+            else:
+                val = " "
             valRow[val] = csvR
 
         # Copy all row values from tstable to masterlist.
