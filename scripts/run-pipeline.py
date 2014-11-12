@@ -115,9 +115,13 @@ def genConfig(opts):
     sd = None
     if plConf.general.hasSubSecName("startDate"):
         if plConf.general.startDate.size == 6:
+            # FIXME: For all the datetimes we cannot change to datetime here
+            #        (where it is more obvious) because JSON cannot handle
+            #        the datetime strcture.
+            #sd = plConf.general.startDate
+            #sd = datetime.datetime(sd.year, sd.month, sd.day, \
+            #                       sd.hour, sd.minute, sd.second)
             sd = plConf.general.startDate
-            sd = datetime.datetime(sd.year, sd.month, sd.day, \
-                                   sd.hour, sd.minute, sd.second)
         plConf.general.startDate = sd
     else:
         plConf.general.addSubSec("startDate", None)
@@ -125,9 +129,10 @@ def genConfig(opts):
     ed = None
     if plConf.general.hasSubSecName("endDate"):
         if plConf.general.endDate.size == 6:
+            #ed = plConf.general.endDate
+            #ed = datetime.datetime(ed.year, ed.month, ed.day, \
+            #                       ed.hour, ed.minute, ed.second)
             ed = plConf.general.endDate
-            ed = datetime.datetime(ed.year, ed.month, ed.day, \
-                                   ed.hour, ed.minute, ed.second)
         plConf.general.endDate = ed
     else:
         plConf.general.addSubSec("endDate", None)
@@ -139,16 +144,19 @@ def genConfig(opts):
         plConf.general.addSubSec("visualis", False)
 
     if plConf.general.hasSubSecName("startHourRange"):
-        sr = plConf.general.startHourRange
-        plConf.general.startHourRange = \
-                datetime.time(sr.hour, sr.minute, sr.second)
+        pass
+        # FIXME: Same as the datetime.datetime: JSON cannot handle time strucut.
+        #sr = plConf.general.startHourRange
+        #plConf.general.startHourRange = \
+        #        datetime.time(sr.hour, sr.minute, sr.second)
     else:
         plConf.general.addSubSec("startHourRange", None)
 
     if plConf.general.hasSubSecName("endHourRange"):
-        er = plConf.general.endHourRange
-        plConf.general.endHourRange = \
-                datetime.time(er.hour, er.minute, er.second)
+        pass
+        #er = plConf.general.endHourRange
+        #plConf.general.endHourRange = \
+        #        datetime.time(er.hour, er.minute, er.second)
     else:
         plConf.general.addSubSec("endHourRange", None)
 
@@ -229,14 +237,29 @@ def genExistingTS(ctx):
     return existing_ts
 
 def genInputTimestream(plConf, existing_ts):
+    # FIXME: This should not go here. It should be in the genConfig method.
+    sd = plConf.general.startDate
+    if sd is not None:
+        sd = datetime.datetime(sd.year, sd.month, sd.day, \
+                               sd.hour, sd.minute, sd.second)
+    ed = plConf.general.endDate
+    if ed is not None:
+        ed = datetime.datetime(ed.year, ed.month, ed.day, \
+                               ed.hour, ed.minute, ed.second)
+
+    # FIXME: This should not go here. It should be in the genConfig method.
+    sr = plConf.general.startHourRange
+    sr = datetime.time(sr.hour, sr.minute, sr.second)
+    er = plConf.general.endHourRange
+    er = datetime.time(er.hour, er.minute, er.second)
     # initialise input timestream for processing
     ts = timestream.TimeStreamTraverser(
             ts_path=plConf.inputRootPath,
             interval=plConf.general.timeInterval,
-            start=plConf.general.startDate,
-            end=plConf.general.endDate,
-            start_hour=plConf.general.startHourRange,
-            end_hour=plConf.general.endHourRange,
+            start=sd,
+            end=ed,
+            start_hour=sr,
+            end_hour=er,
             existing_ts=existing_ts,
             err_on_access=True)
     # FIXME: asDict because it cannot be handled by json.
