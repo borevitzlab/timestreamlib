@@ -72,3 +72,9 @@ class PCExExistingImage(PCException):
         self.message = "Image timestamp %s has already been calculated" \
                 % imgTimestamp
 
+class PCExCorruptImage(PCException):
+    id = 8
+
+    def __init__(self, path):
+        """Raised when receiving an error on image read"""
+        self.message = "Image at path %s is corrupted" % path

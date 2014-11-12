@@ -36,6 +36,7 @@ import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
 from timestream.parse import (
     read_image,
+    RIException
 )
 from timestream.manipulate import (
     PCException,
@@ -43,6 +44,7 @@ from timestream.manipulate import (
     PCExBreakInPipeline,
     PCExBadConfig,
     PCExBadContext,
+    PCExCorruptImage,
 )
 
 
@@ -166,7 +168,11 @@ class ImageUndistorter (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        self.image = tsi.pixels
+        try:
+            self.image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
+
         if self.image is None:
              raise PCExBreakInPipeline(self.actName,
                      "Bad image %s"%tsi.path)
@@ -226,7 +232,10 @@ class ColorCardDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        self.image = tsi.pixels
+        try:
+            self.image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
             # FIXME: this should be handled with an error.
@@ -320,7 +329,11 @@ class ImageColorCorrector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, colorcardParam = args
-        image = tsi.pixels
+
+        try:
+            image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
 
         meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
@@ -407,7 +420,10 @@ class TrayDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        self.image = tsi.pixels
+        try:
+            self.image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
         temp = np.zeros_like(self.image)
         temp[:, :, :] = self.image[:, :, :]
         temp[:, :, 1] = 0  # suppress green channel
@@ -482,7 +498,10 @@ class PotDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
-        self.image = tsi.pixels
+        try:
+            self.image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
         # read pot template image and scale to the pot size
         potFile = os.path.join(
             context.ints.path,
@@ -640,7 +659,10 @@ class PotDetectorGlassHouse (PipeComponent):
     def __call__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        self.image = tsi.pixels
+        try:
+            self.image = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
 
         tsi.ipm = tm_pot.ImagePotMatrix(tsi, pots=[])
         potID = 1
@@ -685,7 +707,10 @@ class PlantExtractor (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        img = tsi.pixels
+        try:
+            img = tsi.pixels
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
         self.ipm = tsi.ipm
 
         # Set the segmenter in all the pots
@@ -1050,7 +1075,10 @@ class ResultingImageWriter (PipeComponent):
         """
         LOG.info(self.mess)
         self.img = args[0]
-        origimg = self.img.pixels.copy()
+        try:
+            origimg = self.img.pixels.copy()
+        except RIException:
+            raise PCExCorruptImage(tsi.path)
         ts_out = context.getVal("outts." + self.outstream)
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
