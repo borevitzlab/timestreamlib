@@ -289,9 +289,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 or self._ui.masterlist.rowCount() < 1 \
                 or self._ui.cbderand.currentIndex() < 0:
             errmsg = QtGui.QErrorMessage(self)
-            errmsg.setWindowTitle(
-                    "Generate Master before selecting derandomization column")
-            errmsg.showMessage(errmsg)
+            errmsg.setWindowTitle("Error while generating derand struct")
+            errmsg.showMessage(
+                    "Generate Master and select derandomization column")
             return
 
         derandStruct = {}
@@ -307,10 +307,16 @@ class DerandomizeGUI(QtGui.QMainWindow):
             midItem = self._ui.masterlist.item(mRow, midCol)
             tsItem = self._ui.masterlist.item(mRow, tsCol)
 
-            if midItem is None or str(midItem.text()) is "" \
-                    or tsItem is None or str(tsItem.text()) is "" \
-                    or tsItem.data(QtCore.Qt.UserRole) is None:
-                continue
+            try:
+                if midItem is None or str(midItem.text()) is "" \
+                        or tsItem is None or str(tsItem.text()) is "" \
+                        or tsItem.data(QtCore.Qt.UserRole) is None:
+                    continue
+            except:
+                from PyQt4.QtCore import pyqtRemoveInputHook
+                from pdb import set_trace
+                pyqtRemoveInputHook()
+                set_trace()
 
             mid = str(midItem.text())
             potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
@@ -569,16 +575,17 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # first row is always header
         hIndexes = csvreader.next() # header index
-        for j in range(len(hIndexes)):
-            hIndexes[j] = str(hIndexes[j].decode("utf-8", errors="ignore"))
-            csvCol[hIndexes[j]] = []
+        for hIndex in hIndexes:
+            hIndex = unicode(hIndex, "utf-8", errors="ignore")
+            csvCol[hIndex] = []
 
         rowNum = 0
         for l in csvreader:
             rowNum += 1
             for hIndex in hIndexes:
                 lOffset = hIndexes.index(hIndex) # Line offset for hIndex
-                csvCol[hIndex].append(l[lOffset])
+                csvCol[hIndex].append(unicode(l[lOffset], "utf-8",
+                        errors="ignore"))
 
         # column names from csv file and table
         colNames = []
