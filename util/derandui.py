@@ -553,6 +553,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if self._ui.tslist.rowCount() < 2:
                 self._ui.tstable.clearContents()
                 self._ui.tstable.setColumnCount(1)
+                self._ui.masterlist.setColumnCount(0)
+                self._ui.masterlist.setRowCount(0)
+                self._ui.cbTs.clear()
+                self._ui.cbCsv.clear()
+                self._ui.cbderand.clear()
 
     def _addCsv(self):
         # 1. Get location of csv file.
@@ -629,6 +634,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if self._ui.csvlist.rowCount() < 2:
                 self._ui.csvtable.clearContents()
                 self._ui.csvtable.setColumnCount(1)
+                self._ui.masterlist.setColumnCount(0)
+                self._ui.masterlist.setRowCount(0)
+                self._ui.cbTs.clear()
+                self._ui.cbCsv.clear()
+                self._ui.cbderand.clear()
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
