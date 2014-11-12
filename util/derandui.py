@@ -575,9 +575,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
 
         # first row is always header
         hIndexes = csvreader.next() # header index
-        for hIndex in hIndexes:
-            hIndex = unicode(hIndex, "utf-8", errors="ignore")
-            csvCol[hIndex] = []
+        for i in range(len(hIndexes)):
+            hIndexes[i] = unicode(hIndexes[i], "utf-8", errors="ignore")
+            csvCol[hIndexes[i]] = []
 
         rowNum = 0
         for l in csvreader:
