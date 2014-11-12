@@ -307,16 +307,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
             midItem = self._ui.masterlist.item(mRow, midCol)
             tsItem = self._ui.masterlist.item(mRow, tsCol)
 
-            try:
-                if midItem is None or str(midItem.text()) is "" \
-                        or tsItem is None or str(tsItem.text()) is "" \
-                        or tsItem.data(QtCore.Qt.UserRole) is None:
-                    continue
-            except:
-                from PyQt4.QtCore import pyqtRemoveInputHook
-                from pdb import set_trace
-                pyqtRemoveInputHook()
-                set_trace()
+            if midItem is None or str(midItem.text()) is "" \
+                    or tsItem is None or str(tsItem.text()) is "" \
+                    or tsItem.data(QtCore.Qt.UserRole) is None:
+                continue
 
             mid = str(midItem.text())
             potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
@@ -548,6 +542,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 if item.text() == tsbasedir:
                     self._ui.tstable.removeRow(ri)
             self._ui.tslist.removeRow(row)
+            if self._ui.tslist.rowCount() < 2:
+                self._ui.tstable.clearContents()
+                self._ui.tstable.setColumnCount(1)
 
     def _addCsv(self):
         # 1. Get location of csv file.
@@ -621,6 +618,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
                 if i.text() == csvname:
                     self._ui.csvtable.removeRow(ri)
             self._ui.csvlist.removeRow(row)
+            if self._ui.csvlist.rowCount() < 2:
+                self._ui.csvtable.clearContents()
+                self._ui.csvtable.setColumnCount(1)
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
