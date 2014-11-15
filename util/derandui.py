@@ -73,6 +73,9 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._ui.bCancel.setVisible(False)
         self._ui.bCancel.clicked.connect(self._cancelDerand)
 
+        # keep track of current dir
+        self._currDir = ""
+
         self._ui.show()
 
     def _showPrev(self):
@@ -271,11 +274,11 @@ class DerandomizeGUI(QtGui.QMainWindow):
             return
 
         cFile = QtGui.QFileDialog.getSaveFileName(self, \
-                "Select Filename for Config File", "", \
+                "Select Filename for Config File", self._currDir, \
                 options=QtGui.QFileDialog.DontResolveSymlinks)
-
         if cFile == "": # Handle the cancel
             return
+        self._currDir = os.path.dirname(str(cFile))
 
         derandStruct = self._createDerandStruct()
 
@@ -349,13 +352,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
     def _derandomize(self):
         # 0. Get the output directory
         tsoutpath = QtGui.QFileDialog.getExistingDirectory(self, \
-                    "Select Output Derandomization Directory", "", \
+                    "Select Output Derandomization Directory", self._currDir, \
                     QtGui.QFileDialog.ShowDirsOnly \
                     | QtGui.QFileDialog.DontResolveSymlinks)
         tsoutpath = str(tsoutpath)
-
         if tsoutpath == "": # Handle the cancel
             return
+        self._currDir = os.path.dirname(str(tsoutpath))
 
         # 1. Gather all timestamps
         timestamps = []
@@ -450,13 +453,14 @@ class DerandomizeGUI(QtGui.QMainWindow):
     def _addTS(self):
         # 1. Get location of Time Stream
         tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                "Select Time Stream", "", \
+                "Select Time Stream", self._currDir, \
                 QtGui.QFileDialog.ShowDirsOnly \
                 | QtGui.QFileDialog.DontResolveSymlinks)
         if tsdir == "": # Handle the cancel
             return
+        self._currDir = os.path.dirname(str(tsdir))
 
-        tsbasedir = os.path.basename(str(tsdir))
+        tsbasedir = self._currDir
         try: # See if TS has needed information.
             tst = TimeStreamTraverser(str(tsdir))
             if "settings" not in tst.data.keys():
@@ -568,9 +572,10 @@ class DerandomizeGUI(QtGui.QMainWindow):
     def _addCsv(self):
         # 1. Get location of csv file.
         csvPath = QtGui.QFileDialog.getOpenFileName(self,
-                "Select CSV", "", "CSV (*.csv)")
+                "Select CSV", self._currDir, "CSV (*.csv)")
         if csvPath == "":
             return
+        self._currDir = os.path.dirname(str(csvPath))
         csvName = os.path.split(str(csvPath))[1].split(".")[0]
 
         # 2. Insert Csv
