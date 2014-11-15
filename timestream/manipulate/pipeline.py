@@ -95,7 +95,7 @@ class ImagePipeline (object):
                 if visualise:
                     elem.show()
             except PCException as e:
-                res = [e] # propagate exception
+                res = [e]  # propagate exception
 
         for e in res:
             if isinstance(e, PCException):

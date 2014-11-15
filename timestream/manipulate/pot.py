@@ -337,7 +337,8 @@ class ImagePotHandler(object):
             superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3],
                    self._rect[0]:self._rect[2], :] = img
-            del img; img = superI
+            del img
+            img = superI
 
         return img
 

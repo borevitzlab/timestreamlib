@@ -349,11 +349,16 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
 #        place for both this exception and this method. read_image in a parse
 #        module????? Returning None is not the right thing to do as it is valid
 #        to have a TimeStreamImage with none pixels (when creating a new image).
+
+
 class RIException(Exception):
     def __init__(self, path):
         self._path = path
+
     def __str__(self):
         return "Error reading {}".format(self._path)
+
+
 def read_image(path):
     """Reads a image in various formats at path ``path`` into an numpy array
     and returns the array. Returns None on error, logging the error and raising
@@ -366,6 +371,7 @@ def read_image(path):
     except (ValueError, RuntimeError) as exc:
         LOG.error(str(exc))
         raise RIException(path)
+
 
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
