@@ -4,7 +4,6 @@ from inspect import (
 )
 import numpy as np
 import os
-import warnings
 from unittest import TestCase
 
 from tests import helpers
@@ -16,6 +15,7 @@ from timestream.parse import (
     ts_get_image,
     ts_parse_date,
     read_image,
+    RIException,
 )
 
 
@@ -201,12 +201,13 @@ class TestParseDate(TestCase):
         with self.assertRaises(ValueError):
             ts_parse_date(date_str)
 
+
 class TestReadImage(TestCase):
     """Test function timestream.parse.read_image"""
 
     def test_read_image_missing(self):
         """check a warning is raised on non-existant image"""
-        with self.assertRaises(Exception):
+        with self.assertRaises(RIException):
             read_image("nonexistant_image.jpg")
 
     def test_read_image_zeros(self):
