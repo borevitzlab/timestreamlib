@@ -117,6 +117,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
         pixItem.setZValue(-100)
         layout.addWidget(gvImg)
 
+        # Button to close
+        okb = QtGui.QPushButton("ok")
+        okb.clicked.connect(lambda: prevWidget.closeEvent(QtGui.QCloseEvent()))
+        okb.setFixedWidth(40)
+        layout.addWidget(okb)
+
         prevWidget.exec_()
 
     def _indexChangedCbDerand(self, ind):
