@@ -18,6 +18,7 @@ from inspect import (
     isgenerator,
 )
 import numpy as np
+import os
 from os import path
 import shutil
 from unittest import TestCase
@@ -29,6 +30,7 @@ from timestream import (
 )
 from timestream.parse import (
     ts_format_date,
+    read_image,
 )
 from timestream.parse.validate import (
     TS_MANIFEST_KEYS,
@@ -36,7 +38,6 @@ from timestream.parse.validate import (
 
 
 class TestTimeStreamStr(TestCase):
-
     """Test str(instance) of TimeStream classes."""
 
     def _check_ts_instance_ts_v1(self, ts_path):
@@ -50,7 +51,6 @@ class TestTimeStreamStr(TestCase):
 
 
 class TestTimeStreamLoad(TestCase):
-
     """Test loading of TimeStream classes. Tests read_metadata as well."""
 
     def _check_ts_instance_ts_v1(self, ts_path):
@@ -116,7 +116,6 @@ class TestTimeStreamLoad(TestCase):
 
 
 class TestTimeStreamInit(TestCase):
-
     """Test init of TimeStream classes"""
 
     def test_timestream_init_bad_params(self):
@@ -128,7 +127,6 @@ class TestTimeStreamInit(TestCase):
 
 
 class TestTimeStreamImageInit(TestCase):
-
     """Test setup of TimeStreamImage classes."""
 
     def test_image_init(self):
@@ -159,7 +157,6 @@ class TestTimeStreamImageInit(TestCase):
 
 
 class TestTimeStreamImagePathAssing(TestCase):
-
     """Test TimeStreamImage() path assignment"""
 
     def test_ts_image_path_assign(self):
@@ -188,7 +185,6 @@ class TestTimeStreamImagePathAssing(TestCase):
 
 
 class TestTimeStreamImageClone(TestCase):
-
     """Test TimeStreamImage().clone()"""
 
     def test_ts_image_clone(self):
@@ -226,7 +222,6 @@ class TestTimeStreamImageClone(TestCase):
 
 
 class TestTimeStreamIterByFiles(TestCase):
-
     """Test TimeStream().iter_by_files()"""
 
     def test_iter_by_files(self):
@@ -246,7 +241,6 @@ class TestTimeStreamIterByFiles(TestCase):
 
 
 class TestTimeStreamIterByTimepoints(TestCase):
-
     """Test TimeStream().iter_by_timepoints"""
 
     def test_iter_by_timepoints_full(self):
@@ -362,6 +356,61 @@ class TestTimeStreamWrite(TestCase):
             self.assertIn(str_date, ts.image_data)
             self.assertDictEqual(img.data, ts.image_data[str_date])
             self.assertTrue(path.exists, img.path)
+
+    def tearDown(self):
+        try:
+            shutil.rmtree(self.tmp_path)
+        except (OSError,):
+            pass
+
+class TestTimeStreamImageWrite(TestCase):
+
+    def setUp(self):
+        self.arr = np.arange(300, dtype="uint8").reshape((10, 10, 3))
+        self.date = dt.datetime.now()
+
+    def test_timestream_image_write(self):
+        self.tmp_path = helpers.make_tmp_file(ext='png')
+        img = TimeStreamImage()
+        img.pixels = self.arr
+        img.datetime = self.date
+        img.data["fake"] = True  # just some example data
+        img.path = self.tmp_path
+        # remove if exists, sans TOCTOU bug
+        try:
+            os.remove(self.tmp_path)
+        except OSError:
+            pass
+        img.write()
+        self.assertTrue(path.exists(img.path))
+        res_arr = read_image(img.path)
+        np.testing.assert_array_equal(res_arr, img.pixels)
+
+    def test_timestream_image_write_overwrite(self):
+        self.tmp_path = helpers.make_tmp_file(ext='png')
+        img = TimeStreamImage()
+        img.pixels = self.arr
+        img.datetime = self.date
+        img.path = self.tmp_path
+        with open(self.tmp_path, "w") as fh:
+            fh.write("This ensures that the file exists")
+        with self.assertRaises(RuntimeError):
+            img.write()
+        img.write(overwrite=True)  # shouldn't raise
+        self.assertTrue(path.exists(img.path))
+        res_arr = read_image(img.path)
+        np.testing.assert_array_equal(res_arr, img.pixels)
+
+    def test_timestream_image_write_resize(self):
+        self.tmp_path = helpers.make_tmp_file(ext='png')
+        img = TimeStreamImage()
+        img.pixels = self.arr
+        img.datetime = self.date
+        img.path = self.tmp_path
+        img.write(overwrite=True, res=(4,4))  # shouldn't raise
+        self.assertTrue(path.exists(img.path))
+        res_arr = read_image(img.path)
+        self.assertEqual(res_arr.shape, (4,4,3))
 
     def tearDown(self):
         try:

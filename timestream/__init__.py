@@ -29,6 +29,7 @@ import numpy as np
 import os
 from os import path
 import skimage.io
+import skimage.transform
 from sys import stderr
 from timestream.manipulate.pot import ImagePotMatrix
 import cPickle
@@ -338,7 +339,7 @@ class TimeStream(object):
                 LOG.error(msg)
                 raise ValueError(msg)
 
-    def write_image(self, image, overwrite_mode="skip"):
+    def write_image(self, image, overwrite_mode="skip", res=None):
         if not self.name:
             msg = "write_image() must be called on instance with valid name"
             LOG.error(msg)
@@ -364,10 +365,14 @@ class TimeStream(object):
             LOG.error(msg)
             raise ValueError(msg)
 
+        # downsize, if we've been asked to
+        our_pixels = image.pixels
+
         if self.version == 1:
             fpath = _ts_date_to_path(self.name, self.extension,
                                      image.datetime, 0)
             fpath = path.join(self.path, fpath)
+            actually_overwrite = False
             if path.exists(fpath):
                 if overwrite_mode == "skip":
                     return
@@ -384,7 +389,7 @@ class TimeStream(object):
                         raise ValueError(msg)
                 elif overwrite_mode == "overwrite":
                     # We don't do anything here if we want to overwrite
-                    pass
+                    actually_overwrite = True
                 elif overwrite_mode == "raise":
                     msg = "Image already exists at {}".format(fpath)
                     LOG.error(msg)
@@ -396,9 +401,8 @@ class TimeStream(object):
                 self.start_datetime = image.datetime
             self.image_data[ts_format_date(image.datetime)] = image.data
             self.write_metadata()
-            # FIXME: pass the overwrite_mode
-            image.write(fpath=fpath, overwrite=True)
-            self.write_pickled_image(image, overwrite=True)
+            image.write(fpath=fpath, overwrite=actually_overwrite)
+            self.write_pickled_image(image, overwrite=actually_overwrite)
 
         else:
             raise NotImplementedError("v2 timestreams not implemented yet")
@@ -754,7 +758,7 @@ class TimeStreamImage(object):
             new._path = self._path
         return new
 
-    def write(self, fpath=None, overwrite=False):
+    def write(self, fpath=None, overwrite=False, res=None):
         # Don't let _pixels auto-reset in this method.
         if fpath is not None and not isinstance(fpath, str):
             msg = "fpath must be string"
@@ -772,11 +776,14 @@ class TimeStreamImage(object):
             msg = "Image pixels must be set to write"
             LOG.error(msg)
             raise RuntimeError(msg)
-
         if path.exists(fpath) and not overwrite:
             msg = "Path {} exists and overwrite is {}".format(fpath, overwrite)
             LOG.error(msg)
             raise RuntimeError(msg)
+        if res is not None and not len(res) == 2:
+            msg = "Invalid resolution: must be tuple of (rows, cols) or None"
+            LOG.error(msg)
+            raise ValueError(msg)
 
         # from this point we are overwriting
         if path.isfile(fpath):
@@ -785,7 +792,14 @@ class TimeStreamImage(object):
         if not path.exists(path.dirname(fpath)):
             os.makedirs(path.dirname(fpath))
 
-        skimage.io.imsave(fpath, self._pixels)
+        pix_to_write = self._pixels
+        # Down-scale if we should
+        if res is not None:
+            pix_to_write = skimage.transform.resize(pix_to_write, res)
+        print(pix_to_write.shape)
+        skimage.io.imshow(pix_to_write)
+
+        skimage.io.imsave(fpath, pix_to_write)
 
         # Once we have written its ok to set property
         self.path = fpath
