@@ -1,16 +1,15 @@
-TimestreamCLI
+The old TimestreamCLI Repo lives on in this folder
 =============
 
-Command line tools for working with images in the timestream format.
+Add to the stuff below as you see fit
 
-Tools currently (being) implemented:
- - [x] resizeTimestream.py
- - [ ] cropTimestream.py
- - [ ] undistortRectifyTimestream.py
+Scripts to be killed:
 
-License
-=======
+- [ ] `cropTimestream.py`
+- [ ] `resizeTimestream.py`
+- [ ] `formatExptJson.py` and `formatTSJson.py`, which Gareth should put in the
+      UI code repo
 
-All source code is licened under the GNU Public License version 3, or a later
-version at your preference.  For license text, see `./gpl-3.0.txt` or
-[the GNU website here](http://www.gnu.org/licenses/gpl-3.0.txt).
+Scripts to be merged with the scripts dir:
+- [ ] `derandomisePots.py` and `derandomisePotsMultiChambers.py`, if they
+  contain stuff not in the derand UI
