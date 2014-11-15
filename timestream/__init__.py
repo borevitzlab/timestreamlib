@@ -124,7 +124,7 @@ class NoEOLStreamHandler(logging.StreamHandler):
 
 
 def add_log_handler(stream=stderr, verbosity=None, level=None,
-        handler=NoEOLStreamHandler):
+                    handler=NoEOLStreamHandler):
     """Add a logging handler to the timestreamlib logger
 
     Predefined verbosities

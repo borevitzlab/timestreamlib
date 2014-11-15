@@ -95,9 +95,11 @@ class PipeComponent (object):
 
         for i in range(len(self.runExpects)):
             if not isinstance(args[i], self.runExpects[i]):
-                raise PCExBadRunExpects(self.__class__,
-                        "Call Expected %s but got %s"
-                        % (self.runExpects[i], type(args[i])))
+                raise PCExBadRunExpects(
+                    self.__class__,
+                    "Call Expected %s but got %s" % (self.runExpects[i],
+                                                     type(args[i]))
+                )
 
         return(self.__exec__(context, *args))
 
@@ -174,8 +176,7 @@ class ImageUndistorter (PipeComponent):
             raise PCExCorruptImage(tsi.path)
 
         if self.image is None:
-             raise PCExBreakInPipeline(self.actName,
-                     "Bad image %s"%tsi.path)
+             raise PCExBreakInPipeline(self.actName, "Bad image %s" % tsi.path)
 
         if self.UndistMapX is not None and self.UndistMapY is not None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8),
@@ -246,7 +247,7 @@ class ColorCardDetector (PipeComponent):
             ccdImg = read_image(self.ccf)
             if ccdImg is None:
                 raise PCExBreakInPipeline(self.actName,
-                        "Failed to read %s"%self.ccf)
+                                          "Failed to read %s" % self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
             SearchRange = [self.ccdPyramid[0].shape[1]*1.5,
@@ -270,7 +271,7 @@ class ColorCardDetector (PipeComponent):
                 # for displaying
                 self.loc = loc
             else:
-                raise PCExBreakInPipeline( self.actName, "Cannot find color card")
+                raise PCExBreakInPipeline(self.actName, "Cannot find color card")
         else:
             self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
@@ -298,16 +299,8 @@ class ColorCardDetector (PipeComponent):
             TLC = self.backgroundWindow[0:2]
             BRC = self.backgroundWindow[2:]
             plt.plot(
-                [TLC[0],
-                 TLC[0],
-                    BRC[0],
-                    BRC[0],
-                    TLC[0]],
-                [TLC[1],
-                 BRC[1],
-                    BRC[1],
-                    TLC[1],
-                    TLC[1]],
+                [TLC[0], TLC[0], BRC[0], BRC[0], TLC[0]],
+                [TLC[1], BRC[1], BRC[1], TLC[1], TLC[1]],
                 'w')
             plt.title('Selected white region for color correction')
         plt.show()
@@ -454,9 +447,8 @@ class TrayDetector (PipeComponent):
                 SearchRange=SearchRange)
             if score < 0.3:
                 # FIXME: Is there a better way to handler this?
-                raise PCExBreakInPipeline( self.actName,
-                    "Low tray matching score. Likely tray %d is missing." % i)
-
+                raise PCExBreakInPipeline(self.actName, "Low tray matching score."
+                                          " Likely tray %d is missing." % i)
             self.trayLocs.append(loc)
 
         tsi.pixels = self.image
@@ -815,7 +807,7 @@ class ResultingFeatureWriter (PipeComponent):
                                  "Must define output prefix directory")
         if not context.hasSubSecName("outputPrefix"):
             raise PCExBadContext(self.actName, outputPrefix,
-                            "Must define an output prefix")
+                                 "Must define an output prefix")
         if self.ext is not "csv":
             raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
 
@@ -830,13 +822,13 @@ class ResultingFeatureWriter (PipeComponent):
 
         # Output audit file
         self._auditFile = os.path.join(self.outputdir,
-                    self.outputPrefix + "-audit." + self.ext)
+                                       self.outputPrefix + "-audit." + self.ext)
 
         # Filenames for every feature.
         self._featFiles = {}
         for fName in tm_ps.StatParamCalculator.statParamMethods():
-            self._featFiles[fName] = os.path.join(self.outputdir,
-                    self.outputPrefix + "-" + fName + "." + self.ext)
+            full_fname = self.outputPrefix + "-" + fName + "." + self.ext
+            self._featFiles[fName] = os.path.join(self.outputdir, full_fname)
 
         self._prevCsvIndex = {}
         if self.overwrite:
@@ -856,15 +848,15 @@ class ResultingFeatureWriter (PipeComponent):
         ts = self._guessTimeStamp(img)
         if ts is None:
             self._appendToAudit(ResultingFeatureWriter.errStr,
-                    PCExBreakInPipeline.id)
+                                PCExBreakInPipeline.id)
             raise PCExBreakInPipeline(self.actName,
-                    "Could not calculate time stamp")
+                                      "Could not calculate time stamp")
 
         # 2. If we have no features
         if ipm is None or len(ipm.potFeatures) < 1:
             self._appendToAudit(ts, PCExBreakInPipeline.id)
             raise PCExBreakInPipeline(self.actName,
-                    "Did not find any features.")
+                                      "Did not find any features.")
 
         # 3. Write features
         potIds = sorted(ipm.potIds) # Sorted to easily append
@@ -928,7 +920,7 @@ class ResultingFeatureWriter (PipeComponent):
         for fName, fPath in self._featFiles.iteritems():
             if not os.path.exists(fPath):  # we initialize it.
                 res = self._recoverFromPrev(ResultingFeatureWriter.tsHName,
-                        fName)
+                                            fName)
                 # If no header row, continue without header.
                 if res is not None:
                     fd = open(fPath, 'a+')
@@ -1122,9 +1114,9 @@ class DerandomizeTimeStreams (PipeComponent):
         #    it when referencing pots.
         self._tsts = {}
         # unique Timestream paths from derandStruct
-        tspaths = set([x \
-                        for _, l in self.derandStruct.iteritems() \
-                            for x in l.keys()])
+        tspaths = set([x
+                       for _, l in self.derandStruct.iteritems()
+                       for x in l.keys()])
         for tspath in tspaths:
             self._tsts[tspath] = TimeStreamTraverser(str(tspath))
 
@@ -1179,7 +1171,7 @@ class DerandomizeTimeStreams (PipeComponent):
         retImgHeight = maxPotRect[1] * numPotPerMidSize[0] * numMidSize[0]
         retImgWidth = maxPotRect[0] * numPotPerMidSize[1] * numMidSize[1]
         retImg = np.zeros((retImgHeight, retImgWidth, 3),
-                dtype=np.dtype("uint8"))
+                          dtype=np.dtype("uint8"))
 
         i = 0 # the ith mid being added
         for mid, potlist in self._mids.iteritems():
@@ -1193,8 +1185,10 @@ class DerandomizeTimeStreams (PipeComponent):
             hF = midGrpCol*maxPotRect[1]*numPotPerMidSize[1]
             hT = hF + (maxPotRect[1]*numPotPerMidSize[1])
 
-            retImg[wF:wT, hF:hT, :] = self.getMidGrpImg(mid, potlist,
-                    maxPotRect, numPotPerMidSize )
+            retImg[wF:wT, hF:hT, :] = self.getMidGrpImg(mid,
+                                                        potlist,
+                                                        maxPotRect,
+                                                        numPotPerMidSize)
             i += 1
 
         return retImg
@@ -1203,7 +1197,7 @@ class DerandomizeTimeStreams (PipeComponent):
         midGrpImgHeight = maxPotRect[1] * numPotPerMidSize[0]
         midGrpImgWidth = maxPotRect[0] * numPotPerMidSize[1]
         midGrpImg = np.zeros((midGrpImgHeight, midGrpImgWidth, 3),
-                dtype=np.dtype("uint8"))
+                             dtype=np.dtype("uint8"))
 
         j = 0 # j'th pot being added
         for pot, pottext in potList:
@@ -1222,13 +1216,13 @@ class DerandomizeTimeStreams (PipeComponent):
             hdiff = maxPotRect[1] - pot.rect.height
             if wdiff > 0 or hdiff > 0:
                 pot.increaseRect(leftby=0, topby=0,
-                        rightby=wdiff, bottomby=hdiff)
+                                 rightby=wdiff, bottomby=hdiff)
 
             img = pot.getImage()
             if len(pottext) > 11:
                 pottext = pottext[:4]+"..."+pottext[-4:]
             cv2.putText(img, pottext, (10,img.shape[1]-5),
-                    self._font, self._scale*.7, self._color, 2)
+                        self._font, self._scale*.7, self._color, 2)
             midGrpImg[wF:wT, hF:hT, :] = img
             j += 1
 
@@ -1239,7 +1233,7 @@ class DerandomizeTimeStreams (PipeComponent):
         # Write the mid name on the midgrpimg
         txt = str(mid)
         cv2.putText(midGrpImg, txt, (30,30),
-                self._font, self._scale, self._color, 3)
+                    self._font, self._scale, self._color, 3)
 
         return midGrpImg
 
@@ -1252,9 +1246,9 @@ class DerandomizeTimeStreams (PipeComponent):
             self._mids[mid] = []
 
         # Create intermediate tuple list to ease _mids creation
-        mid_pth_pts = [(mid,pth,pts) \
-                        for mid,l in self.derandStruct.iteritems() \
-                            for pth, pts in l.iteritems() ]
+        mid_pth_pts = [(mid,pth,pts)
+                       for mid,l in self.derandStruct.iteritems()
+                       for pth, pts in l.iteritems() ]
         # Pre-load images to avoid going to disk
         tsimgs = {}
         for pth, ts in self._tsts.iteritems():
@@ -1265,7 +1259,7 @@ class DerandomizeTimeStreams (PipeComponent):
                 deltas = [abs(timestamp-t) for t in ts.timestamps]
                 tInd = deltas.index(min(deltas))
                 tsimgs[pth] = ts.getImgByTimeStamp(ts.timestamps[tInd],
-                        update_index=True)
+                                                   update_index=True)
 
         # mid -> meta ids
         # pth -> TimeStream path

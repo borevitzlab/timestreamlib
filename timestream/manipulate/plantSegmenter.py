@@ -46,8 +46,8 @@ class StatParamValue(object):
         return [self._min, self._max]
 
     def drawParamInImg(self, img, x=0, y=0, nMax=3, tMax=11,
-            font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
-            tScale=1):
+                       font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
+                       tScale=1):
         """Draw param name and value on image
 
         Arguments:
@@ -67,7 +67,7 @@ class StatParamMinCircle(StatParamValue):
     """The value is the radius and we add center"""
     def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=float("Inf")):
         super(StatParamMinCircle, self).__init__(name, radius,
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._center = center
         self._radius = self._value
 
@@ -90,7 +90,7 @@ class StatParamPerimeter(StatParamValue):
     """The value is the sum of the perimeter. Also perimeter coords"""
     def __init__(self, name, plen, xycoords, rMin=0.0, rMax=float("Inf")):
         super(StatParamPerimeter, self).__init__(name, plen,
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._length = self._value
         self._coords = xycoords
 
@@ -110,7 +110,7 @@ class StatParamLeafCount(StatParamValue):
     """The number of leaves on a rosette. Also leaf coordinates"""
     def __init__(self, name, centerCoords, radius=5, rMin=0.0, rMax=float("Inf")):
         super(StatParamLeafCount, self).__init__(name, len(centerCoords),
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._centers = centerCoords
         self._radius = radius
 
