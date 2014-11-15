@@ -206,10 +206,8 @@ class TestReadImage(TestCase):
 
     def test_read_image_missing(self):
         """check a warning is raised on non-existant image"""
-        with warnings.catch_warnings(record=True) as wrn:
-            warnings.simplefilter("always")
-            self.assertIsNone(read_image("nonexistant_image.jpg"))
-            self.assertEqual(len(wrn), 1)
+        with self.assertRaises(Exception):
+            read_image("nonexistant_image.jpg")
 
     def test_read_image_zeros(self):
         """check read_image reads in a png correctly"""
