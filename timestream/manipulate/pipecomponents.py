@@ -61,6 +61,9 @@ class PipeComponent (object):
     # name: is the name of the argument
     # required: True if arg is required, False if optional
     # default: Default value. Relevant only for required args
+    #
+    # FIXME: can we make this a little less arcane by parsing thru kwargs or
+    # similar? I.e. put the argument logic into __init__, allowing subclassing
     argNames = {}
 
     # These two should be lists of ty
@@ -69,6 +72,7 @@ class PipeComponent (object):
 
     def __init__(self, *args, **kwargs):
         for attrKey, attrVal in self.__class__.argNames.iteritems():
+            # FIXME: Please document this, it's a mess
             try:
                 setattr(self, attrKey, kwargs[attrKey])
             except KeyError:
@@ -1060,7 +1064,8 @@ class ResultingImageWriter (PipeComponent):
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
         "addStats": [False, "List of statistics", []],
-        "masked": [False, "Whether to output masked images", False]}
+        "masked": [False, "Whether to output masked images", False],
+        "resolution": [False, "Resoluton to down-size to, or None", None]}
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
@@ -1089,7 +1094,10 @@ class ResultingImageWriter (PipeComponent):
                                                features=self.addStats,
                                                inSuper=True)
 
-        ts_out.write_image(self.img)
+        # force the resolution to be a tuple
+        if self.resolution is not None:
+            self.resolution = tuple(self.resolution)
+        ts_out.write_image(self.img, self.resolution)
         ts_out.write_metadata()
 
         # reset to move forward

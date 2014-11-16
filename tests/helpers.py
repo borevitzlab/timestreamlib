@@ -133,9 +133,9 @@ os.mkdir(FILES["empty_dir"])
 NUM_TEMPS = 0
 
 
-def make_tmp_file():
+def make_tmp_file(ext='tmp'):
     if not path.isdir(FILES["tmp_dir"]):
         os.mkdir(FILES["tmp_dir"])
     global NUM_TEMPS
     NUM_TEMPS += 1
-    return path.join(FILES["tmp_dir"], "{:05d}.tmp".format(NUM_TEMPS))
+    return path.join(FILES["tmp_dir"], "{:05d}.{}".format(NUM_TEMPS, ext))
