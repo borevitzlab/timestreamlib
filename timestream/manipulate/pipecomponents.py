@@ -249,8 +249,8 @@ class ColorCardDetector (PipeComponent):
                         "Failed to read %s"%self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
-            SearchRange = [self.ccdPyramid[0].shape[1],
-                           self.ccdPyramid[0].shape[0]]
+            SearchRange = [self.ccdPyramid[0].shape[1]*1.5,
+                           self.ccdPyramid[0].shape[0]*1.5]
             score, loc, angle = cd.matchTemplatePyramid(
                 self.imagePyramid, self.ccdPyramid,
                 0, EstimatedLocation=self.colorcardPosition,
