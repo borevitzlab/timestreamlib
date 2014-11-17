@@ -98,11 +98,17 @@ class PipeComponent (object):
             if not isinstance(args[i], self.runExpects[i]):
                 raise PCExBadRunExpects(
                     self.__class__,
-                    "Call Expected %s but got %s" % (self.runExpects[i],
-                                                     type(args[i]))
-                )
+                    "Call Expected %s but got %s"
+                    % (self.runExpects[i], type(args[i])))
 
-        return(self.__exec__(context, *args))
+        # Only PCExceptions get propagated correctly through the pipeline. Here
+        # we translate "general" exceptions into a PCException.
+        try:
+            retVal = self.__exec__(context, *args)
+        except RIException as rie:
+            raise PCExCorruptImage(rie.path)
+
+        return retVal
 
     def __chkExcept__(self, context, *args):
         # Separated from __call__ so it might be overridden by children that
@@ -170,10 +176,7 @@ class ImageUndistorter (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
 
         if self.image is None:
             raise PCExBreakInPipeline(self.actName, "Bad image %s" % tsi.path)
@@ -233,10 +236,7 @@ class ColorCardDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
             # FIXME: this should be handled with an error.
@@ -322,11 +322,7 @@ class ImageColorCorrector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, colorcardParam = args
-
-        try:
-            image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        image = tsi.pixels
 
         meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
@@ -413,10 +409,7 @@ class TrayDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         temp = np.zeros_like(self.image)
         temp[:, :, :] = self.image[:, :, :]
         temp[:, :, 1] = 0  # suppress green channel
@@ -490,10 +483,7 @@ class PotDetector (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         # read pot template image and scale to the pot size
         potFile = os.path.join(
             context.ints.path,
@@ -651,10 +641,7 @@ class PotDetectorGlassHouse (PipeComponent):
     def __call__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
 
         tsi.ipm = tm_pot.ImagePotMatrix(tsi, pots=[])
         potID = 1
@@ -699,10 +686,7 @@ class PlantExtractor (PipeComponent):
     def __exec__(self, context, *args):
         LOG.info(self.mess)
         tsi = args[0]
-        try:
-            img = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        img = tsi.pixels
         self.ipm = tsi.ipm
 
         # Set the segmenter in all the pots
@@ -1064,10 +1048,7 @@ class ResultingImageWriter (PipeComponent):
         """
         LOG.info(self.mess)
         self.img = args[0]
-        try:
-            origimg = self.img.pixels.copy()
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        origimg = self.img.pixels.copy()
         ts_out = context.getVal("outts." + self.outstream)
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
@@ -1116,10 +1097,6 @@ class ResizeImage (PipeComponent):
             return args
 
         img = args[0]
-        try:
-            img.pixels
-        except RIException:
-            raise PCExCorruptImage(img.path)
         if isinstance(self.resolution, tuple):
             img.pixels = skimage.transform.resize(img.pixels, self.resolution)
         elif isinstance(self.resolution, float):

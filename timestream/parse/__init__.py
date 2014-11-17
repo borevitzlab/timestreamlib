@@ -348,11 +348,15 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
 
 class RIException(Exception):
 
+    # FIXME: Hack to propagate image error exception. Find a better place for
+    # exception and method. read_image in a parse module????? Returning None is
+    # not the right thing to do as it is valid to have a TimeStreamImage with
+    # none pixels (when creating a new image).
     def __init__(self, path):
-        self._path = path
+        self.path = path
 
     def __str__(self):
-        return "Error reading {}".format(self._path)
+        return "Error reading {}".format(self.path)
 
 
 def read_image(path):
