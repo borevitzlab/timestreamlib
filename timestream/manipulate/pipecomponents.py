@@ -69,6 +69,7 @@ class PipeComponent (object):
     runReturns = []
 
     def __init__(self, *args, **kwargs):
+        self.mess = "---Executing PipeComponent---"
         for attrKey, attrVal in self.__class__.argNames.iteritems():
             try:
                 setattr(self, attrKey, kwargs[attrKey])
@@ -104,6 +105,7 @@ class PipeComponent (object):
         # Only PCExceptions get propagated correctly through the pipeline. Here
         # we translate "general" exceptions into a PCException.
         try:
+            LOG.info(self.mess)
             retVal = self.__exec__(context, *args)
         except RIException as rie:
             raise PCExCorruptImage(rie.path)
@@ -174,7 +176,6 @@ class ImageUndistorter (PipeComponent):
             cv2.CV_32FC1)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
 
@@ -234,7 +235,6 @@ class ColorCardDetector (PipeComponent):
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
@@ -320,7 +320,6 @@ class ImageColorCorrector (PipeComponent):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi, colorcardParam = args
         image = tsi.pixels
 
@@ -407,7 +406,6 @@ class TrayDetector (PipeComponent):
         super(TrayDetector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
         temp = np.zeros_like(self.image)
@@ -481,7 +479,6 @@ class PotDetector (PipeComponent):
         super(PotDetector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
         self.image = tsi.pixels
         # read pot template image and scale to the pot size
@@ -639,7 +636,6 @@ class PotDetectorGlassHouse (PipeComponent):
         super(PotDetectorGlassHouse, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
         self.image = tsi.pixels
 
@@ -684,9 +680,7 @@ class PlantExtractor (PipeComponent):
         self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        img = tsi.pixels
         self.ipm = tsi.ipm
 
         # Set the segmenter in all the pots
@@ -760,7 +754,6 @@ class FeatureExtractor (PipeComponent):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
             iph.calcFeatures(self.features)
@@ -825,7 +818,6 @@ class ResultingFeatureWriter(PipeComponent):
             self._initPrevCsvIndex()
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         img = args[0]
         ipm = img.ipm
 
@@ -1046,7 +1038,6 @@ class ResultingImageWriter (PipeComponent):
         We change self.img.pixels just for the ts_out.write_image call.
         Once we have written, we revert self.img.pixels to its original value.
         """
-        LOG.info(self.mess)
         self.img = args[0]
         origimg = self.img.pixels.copy()
         ts_out = context.getVal("outts." + self.outstream)
@@ -1092,7 +1083,6 @@ class ResizeImage (PipeComponent):
         """
         We try to resize the image to whatever resolution the user specifies
         """
-        LOG.info(self.mess)
         if self.resolution is None:
             return args
 
@@ -1150,10 +1140,9 @@ class DerandomizeTimeStreams (PipeComponent):
         # Variables for putText
         self._font = cv2.FONT_HERSHEY_SIMPLEX
         self._scale = 1
-        self._color = (255,0,0)
+        self._color = (255, 0, 0)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         img = TimeStreamImage(args[0])
         img.pixels = self.createCompoundImage(args[0])
         return [img]
