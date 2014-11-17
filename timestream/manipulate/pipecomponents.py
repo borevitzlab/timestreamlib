@@ -29,8 +29,9 @@ from scipy import spatial
 import sys
 import time
 import datetime
+import skimage.transform
 
-from timestream import TimeStreamImage, TimeStream, TimeStreamTraverser
+from timestream import TimeStreamImage, TimeStreamTraverser
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
@@ -1000,7 +1001,7 @@ class ResultingFeatureWriter(PipeComponent):
 
         # del line from index
         del(tss[timestamp])
-        if (len(tss) < 1) or (len(tss) == 1 and self.tsHName in tss.keys()[0])):
+        if (len(tss) < 1) or (len(tss) == 1 and self.tsHName in tss.keys()[0]):
             del(self._prevCsvIndex[featName])
             os.remove(tsf)
 
@@ -1073,9 +1074,9 @@ class ResultingImageWriter (PipeComponent):
 
         if self.img.ipm is not None:
             for key, iph in self.img.ipm.iter_through_pots():
-                self.img.pixels = iph.getImage(masked=self.masked,
-                                               features=self.addStats,
-                                               inSuper=True)
+                self.img.pixels = iph.getImage(
+                    masked=self.masked, features=self.addStats,
+                    inSuper=True)
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
@@ -1085,6 +1086,48 @@ class ResultingImageWriter (PipeComponent):
         self.img.pixels = origimg
 
         return [self.img]
+
+
+class ResizeImage (PipeComponent):
+    actName = "resize"
+    argNames = {"mess": [False, "Output Message", "Resizing Image"],
+                "resolution": [False, "Resolution, scale factor or None", None]}
+
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(ResizeImage, self).__init__(**kwargs)
+        if self.resolution is not None:
+            try:
+                self.resolution = float(self.resolution)
+            except TypeError:
+                try:
+                    self.resolution = tuple(self.resolution)
+                except TypeError:
+                    raise PCExBadRunExpects(self.__class__, "resolution")
+
+    def __exec__(self, context, *args):
+        """
+        We try to resize the image to whatever resolution the user specifies
+        """
+        LOG.info(self.mess)
+        if self.resolution is None:
+            return args
+
+        img = args[0]
+        try:
+            img.pixels
+        except RIException:
+            raise PCExCorruptImage(img.path)
+        if isinstance(self.resolution, tuple):
+            img.pixels = skimage.transform.resize(img.pixels, self.resolution)
+        elif isinstance(self.resolution, float):
+            img.pixels = skimage.transform.rescale(img.pixels, self.resolution)
+        else:
+            raise PCExBreakInPipeline(self.actName, "Invalid resolution value")
+
+        return [img]
 
 
 class DerandomizeTimeStreams (PipeComponent):
@@ -1110,8 +1153,7 @@ class DerandomizeTimeStreams (PipeComponent):
         #    it when referencing pots.
         self._tsts = {}
         # unique Timestream paths from derandStruct
-        tspaths = set([x
-                       for _, l in self.derandStruct.iteritems()
+        tspaths = set([x for _, l in self.derandStruct.iteritems()
                        for x in l.keys()])
         for tspath in tspaths:
             self._tsts[tspath] = TimeStreamTraverser(str(tspath))
@@ -1122,7 +1164,7 @@ class DerandomizeTimeStreams (PipeComponent):
         # Text(str): Text that is output on top of image.
         # Easy direct relation between mids and pot objects
         self._mids = {}
-        for mid in [i for i,_ in self.derandStruct.iteritems()]:
+        for mid in [i for i, _ in self.derandStruct.iteritems()]:
             self._mids[mid] = []
 
         self._numPotPerMid = self.refreshMids(timestamp=None)
@@ -1143,9 +1185,9 @@ class DerandomizeTimeStreams (PipeComponent):
 
         # 1. Max size of pot imgs. All pots are checked.
         self.refreshMids(timestamp=timestamp)
-        maxPotRect = (0,0)
+        maxPotRect = (0, 0)
         for _, potlist in self._mids.iteritems():
-            for pot,_ in potlist:
+            for pot, _ in potlist:
                 if pot.rect.width > maxPotRect[0] \
                         or pot.rect.height > maxPotRect[1]:
                     maxPotRect = (pot.rect.width, pot.rect.height)

@@ -16,8 +16,7 @@ class PCExBadRunExpects(PCException):
         self.message = "The call to %s should consider \n%s" % (
             cls.actName, cls.info())
         if attrKey is not None:
-            self.message = self.message + \
-                " Error: missing entry for '%s'" % attrKey
+            self.message += " Error: entry '%s'" % attrKey
 
 
 class PCExBadConfig(PCException):

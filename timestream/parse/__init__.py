@@ -345,13 +345,9 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     pth = TS_V1_FMT.format(tsname=ts_name, ext=ts_ext, n=n)
     return date.strftime(pth)
 
-# FIXME: little hack to propagate image error exception. We should find a better
-#        place for both this exception and this method. read_image in a parse
-#        module????? Returning None is not the right thing to do as it is valid
-#        to have a TimeStreamImage with none pixels (when creating a new image).
-
 
 class RIException(Exception):
+
     def __init__(self, path):
         self._path = path
 
