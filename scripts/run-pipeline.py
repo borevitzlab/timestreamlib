@@ -391,10 +391,83 @@ class PipelineRunnerGUI(QtGui.QMainWindow):
         # buttons
         self._ui.bCancel.clicked.connect(self._cancelRunPipeline)
         self._ui.bRunPipe.clicked.connect(self._runPipeline)
+        self._ui.bAddInput.clicked.connect(self._addInput)
+        self._ui.bAddOutput.clicked.connect(self._addOutput)
+        self._ui.bPipeConfig.clicked.connect(self._addPipeline)
+        self._ui.bTSConfig.clicked.connect(self._addTimeStream)
 
         # pipeline thread
         self._plthread = None
         self._ui.show()
+
+    def _addDir(self):
+        D = QtGui.QFileDialog.getExistingDirectory(
+            self, "Select Directory", "",
+            QtGui.QFileDialog.ShowDirsOnly
+            | QtGui.QFileDialog.DontResolveSymlinks)
+        if D == "":  # Handle the cancel
+            return ""
+
+        D = os.path.realpath(str(D))
+        if not os.path.isdir(D):
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.showMessage("Directory {} does not exist".format(D))
+            return ""
+        else:
+            return D
+
+    def _addFile(self):
+        F = QtGui.QFileDialog.getOpenFileName(
+            self, "Select YAML configuration", "", "CSV (*.yml *.yaml)")
+        if F == "":
+            return ""
+
+        if not os.path.isfile(F):
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.showMessage("{} is not a file".format(F))
+            return ""
+        else:
+            return F
+
+    def _addInput(self):
+        tsdir = self._addDir()
+        if tsdir != "":
+            self._opts["-i"] = str(tsdir)
+            self._ui.leInput.setText(str(tsdir))
+        else:
+            del(self._opts["-i"])
+            self._ui.leInput.setText("")
+        return tsdir
+
+    def _addOutput(self):
+        outdir = self._addDir()
+        if outdir != "":
+            self._opts["-o"] = str(outdir)
+            self._ui.leOutput.setText(str(outdir))
+        else:
+            del(self._opts["-o"])
+            self._ui.leOutput.setText("Default")
+        return outdir
+
+    def _addPipeline(self):
+        plfile = self._addFile()
+        if plfile != "":
+            self._opts["-p"] = str(plfile)
+            self._ui.lePipeConfig.setText(str(plfile))
+        else:
+            del(self._opts["-p"])
+            self._ui.lePipeConfig.setText("Default")
+        return plfile
+
+    def _addTimeStream(self):
+        tsfile = self._addFile()
+        if tsfile != "":
+            self._opts["-t"] = str(tsfile)
+            self._ui.leTSConfig.setText(str(tsfile))
+        else:
+            del(self._opts["-t"])
+            self._ui.leTSConfig.setText("Default")
+        return tsfile
 
     def _cancelRunPipeline(self):
         if self._plthread is not None:
@@ -413,35 +486,26 @@ class PipelineRunnerGUI(QtGui.QMainWindow):
         QtGui.qApp.processEvents()
 
     def _runPipeline(self):
-        if self._plthread is not None and self._plthread.running:
+        if self._plthread is not None and self._plthread._running:
             return
 
-        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                "Select Time Stream", "", \
-                QtGui.QFileDialog.ShowDirsOnly \
-                | QtGui.QFileDialog.DontResolveSymlinks)
-        if tsdir == "": # Handle the cancel
-            return
+        if "-i" not in self._opts.keys() or self._opts["-i"] is None:
+            retVal = self._addInput()
+            if retVal == "":
+                return
 
-        try:
-            tsdir = os.path.realpath(str(tsdir))
-            if not os.path.isdir(tsdir):
-                raise RuntimeError("Directory {} does not exist".format(tsdir))
-            self._opts["-i"] = tsdir
-
-            # log to QTextEdit
-            stream = PipelineRunnerGUI.TextEditStream(self.tesig.sig)
-            outlog = timestream.add_log_handler(stream=stream,
-                    verbosity=timestream.LOGV.VV)
-            if outlog is os.devnull:
-                raise RuntimeError("Error setting up output to TextEdit")
-            LOG = logging.getLogger("timestreamlib")
-
-            plConf, ctx, pl, ts = initPipeline(LOG, self._opts)
-        except RuntimeError as re:
+        # log to QTextEdit
+        stream = PipelineRunnerGUI.TextEditStream(self.tesig.sig)
+        outlog = timestream.add_log_handler(
+            stream=stream,
+            verbosity=timestream.LOGV.VV)
+        if outlog is os.devnull:
             errmsg = QtGui.QErrorMessage(self)
-            errmsg.showMessage(str(re))
+            errmsg.showMessage("Error setting up output to TextEdit")
             return
+        LOG = logging.getLogger("timestreamlib")
+
+        plConf, ctx, pl, ts = initPipeline(LOG, self._opts)
 
         self._ui.pbpl.setVisible(True)
         self._ui.bCancel.setVisible(True)
