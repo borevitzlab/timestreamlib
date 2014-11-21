@@ -56,7 +56,7 @@ class ImagePipeline (object):
         # FIXME: Check the first element is ok.
         self.pipeline = []
         # Add elements while checking for dependencies
-        for i, setElem in plConf.iter_as_list():
+        for i, setElem in plConf.itersections():
             component = ImagePipeline.complist[setElem["name"]]
             if i > 0:  # 0 element skipped; expects ndarray.
                 compExpects = component.runExpects

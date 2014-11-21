@@ -46,10 +46,10 @@ def genConfig(opts):
     else:
         plConfPath = os.path.join(inputRootPath, '_data', 'pipeline.yml')
     if not os.path.isfile(plConfPath):
-        raise RuntimeError("%s is not a file"%plConfPath)
+        raise RuntimeError("%s is not a file" % plConfPath)
     plConf = pipeconf.PCFGConfig(plConfPath, 2)
-    plConf.addSubSec("plConfPath", plConfPath)
-    plConf.addSubSec("inputRootPath", inputRootPath)
+    plConf.setVal("plConfPath", plConfPath)
+    plConf.setVal("inputRootPath", inputRootPath)
 
     # Timestream configuration
     if opts['-t']:
@@ -58,13 +58,13 @@ def genConfig(opts):
         tsConfPath = os.path.join(plConf.inputRootPath, '_data',
                 'timestream.yml')
     if not os.path.isfile(tsConfPath):
-        raise RuntimeError("%s is not a file"%tsConfPath)
+        raise RuntimeError("%s is not a file" % tsConfPath)
     tsConf = pipeconf.PCFGConfig(tsConfPath, 1)
-    tsConf.addSubSec("tsConfPath", tsConfPath)
+    tsConf.setVal("tsConfPath", tsConfPath)
 
     # Merge timestream configuration into pipeline.
     if not plConf.hasSubSecName("general"):
-        plConf.addSubSec("general", pipeconf.PCFGSection("general"))
+        plConf.serVal("general", pipeconf.PCFGSection("general"))
     for tsComp in tsConf.listSubSecNames():
         merged = False
         tsss = tsConf.getVal(tsComp)
@@ -124,7 +124,7 @@ def genConfig(opts):
             sd = plConf.general.startDate
         plConf.general.startDate = sd
     else:
-        plConf.general.addSubSec("startDate", None)
+        plConf.general.setVal("startDate", None)
 
     ed = None
     if plConf.general.hasSubSecName("endDate"):
@@ -135,22 +135,22 @@ def genConfig(opts):
             ed = plConf.general.endDate
         plConf.general.endDate = ed
     else:
-        plConf.general.addSubSec("endDate", None)
+        plConf.general.setVal("endDate", None)
 
     if not plConf.general.hasSubSecName("timeInterval"):
-        plConf.general.addSubSec("timeInterval", None)
+        plConf.general.setVal("timeInterval", None)
 
     if not plConf.general.hasSubSecName("visualise"):
-        plConf.general.addSubSec("visualis", False)
+        plConf.general.setVal("visualis", False)
 
     if plConf.general.hasSubSecName("startHourRange"):
         pass
         # FIXME: Same as the datetime.datetime: JSON cannot handle time strucut.
-        #sr = plConf.general.startHourRange
-        #plConf.general.startHourRange = \
+        # sr = plConf.general.startHourRange
+        # plConf.general.startHourRange = \
         #        datetime.time(sr.hour, sr.minute, sr.second)
     else:
-        plConf.general.addSubSec("startHourRange", None)
+        plConf.general.setVal("startHourRange", None)
 
     if plConf.general.hasSubSecName("endHourRange"):
         pass
@@ -158,7 +158,7 @@ def genConfig(opts):
         #plConf.general.endHourRange = \
         #        datetime.time(er.hour, er.minute, er.second)
     else:
-        plConf.general.addSubSec("endHourRange", None)
+        plConf.general.setVal("endHourRange", None)
 
     return plConf
 

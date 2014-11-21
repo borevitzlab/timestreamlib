@@ -44,6 +44,12 @@ class PCFGExInvalidType(PCFGException):
         self.message = "Expected a %s got a %s instead" % (E, T)
 
 
+class PCFGExLockedSection(PCFGException):
+
+    def __init__(self, name):
+        self.message = "Subsection %s locked" % name
+
+
 class PCFGSection(object):
 
     def __init__(self, name):
@@ -53,6 +59,8 @@ class PCFGSection(object):
           name (str): Name of self section. Used for __str__ only
         """
         self.__dict__["__subsections"] = {}
+        self.__dict__["_name"] = name
+        self.__dict__["_locked"] = False
 
     def __getattr__(self, key):
         if key not in self.__dict__["__subsections"]:
@@ -61,10 +69,24 @@ class PCFGSection(object):
         return self.__dict__["__subsections"][key]
 
     def __setattr__(self, key, value):
+        if self.__dict__["_locked"]:
+            raise PCFGExLockedSection(self.__dict__["_name"])
         self.__dict__["__subsections"][key] = value
 
-    def addSubSec(self, key, value):
-        self.__dict__["__subsections"][key] = value
+    def lock(self):
+        self.__dict__["_locked"] = True
+        for _, sec in self.__dict__["__subsections"].iteritems():
+            if isinstance(sec, PCFGSection):
+                sec.lock()
+
+    def unlock(self):
+        self.__dict__["_locked"] = False
+        for _, sec in self.__dict__["__subsections"].iteritems():
+            if isinstance(sec, PCFGSection):
+                sec.unlock()
+
+    def locked(self):
+        return self.__dict__["_locked"]
 
     def getVal(self, index):
         """ Will return a value or a subsection
@@ -103,7 +125,7 @@ class PCFGSection(object):
         return retVal
 
     def setVal(self, index, value):
-        """ Will set a value. Not a subsection.
+        """ Will set a value.
 
         It differs from __setattr__ in that in deals only in values.
         This function is called recursively
@@ -111,8 +133,10 @@ class PCFGSection(object):
         Args:
           index (str): Of the form "pipeline.undistort.arg1"
           index (list): Of the form ["pipeline", "undistort", "arg1"]
-          value (non PCFGSection): Any value that is not PCFGSection
+          value (object): Any value that is not PCFGSection
         """
+        if self.__dict__["_locked"]:
+            raise PCFGExLockedSection(self.__dict__["_name"])
         if isinstance(index, str):
             index = index.split(".")
         if not isinstance(index, list):
@@ -147,14 +171,14 @@ class PCFGSection(object):
             else:
                 self.__dict__["__subsections"][index[0]] = value
 
-    def listIndexes(self, withVals=False, endline=""):
+    def listTree(self, withVals=False, endline=""):
         """Return the total tree of suboptions"""
         retStr = []
         for key in self.__dict__["__subsections"].keys():
             tmpstr = None
             if isinstance(self.__dict__["__subsections"][key], PCFGSection):
                 tmpstr = self.__dict__["__subsections"][key].\
-                    listIndexes(withVals, endline)
+                    listTree(withVals, endline)
                 for i in range(len(tmpstr)):
                     tmpstr[i] = key + "." + tmpstr[i]
                 retStr.extend(tmpstr)
@@ -167,38 +191,15 @@ class PCFGSection(object):
 
         return retStr
 
-    def iter_by_index(self):
-        for index in self.listIndexes():
+    def itertree(self):
+        """Iterate through all the tree"""
+        for index in self.listTree():
             yield(index)
 
-    def iter_as_list(self):
-        """Special iterator for lists that got converted to dicts.
-
-        All PCFGSection get changed to dictionaries
-        """
-        # When encountering lists in configuration files we translated 0 to _0 in
-        # order to allow point "." naming (python does not allow subsection.0). This
-        # means that the list is temporarily lost. This iterator will return the
-        # list values in order with their index. Only works for subsections that
-        # have keys of the type _{number}.
-
-        if False in [x.startswith("_")
-                     for x in self.__dict__["__subsections"].keys()]:
-            raise PCFGExInvalidType("_ prefix", "non _ prefix")
-
-        # transform string keys into sorted nubmers
-        numKeys = sorted([int(x.strip("_"))
-                          for x in self.__dict__["__subsections"].keys()])
-
-        for numKey in numKeys:
-            strKey = "_" + str(numKey)
-            valKey = None
-
-            if isinstance(self.__dict__["__subsections"][strKey], PCFGSection):
-                valKey = self.__dict__["__subsections"][strKey].asDict()
-            else:
-                valKey = self.__dict__["__subsections"][strKey]
-            yield(numKey, valKey)
+    def itersections(self):
+        """Iterate through this sections __subsection"""
+        for key, val in self.__dict__["__subsections"].iteritems():
+            yield(key, val)
 
     def listSubSecNames(self):
         """Return a list of subsection names"""
@@ -222,6 +223,79 @@ class PCFGSection(object):
     @property
     def size(self):
         return len(self.__dict__["__subsections"])
+
+
+class PCFGListSection(PCFGSection):
+
+    def __init__(self, name):
+        """ Section specifically for lists.
+
+        When encountering lists in configuration files we translated 0 to _0 in
+        order to allow point "." naming (python does not allow subsection.0).
+        This class will handle the list values in order with their index.
+        """
+        super(PCFGListSection, self).__init__(name)
+
+    def __getattr__(self, offset):
+        if not offset.startswith("_"):
+            offset = "_%s" % offset
+        return super(PCFGListSection, self).__getattr__(offset)
+
+    def __setattr__(self, offset, value):
+        if not offset.startswith("_"):
+            offset = "_%s" % offset
+        super(PCFGListSection, self).__setattr__(offset, value)
+
+    def getVal(self, index):
+        if isinstance(index, str):
+            index = index.split(".")
+        if isinstance(index, int):
+            index = ["_%s" % index]
+        if not isinstance(index, list):
+            raise PCFGExInvalidType("list or str", type(index))
+        if not index[0].startswith("_"):
+            index[0] = "_%s" % index[0]
+        return super(PCFGListSection, self).getVal(index)
+
+    def setVal(self, index, value):
+        if isinstance(index, str):
+            index = index.split(".")
+        if isinstance(index, int):
+            index = ["_%s" % index]
+        if not isinstance(index, list):
+            raise PCFGExInvalidType("list or str", type(index))
+        if not index[0].startswith("_"):
+            index[0] = "_%s" % index[0]
+        super(PCFGListSection, self).setVal(index, value)
+
+    def itersections(self):
+        """Special iterator for lists that got converted to dicts.
+
+        All PCFGSection get changed to dictionaries
+        Only works for subsections that have keys of the type _{number}.
+        """
+        if False in [x.startswith("_")
+                     for x in self.__dict__["__subsections"].keys()]:
+            raise PCFGExInvalidType("_ prefix", "non _ prefix")
+
+        # transform string keys into sorted nubmers
+        numKeys = sorted([int(x.strip("_"))
+                          for x in self.__dict__["__subsections"].keys()])
+
+        for numKey in numKeys:
+            strKey = "_" + str(numKey)
+            valKey = None
+
+            if isinstance(self.__dict__["__subsections"][strKey], PCFGSection):
+                valKey = self.__dict__["__subsections"][strKey].asDict()
+            else:
+                valKey = self.__dict__["__subsections"][strKey]
+            yield(numKey, valKey)
+
+    def hasSubSecName(self, name):
+        if not isinstance(name, str):
+            name = "_%d" % name
+        return name in self.__dict__["__subsections"]
 
 
 class PCFGConfig(PCFGSection):
@@ -261,7 +335,7 @@ class PCFGConfig(PCFGSection):
         return yDict
 
     def __str__(self):
-        return "".join(self.listIndexes(withVals=True, endline="\n"))
+        return "".join(self.listTree(withVals=True, endline="\n"))
 
     @classmethod
     def createSection(cls, confElems, depth, name):
@@ -272,44 +346,31 @@ class PCFGConfig(PCFGSection):
         retVal = None
         if isinstance(confElems, dict):
             retVal = PCFGSection(name)
-            if depth > 0:
-                for key in confElems.keys():
-                    retVal.addSubSec(key,
-                                     cls.createSection(confElems[key],
-                                                       depth - 1, key))
-            else:
-                for key in confElems.keys():
-                    retVal.addSubSec(key, confElems[key])
-
+            inds = confElems.keys()
         elif isinstance(confElems, list):
-            retVal = PCFGSection(name)
-            if depth > 0:
-                for i in range(len(confElems)):
-                    retVal.addSubSec("_%d" % i,
-                                     cls.createSection(confElems[i],
-                                                       depth - 1, "_%d" % i))
-            else:
-                for i in range(len(confElems)):
-                    retVal.addSubSec("_%d" % i, confElems[i])
-
+            retVal = PCFGListSection(name)
+            inds = range(len(confElems))
         elif confElems is None:
-            retVal = PCFGSection(name)  # An empty node
-
+            return PCFGSection(name)
         else:
-            # We stop. Even depth == 0 has not been reached.
-            retVal = confElems
+            return confElems
+
+        if depth > 0:
+            for i in inds:
+                retVal.setVal(i, cls.createSection(confElems[i], depth - 1, i))
+        else:
+            for i in inds:
+                retVal.setVal(i, confElems[i])
 
         return retVal
 
     @classmethod
     def merge(cls, A, B):
-        """ Merge the contents of A onto B.
-
-        All what is in A will be create or replaced in B
+        """ A onto B. Elements of A will be create or replaced in B
 
         Args:
           A,B (PCFGConfig): Configuration instances
         """
 
-        for aindex in A.iter_by_index():
+        for aindex in A.itertree():
             B.setVal(aindex, A.getVal(aindex))
