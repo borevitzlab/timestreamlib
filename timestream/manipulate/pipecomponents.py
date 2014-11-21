@@ -731,38 +731,14 @@ class PlantExtractor (PipeComponent):
                 _ = iph.mask  # Property will trigger the segmentation (from where???)
             return
 
-        # Parallel from here: We create a child process for each pot and pipe
-        # the pickled result back to the parent.
-        childPids = []
+        # KDM removed paralleism for simplicity. See git commit a23c806 for
+        # last verison with parallelism here
         for key, iph in self.ipm.iter_through_pots():
-            In, Out = os.pipe()
-            pid = os.fork()
-            if pid != 0:  # In parent
-                os.close(Out)
-                childPids.append([iph, pid, In])
-                continue
-
-            # Child Section
             try:
-                os.close(In)
-                msk = cPickle.dumps(iph.getSegmented())
-                cOut = os.fdopen(Out, "wb", sys.getsizeof(msk))
-                cOut.write(msk)
-                cOut.close()
+                iph.mask = iph.getSegmented()
             except Exception as exc:
                 raise PCExBreakInPipeline("Unknown error segmenting %s %s" %
                                           (iph.id, str(exc)))
-            finally:
-                os._exit(0)
-            # Child Section
-
-        for iph, pid, In in childPids:
-            pIn = os.fdopen(In, "rb")
-            msk = cPickle.loads(pIn.read())
-            os.waitpid(pid, 0)
-            pIn.close()
-            iph.mask = msk
-
         return
 
     def show(self):
