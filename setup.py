@@ -1,5 +1,7 @@
 from setuptools import setup
+from glob import glob
 import versioneer
+
 
 versioneer.VCS = 'git'
 versioneer.versionfile_source = 'timestream/_version.py'
@@ -26,6 +28,8 @@ test_requires = [
         "pylint==1.0.0",
         ]
 
+scripts = glob('scripts/*.py')
+
 setup(
     name="timestream",
     packages=[
@@ -38,6 +42,7 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     install_requires=install_requires,
     tests_require=test_requires,
+    scripts=scripts,
     description=desc,
     author="Kevin Murray",
     author_email="spam@kdmurray.id.au",
