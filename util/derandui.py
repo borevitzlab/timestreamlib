@@ -474,9 +474,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
                 msg = "There are no meta ids in Timestream %s" % tst.path
                 raise RuntimeError(msg)
+            if len(tst.timestamps) < 10:
+                msg = "Timestream %s has less than 10 imgs" % tst.path
+                raise RuntimeError(msg)
             # if 10 random img don't have ipms, we assume we can't derandomize
             tmsps = [tst.timestamps[x]
-                        for x in random.sample(xrange(len(tst.timestamps)), 10)]
+                     for x in random.sample(xrange(len(tst.timestamps)), 10)]
             for i in range(len(tmsps)):
                 tmsp = tmsps[i]
                 img = tst.getImgByTimeStamp(tmsp)
