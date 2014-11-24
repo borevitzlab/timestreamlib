@@ -336,8 +336,9 @@ class ImagePotHandler(object):
         if inSuper:
             superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3],
-                       self._rect[0]:self._rect[2], :] = img
-            del img; img = superI
+                   self._rect[0]:self._rect[2], :] = img
+            del img
+            img = superI
 
         return img
 
@@ -371,8 +372,9 @@ class ImagePotHandler(object):
                 try:
                     self._features[featName] = featFunc(msk, img=self._image)
                 except:
-                    self._features[featName] = tm_ps.StatParamValue(featName,
-                            tm_ps.StatParamCalculator.errStr)
+                    self._features[featName] = tm_ps.StatParamValue(
+                        featName,
+                        tm_ps.StatParamCalculator.errStr)
 
     def getCalcedFeatures(self):
         return self._features

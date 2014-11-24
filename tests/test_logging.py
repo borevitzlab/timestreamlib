@@ -40,7 +40,6 @@ class TestLoggingVerbosity(TestCase):
         self.assertEqual(log.handlers[0].level, expectedLevel)
         self.assertEqual(log.getEffectiveLevel(), logging.DEBUG)
 
-
     def test_add_log_handler_V(self):
         self._do_test(LOGV.V, logging.INFO)
 

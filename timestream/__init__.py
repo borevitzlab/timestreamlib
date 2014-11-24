@@ -67,9 +67,10 @@ del get_versions
 
 NOW = dt.datetime.now()
 
+
 def enum(**enums):
     return type("Enum", (), enums)
-LOGV = enum(V="V", VV="VV", VVV="VVV", S="S") # Verbosity
+LOGV = enum(V="V", VV="VV", VVV="VVV", S="S")  # Verbosity
 NOEOL = logging.INFO + 1
 logging.addLevelName(NOEOL, 'NOEOL')
 
@@ -124,7 +125,7 @@ class NoEOLStreamHandler(logging.StreamHandler):
 
 
 def add_log_handler(stream=stderr, verbosity=None, level=None,
-        handler=NoEOLStreamHandler):
+                    handler=NoEOLStreamHandler):
     """Add a logging handler to the timestreamlib logger
 
     Predefined verbosities
@@ -145,7 +146,7 @@ def add_log_handler(stream=stderr, verbosity=None, level=None,
     if stream is None:
         stream = open(os.devnull, "w")
 
-    elif isinstance(stream, str): # is filepath, try to open it.
+    elif isinstance(stream, str):  # is filepath, try to open it.
         try:
             stream = path.realpath(stream)
             if not path.exists(path.dirname(stream)):
@@ -155,7 +156,7 @@ def add_log_handler(stream=stderr, verbosity=None, level=None,
             stream = open(os.devnull, "w")
 
     else:
-        try: # don't change stream if its a file descriptor
+        try:  # don't change stream if its a file descriptor
             stream.write
         except AttributeError:
             stream = open(os.devnull, "w")

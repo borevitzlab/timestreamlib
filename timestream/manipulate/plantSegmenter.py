@@ -27,6 +27,7 @@ import inspect
 
 class StatParamValue(object):
     """Besides the actual value, instance will have range of validity"""
+
     def __init__(self, name, value, rMin=0.0, rMax=1.0):
         self._name = name
         self._value = value
@@ -46,8 +47,8 @@ class StatParamValue(object):
         return [self._min, self._max]
 
     def drawParamInImg(self, img, x=0, y=0, nMax=3, tMax=11,
-            font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
-            tScale=1):
+                       font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
+                       tScale=1):
         """Draw param name and value on image
 
         Arguments:
@@ -63,11 +64,13 @@ class StatParamValue(object):
         txt = txt[0:tMax]
         cv2.putText(img, txt, (x,y), font, tScale, color, 3)
 
+
 class StatParamMinCircle(StatParamValue):
     """The value is the radius and we add center"""
+
     def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=float("Inf")):
         super(StatParamMinCircle, self).__init__(name, radius,
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._center = center
         self._radius = self._value
 
@@ -86,11 +89,13 @@ class StatParamMinCircle(StatParamValue):
             c = (self._center[1], self._center[0])
             cv2.circle(img, c, self._radius, color)
 
+
 class StatParamPerimeter(StatParamValue):
     """The value is the sum of the perimeter. Also perimeter coords"""
+
     def __init__(self, name, plen, xycoords, rMin=0.0, rMax=float("Inf")):
         super(StatParamPerimeter, self).__init__(name, plen,
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._length = self._value
         self._coords = xycoords
 
@@ -106,11 +111,13 @@ class StatParamPerimeter(StatParamValue):
         if self._length > 0:
             img[self._coords[0], self._coords[1], :] = 255
 
+
 class StatParamLeafCount(StatParamValue):
     """The number of leaves on a rosette. Also leaf coordinates"""
+
     def __init__(self, name, centerCoords, radius=5, rMin=0.0, rMax=float("Inf")):
         super(StatParamLeafCount, self).__init__(name, len(centerCoords),
-                rMin=rMin, rMax=rMax)
+                                                 rMin=rMin, rMax=rMax)
         self._centers = centerCoords
         self._radius = radius
 
@@ -123,9 +130,10 @@ class StatParamLeafCount(StatParamValue):
             for c in self._centers:
                 cv2.circle(img, (int(c[0]), int(c[1])), self._radius, color)
 
+
 class StatParamCalculator(object):
 
-    #FIXME: this should be the same as in pipecompoment.ResultingFeatureWriter.
+    # FIXME: this should be the same as in pipecompoment.ResultingFeatureWriter.
     #       Find a place to put this string so its in the general scope.
     errStr = "NaN"
 
@@ -190,9 +198,9 @@ class StatParamCalculator(object):
 
         return StatParamValue("rms", retVal)
 
-
     def mincircle(self, mask, img=None):
-        r = 0.0; c = (0,0)
+        r = 0.0
+        c = (0,0)
         a, b = np.where(mask == 1)
         if len(a) > 0 and len(b) > 0:
             ab = np.transpose(np.vstack((a,b)))
@@ -366,7 +374,7 @@ class StatParamCalculator(object):
 
     def gcc(self, mask, img=None):
         retVal = StatParamCalculator.errStr
-        gcc = img[mask==1]
+        gcc = img[mask == 1]
         if gcc.shape[0] != 0:
             gcc = np.float32(gcc)
             # What is the best way to calculate total GCC? 1. The relation of
@@ -380,7 +388,7 @@ class StatParamCalculator(object):
 
     def exg(self, mask, img=None):
         retVal = StatParamCalculator.errStr
-        exg = img[mask==1]
+        exg = img[mask == 1]
         if exg.shape[0] != 0:
             exg = np.float32(exg)
             exg = np.mean((2*exg[:,1]) - exg[:,0] - exg[:,2])
@@ -389,7 +397,7 @@ class StatParamCalculator(object):
 
     def hsv(self, mask, img=None):
         retVal = StatParamCalculator.errStr
-        hsv = img[mask==1]
+        hsv = img[mask == 1]
         if hsv.shape[0] != 0:
             hsv = hsv.reshape((1,hsv.shape[0],hsv.shape[1]))
             # FIXME: is it BGR2HSV or RGB2HSV
