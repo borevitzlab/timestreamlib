@@ -18,7 +18,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-import cPickle
 import cv2
 from itertools import chain
 import logging
@@ -690,8 +689,7 @@ class PlantExtractor (PipeComponent):
         "mess": [False, "Extract plant biometrics", "default message"],
         "minIntensity": [False, "Skip if intensity below value", 0],
         "meth": [False, "Segmentation Method", "k-means-square"],
-        "methargs": [False, "Args: maxIter, epsilon, attempts", {}],
-        "parallel": [False, "Whether to run in parallel", False]}
+        "methargs": [False, "Args: maxIter, epsilon, attempts", {}]}
 
     runExpects = [TimeStreamImage]
     runReturns = [TimeStreamImage]
@@ -718,28 +716,14 @@ class PlantExtractor (PipeComponent):
             iph.ps = self.segmenter
 
         # Segment all pots
-        self.segAllPots()
+        for key, iph in self.ipm.iter_through_pots():
+            # Accessing Property will trigger the segmentation (from where???)
+            _ = iph.mask
 
         # Put current image pot matrix in context for the next run
         context.setVal("ipmPrev", self.ipm)
 
         return [tsi]
-
-    def segAllPots(self):
-        if not self.parallel:
-            for key, iph in self.ipm.iter_through_pots():
-                _ = iph.mask  # Property will trigger the segmentation (from where???)
-            return
-
-        # KDM removed paralleism for simplicity. See git commit a23c806 for
-        # last verison with parallelism here
-        for key, iph in self.ipm.iter_through_pots():
-            try:
-                iph.mask = iph.getSegmented()
-            except Exception as exc:
-                raise PCExBreakInPipeline("Unknown error segmenting %s %s" %
-                                          (iph.id, str(exc)))
-        return
 
     def show(self):
         self.ipm.show()
