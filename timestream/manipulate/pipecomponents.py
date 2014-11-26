@@ -29,8 +29,9 @@ from scipy import spatial
 import sys
 import time
 import datetime
+import skimage.transform
 
-from timestream import TimeStreamImage, TimeStream, TimeStreamTraverser
+from timestream import TimeStreamImage, TimeStreamTraverser
 import timestream.manipulate.correct_detect as cd
 import timestream.manipulate.plantSegmenter as tm_ps
 import timestream.manipulate.pot as tm_pot
@@ -68,6 +69,7 @@ class PipeComponent (object):
     runReturns = []
 
     def __init__(self, *args, **kwargs):
+        self.mess = "---Executing PipeComponent---"
         for attrKey, attrVal in self.__class__.argNames.iteritems():
             try:
                 setattr(self, attrKey, kwargs[attrKey])
@@ -97,11 +99,18 @@ class PipeComponent (object):
             if not isinstance(args[i], self.runExpects[i]):
                 raise PCExBadRunExpects(
                     self.__class__,
-                    "Call Expected %s but got %s" % (self.runExpects[i],
-                                                     type(args[i]))
-                )
+                    "Call Expected %s but got %s"
+                    % (self.runExpects[i], type(args[i])))
 
-        return(self.__exec__(context, *args))
+        # Only PCExceptions get propagated correctly through the pipeline. Here
+        # we translate "general" exceptions into a PCException.
+        try:
+            LOG.info(self.mess)
+            retVal = self.__exec__(context, *args)
+        except RIException as rie:
+            raise PCExCorruptImage(rie.path)
+
+        return retVal
 
     def __chkExcept__(self, context, *args):
         # Separated from __call__ so it might be overridden by children that
@@ -167,12 +176,8 @@ class ImageUndistorter (PipeComponent):
             cv2.CV_32FC1)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
 
         if self.image is None:
             raise PCExBreakInPipeline(self.actName, "Bad image %s" % tsi.path)
@@ -230,12 +235,8 @@ class ColorCardDetector (PipeComponent):
             self.ccf = os.path.join(configFilePath, self.colorcardFile)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
             # FIXME: this should be handled with an error.
@@ -319,13 +320,8 @@ class ImageColorCorrector (PipeComponent):
         super(ImageColorCorrector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi, colorcardParam = args
-
-        try:
-            image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        image = tsi.pixels
 
         meanIntensity = np.mean(image)
         colorMatrix, colorConstant, colorGamma = colorcardParam
@@ -410,12 +406,8 @@ class TrayDetector (PipeComponent):
         super(TrayDetector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         temp = np.zeros_like(self.image)
         temp[:, :, :] = self.image[:, :, :]
         temp[:, :, 1] = 0  # suppress green channel
@@ -487,12 +479,8 @@ class PotDetector (PipeComponent):
         super(PotDetector, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi, self.imagePyramid, self.trayLocs = args
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
         # read pot template image and scale to the pot size
         potFile = os.path.join(
             context.ints.path,
@@ -648,12 +636,8 @@ class PotDetectorGlassHouse (PipeComponent):
         super(PotDetectorGlassHouse, self).__init__(**kwargs)
 
     def __call__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        try:
-            self.image = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        self.image = tsi.pixels
 
         tsi.ipm = tm_pot.ImagePotMatrix(tsi, pots=[])
         potID = 1
@@ -696,12 +680,7 @@ class PlantExtractor (PipeComponent):
         self.segmenter = tm_ps.segmentingMethods[self.meth](**self.methargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         tsi = args[0]
-        try:
-            img = tsi.pixels
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
         self.ipm = tsi.ipm
 
         # Set the segmenter in all the pots
@@ -775,7 +754,6 @@ class FeatureExtractor (PipeComponent):
         super(FeatureExtractor, self).__init__(**kwargs)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         ipm = args[0].ipm
         for key, iph in ipm.iter_through_pots():
             iph.calcFeatures(self.features)
@@ -840,7 +818,6 @@ class ResultingFeatureWriter(PipeComponent):
             self._initPrevCsvIndex()
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         img = args[0]
         ipm = img.ipm
 
@@ -1000,7 +977,7 @@ class ResultingFeatureWriter(PipeComponent):
 
         # del line from index
         del(tss[timestamp])
-        if (len(tss) < 1) or (len(tss) == 1 and self.tsHName in tss.keys()[0])):
+        if (len(tss) < 1) or (len(tss) == 1 and self.tsHName in tss.keys()[0]):
             del(self._prevCsvIndex[featName])
             os.remove(tsf)
 
@@ -1061,21 +1038,17 @@ class ResultingImageWriter (PipeComponent):
         We change self.img.pixels just for the ts_out.write_image call.
         Once we have written, we revert self.img.pixels to its original value.
         """
-        LOG.info(self.mess)
         self.img = args[0]
-        try:
-            origimg = self.img.pixels.copy()
-        except RIException:
-            raise PCExCorruptImage(tsi.path)
+        origimg = self.img.pixels.copy()
         ts_out = context.getVal("outts." + self.outstream)
         self.img.parent_timestream = ts_out
         self.img.data["processed"] = "yes"
 
         if self.img.ipm is not None:
             for key, iph in self.img.ipm.iter_through_pots():
-                self.img.pixels = iph.getImage(masked=self.masked,
-                                               features=self.addStats,
-                                               inSuper=True)
+                self.img.pixels = iph.getImage(
+                    masked=self.masked, features=self.addStats,
+                    inSuper=True)
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
@@ -1085,6 +1058,43 @@ class ResultingImageWriter (PipeComponent):
         self.img.pixels = origimg
 
         return [self.img]
+
+
+class ResizeImage (PipeComponent):
+    actName = "resize"
+    argNames = {"mess": [False, "Output Message", "Resizing Image"],
+                "resolution": [False, "Resolution, scale factor or None", None]}
+
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(ResizeImage, self).__init__(**kwargs)
+        if self.resolution is not None:
+            try:
+                self.resolution = float(self.resolution)
+            except TypeError:
+                try:
+                    self.resolution = tuple(self.resolution)
+                except TypeError:
+                    raise PCExBadRunExpects(self.__class__, "resolution")
+
+    def __exec__(self, context, *args):
+        """
+        We try to resize the image to whatever resolution the user specifies
+        """
+        if self.resolution is None:
+            return args
+
+        img = args[0]
+        if isinstance(self.resolution, tuple):
+            img.pixels = skimage.transform.resize(img.pixels, self.resolution)
+        elif isinstance(self.resolution, float):
+            img.pixels = skimage.transform.rescale(img.pixels, self.resolution)
+        else:
+            raise PCExBreakInPipeline(self.actName, "Invalid resolution value")
+
+        return [img]
 
 
 class DerandomizeTimeStreams (PipeComponent):
@@ -1110,8 +1120,7 @@ class DerandomizeTimeStreams (PipeComponent):
         #    it when referencing pots.
         self._tsts = {}
         # unique Timestream paths from derandStruct
-        tspaths = set([x
-                       for _, l in self.derandStruct.iteritems()
+        tspaths = set([x for _, l in self.derandStruct.iteritems()
                        for x in l.keys()])
         for tspath in tspaths:
             self._tsts[tspath] = TimeStreamTraverser(str(tspath))
@@ -1122,7 +1131,7 @@ class DerandomizeTimeStreams (PipeComponent):
         # Text(str): Text that is output on top of image.
         # Easy direct relation between mids and pot objects
         self._mids = {}
-        for mid in [i for i,_ in self.derandStruct.iteritems()]:
+        for mid in [i for i, _ in self.derandStruct.iteritems()]:
             self._mids[mid] = []
 
         self._numPotPerMid = self.refreshMids(timestamp=None)
@@ -1131,10 +1140,9 @@ class DerandomizeTimeStreams (PipeComponent):
         # Variables for putText
         self._font = cv2.FONT_HERSHEY_SIMPLEX
         self._scale = 1
-        self._color = (255,0,0)
+        self._color = (255, 0, 0)
 
     def __exec__(self, context, *args):
-        LOG.info(self.mess)
         img = TimeStreamImage(args[0])
         img.pixels = self.createCompoundImage(args[0])
         return [img]
@@ -1143,9 +1151,9 @@ class DerandomizeTimeStreams (PipeComponent):
 
         # 1. Max size of pot imgs. All pots are checked.
         self.refreshMids(timestamp=timestamp)
-        maxPotRect = (0,0)
+        maxPotRect = (0, 0)
         for _, potlist in self._mids.iteritems():
-            for pot,_ in potlist:
+            for pot, _ in potlist:
                 if pot.rect.width > maxPotRect[0] \
                         or pot.rect.height > maxPotRect[1]:
                     maxPotRect = (pot.rect.width, pot.rect.height)

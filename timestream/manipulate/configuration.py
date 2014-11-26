@@ -292,6 +292,9 @@ class PCFGConfig(PCFGSection):
                 for i in range(len(confElems)):
                     retVal.addSubSec("_%d" % i, confElems[i])
 
+        elif confElems is None:
+            retVal = PCFGSection(name)  # An empty node
+
         else:
             # We stop. Even depth == 0 has not been reached.
             retVal = confElems
