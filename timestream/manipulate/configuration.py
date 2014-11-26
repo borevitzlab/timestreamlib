@@ -18,9 +18,8 @@
 
 import os.path
 import yaml
-import re
-import json
 import datetime
+from textwrap import TextWrapper
 
 
 class PCFGException(Exception):
@@ -309,89 +308,88 @@ class PCFGListSection(PCFGSection):
 
 class PCFGConfig(PCFGSection):
 
-    argNames = """
-      [
-        {"arg": "pipeline", "type": "PCFGListSection",
-         "def": "[]", "req": "True",
-         "doc": "A list of pipeline components that take action on a
-                 Time Stream",
+    argNames = [
+        {"arg": "pipeline", "type": PCFGListSection,
+         "def": [], "req": True,
+         "doc": "A list of pipeline components that take action on a "
+            "Time Stream",
          "ex": "pipeline:- name: undistort- name: colorcarddetect"},
-        {"arg": "outstreams", "type": "PCFGListSection",
-         "def": "[]", "req": "False",
-         "doc": "A list of output stream names that get translated into output
-                 stream directories. These names are to be used with output
-                 components such as the image writer.",
+        {"arg": "outstreams", "type": PCFGListSection,
+         "def": [], "req": False,
+         "doc": "A list of output stream names that get translated into "
+            "output stream directories. These names are to be used "
+            "with output components such as the image writer.",
          "ex": "outstreams:  - { name: cor }  - { name: seg }"},
-        {"arg": "general", "type": "PCFGSection", "def": "[]", "req": "True",
-         "doc": "List of general settings that will define the behavior of the
-                 pipeline. Some of these include date range, time range
-                 and time interval.",
+        {"arg": "general", "type": PCFGSection, "def": [], "req": True,
+         "doc": "List of general settings that will define the behavior "
+            "of the pipeline. Some of these include date range, "
+            "time range and time interval.",
          "ex": "general:  timeInterval: 900  visualise: False"},
-        {"arg": "general.startDate", "type": "PCFGSection",
-         "def": "None", "req": "False",
-         "doc": "The starting date of the Time Stream. All prior dates will be
-                 ignored. It contains six elements: year, month, day, hour,
-                 minute, second.",
-         "ex":  "startDate: { year: 2014, month: 06, day: 25,
-                              hour: 9, minute: 0, second: 0 }" },
-        {"arg": "general.endDate", "type": "PCFGSection",
-         "def": "None", "req": "False",
-         "doc": "The ending date of the Time Stream. Ignore all posterior
-                 dates. It contains six elements: year, month, day, hour,
-                 minute, second.",
-         "ex":  "endDate: { year: 2014, month: 06, day: 25,
-                            hour: 9, minute: 0, second: 0 }" },
-        {"arg": "general.startHourRange", "type": "PCFGSection",
-         "def": "None", "req": "False",
-         "doc": "Specific range within each day can be specified. All previous
-                 hours for each day will be ignored. Contains three elements:
-                 hour, minute, second",
+        {"arg": "general.startDate", "type": PCFGSection,
+         "def": None, "req": False,
+         "doc": "The starting date of the Time Stream. All prior dates "
+            "will be ignored. It contains six elements: year, "
+            "month, day, hour, minute, second.",
+         "ex":  "startDate: { year: 2014, month: 06, day: 25, "
+            "hour: 9, minute: 0, second: 0 }"},
+        {"arg": "general.endDate", "type": PCFGSection,
+         "def": None, "req": False,
+         "doc": "The ending date of the Time Stream. Ignore all posterior "
+            "dates. It contains six elements: year, month, day, "
+            "hour, minute, second.",
+         "ex":  "endDate: { year: 2014, month: 06, day: 25, "
+            "hour: 9, minute: 0, second: 0 }"},
+        {"arg": "general.startHourRange", "type": PCFGSection,
+         "def": None, "req": False,
+         "doc": "Specific range within each day can be specified. All "
+            "previous hours for each day will be ignored. Contains "
+            "three elements: hour, minute, second",
          "ex": "startHourRange: { hour: 0, minute: 0, second: 0}"},
-        {"arg": "general.endHourRange", "type": "PCFGSection",
-         "def": "None", "req": "False",
-         "doc": "A specific range within each day can be specified. All
-                 posterior hours for each day will be ignored. It contains
-                 three elements: hour, minute, second",
+        {"arg": "general.endHourRange", "type": PCFGSection,
+         "def": None, "req": False,
+         "doc": "A specific range within each day can be specified. "
+            "All posterior hours for each day will be ignored. It "
+            "contains three elements: hour, minute, second",
          "ex": "endHourRange: { hour: 15, minute: 0, second: 0}"},
-        {"arg": "general.timeInterval", "type": "int",
-         "def": "None", "req": "False",
-         "doc": "A step interval starting from general.startDate. The interval
-                 is in seconds",
+        {"arg": "general.timeInterval", "type": int,
+         "def": None, "req": False,
+         "doc": "A step interval starting from general.startDate. "
+            "The interval is in seconds",
          "ex": "timeInterval: 900"},
-        {"arg": "general.visualise", "type": "bool",
-         "def": "False", "req": "False",
-         "doc": "This is mostly for debugging. When True, the pipeline will
-                 pause at each component and visualize the step. This is
-                 discouraged for normal use as it stops the pipeline."},
-        {"arg": "general.metas", "type": "dict", "def": "{}", "req": "False",
-         "doc": "Each element detected in the image will have an id based on
-                 order of detection. This id will be the same for all images.
-                 general.metas allows the customization of this id into
-                 something more relevant. Each element in general.metas is a
-                 dictionary that contains the ImageId / CustomId relation.",
-         "ex": "metas:  tlpid : {1: 09A1, 2: 09A2, 3: 09A3, 4: 09A4}
-                        plantid: {1: 16161, 2: 16162, 3: 16163, 4: 16164}"},
-        {"arg": "general.inputRootPath", "type": "str",
-         "def": "None", "req": "True",
+        {"arg": "general.visualise", "type": bool,
+         "def": False, "req": False,
+         "doc": "This is mostly for debugging. When True, the pipeline "
+            "will pause at each component and visualize the "
+            "step. This is discouraged for normal use as it stops "
+            "the pipeline.",
+         "ex": "visualise: True"},
+        {"arg": "general.metas", "type": dict, "def": {}, "req": False,
+         "doc": "Each element detected in the image will have an id based "
+            "on order of detection. This id will be the same for all "
+            "images.general.metas allows the customization of this id "
+            "into something more relevant. Each element in general.metas "
+            "is a dictionary that contains the ImageId / CustomId relation.",
+         "ex": "metas:  tlpid : {1: 09A1, 2: 09A2, 3: 09A3, 4: 09A4} "
+            "plantid: {1: 16161, 2: 16162, 3: 16163, 4: 16164}"},
+        {"arg": "general.inputRootPath", "type": str,
+         "def": None, "req": True,
          "doc": "The directory that holds the input Time Stream",
          "ex": "~/Experiments/BVZ0036/BVZ0036-GC02R-C01~fullres-orig"},
-         {"arg": "general.outputRootPath", "type": "str",
-          "def": "None", "req": "False",
-          "doc": "Directory where resulting directories will be put",
-          "ex": "outputRootPath: BVZ0036-GC02R-C01~fullres"},
-        {"arg": "general.outputPrefix", "type": "str",
-         "def": "None", "req": "False",
-         "doc": "By default the output will have the same name as the input
-                 directory plus a relevant suffix. This variable overrides
-                 this behavior and uses a custom name. The output Time Stream
-                 suffix is still added.",
+        {"arg": "general.outputRootPath", "type": str,
+         "def": None, "req": False,
+         "doc": "Directory where resulting directories will be put",
+         "ex": "outputRootPath: BVZ0036-GC02R-C01~fullres"},
+        {"arg": "general.outputPrefix", "type": str,
+         "def": None, "req": False,
+         "doc": "By default the output will have the same name as the "
+            "input directory plus a relevant suffix. This variable "
+            "overrides this behavior and uses a custom name. The "
+            "output Time Stream suffix is still added.",
          "ex": "outputPrefix: BVZ0036-GC02R-C01~fullres"},
-        {"arg": "general.outputPrefixPath", "type": "str",
-         "def": "None", "req": "False",
+        {"arg": "general.outputPrefixPath", "type": str,
+         "def": None, "req": False,
          "doc": "Convenience variable. Should not be set",
-         "ex": ""}
-      ]
-    """
+         "ex": ""}]
     # Names of the two main subsections
     pipelineStr = "pipeline"
     generalStr = "general"
@@ -493,16 +491,8 @@ class PCFGConfig(PCFGSection):
 
     def validate(self):
         """ Validate __subsections against argNames"""
-        # parse without spaces
-        argNames = re.sub("  +", "", PCFGConfig.argNames)
-        argNames = json.loads(argNames.replace("\n", " "))
 
-        for argName in argNames:
-            # Change to python types
-            argName["arg"] = str(argName["arg"])
-            argName["req"] = eval(argName["req"])
-            argName["type"] = eval(argName["type"])
-            argName["def"] = eval(argName["def"])
+        for argName in PCFGConfig.argNames:
 
             try:
                 val = self.getVal(argName["arg"])
@@ -603,7 +593,39 @@ class PCFGConfig(PCFGSection):
         return "".join(self.listTree(withVals=True, endline="\n"))
 
     @classmethod
-    def loadFromFile(self, configFile):
+    def info(cls, _str=True):
+        if not _str:
+            return PCFGConfig.argNames
+
+        # Auto text wrapper to output the doc.
+        tw = TextWrapper()
+        tw.initial_indent = "    "
+        tw.subsequent_indent = "    "
+
+        retVal = "General Configuration: \n"
+        for argName in PCFGConfig.argNames:
+            arg = str(argName["arg"])
+            argreq = str(argName["req"])
+            argtype = str(argName["type"].__name__)
+            argdef = str(argName["def"])
+            argdoc = str(argName["doc"])
+            argex = str(argName["ex"])
+            doclines = tw.wrap(argdoc)
+
+            aType = "optional"
+            if argreq:
+                aType = "required"
+
+            retVal += "  %s (%s, %s):\n" % (arg, argtype, aType)
+            retVal += "    Defaults to %s\n" % (argdef)
+            for docline in doclines:
+                retVal += "%s\n" % docline
+            retVal += "    Example: %s\n" % argex
+            retVal += "\n"
+        return retVal
+
+    @classmethod
+    def loadFromFile(cls, configFile):
         def loadFromYaml(configFile):
             f = file(configFile)
             yDict = yaml.load(f)

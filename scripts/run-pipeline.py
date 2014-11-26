@@ -449,18 +449,29 @@ def maingui(opts):
     app.deleteLater()
     sys.exit()
 
+
+def maindoc(opts):
+    if opts["--conf"]:
+        print(pipeconf.PCFGConfig.info())
+
+    if opts["--comp"]:
+        for cname, ccomp in pipeline.ImagePipeline.complist.iteritems():
+            print(ccomp.info())
+
 OPTS = """
 USAGE:
     run-pipeline (-i IN | -p YML | -i IN -p YML)
                  [-o OUT] [-t YML]
                  [-v | -vv | -vvv | -s] [--logfile=FILE]
                  [--recalculate] [--set=CONFIG]
+    run-pipeline (-d | --doc) [--conf] [--comp]
     run-pipeline (-g | --gui)
     run-pipeline (-h | --help)
 
 OPTIONS:
     -h --help   Show this screen.
     -g --gui    Open the QT Graphical User Interface
+    -d --doc    Output documentation of components or configuration file.
     -i IN       Input timestream directory. IN will take precedence over any
                 input directory in pipeline yaml configuration. If not
                 defined, we search for IN in the pipeline yaml configuration.
@@ -480,15 +491,23 @@ OPTIONS:
                      E.g: --set=a.b=value,c.d.e=val2
     --recalculate    By default we don't re-calculate images. Passing this
                      option forces recalculation
+    --conf           If set we output the documentation for the configuration
+                     files.
+    --comp           If set we output the documentation for all active
+                     components.
 """
 
 
 def main():
     opts = docopt(OPTS)
-    if opts["--gui"]:
-        maingui(opts)
-    else:
+    if opts["-i"] is not None or opts["-p"] is not None:
         maincli(opts)
+    elif opts["--gui"]:
+        maingui(opts)
+    elif opts["--doc"]:
+        maindoc(opts)
+    else:
+        raise DocoptExit()
 
 if __name__ == "__main__":
     main()
