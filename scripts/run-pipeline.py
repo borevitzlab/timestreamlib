@@ -29,55 +29,41 @@ import logging
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
 import datetime
-from docopt import (docopt,DocoptExit)
+from docopt import (docopt, DocoptExit)
 from PyQt4 import (QtGui, QtCore, uic)
 
-def genConfig(opts):
-    # input timestream directory
-    inputRootPath = opts['-i']
-    if os.path.isfile(inputRootPath):
-        raise RuntimeError("%s is a file. Expected a directory"%inputRootPath)
-    if not os.path.exists(inputRootPath):
-        raise RuntimeError("%s does not exists"%inputRootPath)
 
-    # Pipeline configuration.
-    if opts['-p']:
+def genConfig(opts):
+    # Pipeline configuration
+    if opts['-p'] is not None:
         plConfPath = opts['-p']
+    elif opts['-i'] is not None:
+        plConfPath = os.path.join(opts['-i'], '_data', 'pipeline.yml')
     else:
-        plConfPath = os.path.join(inputRootPath, '_data', 'pipeline.yml')
+        raise RuntimeError("Invalid argument configuration")
     if not os.path.isfile(plConfPath):
         raise RuntimeError("%s is not a file" % plConfPath)
-    plConf = pipeconf.PCFGConfig(plConfPath, 2)
-    plConf.setVal("plConfPath", plConfPath)
-    plConf.setVal("inputRootPath", inputRootPath)
 
-    # Timestream configuration
+    plConf = pipeconf.PCFGConfig(plConfPath, 2)
+    plConf.setVal("general.plConfPath", plConfPath)
+
+    # override general.inputRootPath in opts['-p'] if any.
+    if opts['-i'] is not None:
+        if os.path.isfile(opts['-i']):
+            raise RuntimeError("%s is a file. Expected a dir" % opts['-i'])
+        if not os.path.exists(opts['-i']):
+            raise RuntimeError("%s does not exists" % opts['-i'])
+        plConf.general.setVal("inputRootPath", opts['-i'])
+
+    # Add timestream configuration if we find one
     if opts['-t']:
         tsConfPath = opts['-t']
     else:
-        tsConfPath = os.path.join(plConf.inputRootPath, '_data',
-                'timestream.yml')
-    if not os.path.isfile(tsConfPath):
-        raise RuntimeError("%s is not a file" % tsConfPath)
-    tsConf = pipeconf.PCFGConfig(tsConfPath, 1)
-    tsConf.setVal("tsConfPath", tsConfPath)
-
-    # Merge timestream configuration into pipeline.
-    if not plConf.hasSubSecName("general"):
-        plConf.serVal("general", pipeconf.PCFGSection("general"))
-    for tsComp in tsConf.listSubSecNames():
-        merged = False
-        tsss = tsConf.getVal(tsComp)
-        for pComp in plConf.pipeline.listSubSecNames():
-            plss = plConf.getVal("pipeline."+pComp)
-            if plss.name == tsComp:
-                # Merge when component has same name
-                pipeconf.PCFGConfig.merge(tsss, plss)
-                merged = True
-                break
-        if merged:
-            continue
-        plConf.general.setVal(tsComp, tsss)
+        tsConfPath = os.path.join(plConf.general.inputRootPath,
+                                  '_data', 'timestream.yml')
+    if os.path.isfile(tsConfPath):
+        plConf.append(tsConfPath, 1)
+        plConf.general.setVal("tsConfPath", tsConfPath)
 
     # Add whatever came in the command line
     if opts['--set']:
@@ -88,86 +74,25 @@ def genConfig(opts):
             except:
                 raise RuntimeError("Error in the --set string")
 
-    # There are two output variables:
-    # outputPath : Directory where resulting directories will be put
-    # outputPrefix : Prefix identifying all outputs from this "run"
-    # outputPrefixPath : Convenience var. outputPath/outputPrefix.
-    if not plConf.general.hasSubSecName("outputPrefix"):
-        plConf.general.setVal("outputPrefix",
-                os.path.basename(os.path.abspath(plConf.inputRootPath)))
-
     if opts['-o']:
-        plConf.general.setVal("outputPath", opts['-o'])
+        if os.path.isfile(opts['-o']):
+            raise RuntimeError("%s is a file" % opts["-o"])
+        plConf.general.setVal("outputRootPath", opts["-o"])
 
-        if os.path.isfile(plConf.general.outputPath):
-            raise RuntimeError("%s is a file"%plConf.general.outputPath)
-        outputPrefixPath = os.path.join (plConf.general.outputPath,
-                plConf.general.outputPrefix)
-        plConf.general.setVal("outputPrefixPath", outputPrefixPath)
-    else:
-        plConf.general.setVal("outputPath",
-                os.path.dirname(plConf.inputRootPath))
-        plConf.general.setVal("outputPrefixPath",
-                os.path.join(plConf.general.outputPath,
-                    plConf.general.outputPrefix))
-
-    # Modify to usable objects (e.g. dict->datetime)
-    sd = None
-    if plConf.general.hasSubSecName("startDate"):
-        if plConf.general.startDate.size == 6:
-            # FIXME: For all the datetimes we cannot change to datetime here
-            #        (where it is more obvious) because JSON cannot handle
-            #        the datetime strcture.
-            #sd = plConf.general.startDate
-            #sd = datetime.datetime(sd.year, sd.month, sd.day, \
-            #                       sd.hour, sd.minute, sd.second)
-            sd = plConf.general.startDate
-        plConf.general.startDate = sd
-    else:
-        plConf.general.setVal("startDate", None)
-
-    ed = None
-    if plConf.general.hasSubSecName("endDate"):
-        if plConf.general.endDate.size == 6:
-            #ed = plConf.general.endDate
-            #ed = datetime.datetime(ed.year, ed.month, ed.day, \
-            #                       ed.hour, ed.minute, ed.second)
-            ed = plConf.general.endDate
-        plConf.general.endDate = ed
-    else:
-        plConf.general.setVal("endDate", None)
-
-    if not plConf.general.hasSubSecName("timeInterval"):
-        plConf.general.setVal("timeInterval", None)
-
-    if not plConf.general.hasSubSecName("visualise"):
-        plConf.general.setVal("visualis", False)
-
-    if plConf.general.hasSubSecName("startHourRange"):
-        pass
-        # FIXME: Same as the datetime.datetime: JSON cannot handle time strucut.
-        # sr = plConf.general.startHourRange
-        # plConf.general.startHourRange = \
-        #        datetime.time(sr.hour, sr.minute, sr.second)
-    else:
-        plConf.general.setVal("startHourRange", None)
-
-    if plConf.general.hasSubSecName("endHourRange"):
-        pass
-        #er = plConf.general.endHourRange
-        #plConf.general.endHourRange = \
-        #        datetime.time(er.hour, er.minute, er.second)
-    else:
-        plConf.general.setVal("endHourRange", None)
+    plConf.autocomplete()
+    plConf.validate()
+    plConf.lock()
 
     return plConf
 
+
 def createOutputs(plConf):
     if not plConf.hasSubSecName("general") \
-            or not plConf.general.hasSubSecName("outputPath"):
-        raise RuntimeError("Configuration missing outputPath")
-    if not os.path.exists(plConf.general.outputPath):
-        os.makedirs(plConf.general.outputPath)
+            or not plConf.general.hasSubSecName("outputRootPath"):
+        raise RuntimeError("Configuration missing outputRootPath")
+    if not os.path.exists(plConf.general.outputRootPath):
+        os.makedirs(plConf.general.outputRootPath)
+
 
 def initlogging(opts):
     # 1. We init verbosity. log to console by default.
@@ -203,8 +128,8 @@ def genContext(plConf):
     for k, outstream in plConf.outstreams.asDict().iteritems():
         ts_out = timestream.TimeStream()
         ts_out.data["settings"] = plConf.asDict()
-        #ts_out.data["settingPath"] = os.path.dirname(settingFile)
-        ts_out.data["sourcePath"] = plConf.inputRootPath
+        # ts_out.data["settingPath"] = os.path.dirname(settingFile)
+        ts_out.data["sourcePath"] = plConf.general.inputRootPath
         ts_out.name = outstream["name"]
 
         # timeseries output input path plus a suffix
@@ -254,14 +179,14 @@ def genInputTimestream(plConf, existing_ts):
     er = datetime.time(er.hour, er.minute, er.second)
     # initialise input timestream for processing
     ts = timestream.TimeStreamTraverser(
-            ts_path=plConf.inputRootPath,
-            interval=plConf.general.timeInterval,
-            start=sd,
-            end=ed,
-            start_hour=sr,
-            end_hour=er,
-            existing_ts=existing_ts,
-            err_on_access=True)
+        ts_path=plConf.general.inputRootPath,
+        interval=plConf.general.timeInterval,
+        start=sd,
+        end=ed,
+        start_hour=sr,
+        end_hour=er,
+        existing_ts=existing_ts,
+        err_on_access=True)
     # FIXME: asDict because it cannot be handled by json.
     ts.data["settings"] = plConf.asDict()
     return ts
@@ -526,8 +451,8 @@ def maingui(opts):
 
 OPTS = """
 USAGE:
-    run-pipeline -i IN
-                 [-o OUT] [-p YML] [-t YML]
+    run-pipeline (-i IN | -p YML | -i IN -p YML)
+                 [-o OUT] [-t YML]
                  [-v | -vv | -vvv | -s] [--logfile=FILE]
                  [--recalculate] [--set=CONFIG]
     run-pipeline (-g | --gui)
@@ -536,7 +461,9 @@ USAGE:
 OPTIONS:
     -h --help   Show this screen.
     -g --gui    Open the QT Graphical User Interface
-    -i IN       Input timestream directory
+    -i IN       Input timestream directory. IN will take precedence over any
+                input directory in pipeline yaml configuration. If not
+                defined, we search for IN in the pipeline yaml configuration.
     -o OUT      Output root. Where results will be created.
     -p YML      Path to pipeline yaml configuration. Defaults to
                 IN/_data/pipeline.yml
@@ -554,6 +481,8 @@ OPTIONS:
     --recalculate    By default we don't re-calculate images. Passing this
                      option forces recalculation
 """
+
+
 def main():
     opts = docopt(OPTS)
     if opts["--gui"]:

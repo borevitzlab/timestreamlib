@@ -18,9 +18,15 @@
 
 import os.path
 import yaml
+import re
+import json
+import datetime
 
 
 class PCFGException(Exception):
+
+    def __init__(self, message):
+        self.message = message
 
     def __str__(self):
         return "Pipeline Configuration Error: %s" % self.message
@@ -48,6 +54,12 @@ class PCFGExLockedSection(PCFGException):
 
     def __init__(self, name):
         self.message = "Subsection %s locked" % name
+
+
+class PCFGExMissingRequiredArgument(PCFGException):
+
+    def __init__(self, name):
+        self.message = "Subsection %s is missing" % name
 
 
 class PCFGSection(object):
@@ -88,7 +100,7 @@ class PCFGSection(object):
     def locked(self):
         return self.__dict__["_locked"]
 
-    def getVal(self, index):
+    def getVal(self, index, pop=False):
         """ Will return a value or a subsection
 
         Its different from __getattr__ is that you can pass it a string.
@@ -117,7 +129,10 @@ class PCFGSection(object):
                     getVal(index[1:])
 
         elif len(index) == 1:
-            retVal = self.__dict__["__subsections"][index[0]]
+            if pop:
+                retVal = self.__dict__["__subsections"].pop(index[0])
+            else:
+                retVal = self.__dict__["__subsections"][index[0]]
 
         else:
             raise PCFGExInvalidSubsection(index[0])
@@ -163,13 +178,7 @@ class PCFGSection(object):
             if index[0] not in self.__dict__["__subsections"]:
                 self.__dict__["__subsections"][index[0]] = None
 
-            if isinstance(self.__dict__["__subsections"][index[0]],
-                          PCFGSection):
-                raise PCFGExInvalidType(
-                    "non PCFGSection",
-                    type(self.__dict__["__subsections"][index[0]]))
-            else:
-                self.__dict__["__subsections"][index[0]] = value
+            self.__dict__["__subsections"][index[0]] = value
 
     def listTree(self, withVals=False, endline=""):
         """Return the total tree of suboptions"""
@@ -300,8 +309,101 @@ class PCFGListSection(PCFGSection):
 
 class PCFGConfig(PCFGSection):
 
-    def __init__(self, configFile, depth):
-        """PCFGConfig houses all config options
+    argNames = """
+      [
+        {"arg": "pipeline", "type": "PCFGListSection",
+         "def": "[]", "req": "True",
+         "doc": "A list of pipeline components that take action on a
+                 Time Stream",
+         "ex": "pipeline:- name: undistort- name: colorcarddetect"},
+        {"arg": "outstreams", "type": "PCFGListSection",
+         "def": "[]", "req": "False",
+         "doc": "A list of output stream names that get translated into output
+                 stream directories. These names are to be used with output
+                 components such as the image writer.",
+         "ex": "outstreams:  - { name: cor }  - { name: seg }"},
+        {"arg": "general", "type": "PCFGSection", "def": "[]", "req": "True",
+         "doc": "List of general settings that will define the behavior of the
+                 pipeline. Some of these include date range, time range
+                 and time interval.",
+         "ex": "general:  timeInterval: 900  visualise: False"},
+        {"arg": "general.startDate", "type": "PCFGSection",
+         "def": "None", "req": "False",
+         "doc": "The starting date of the Time Stream. All prior dates will be
+                 ignored. It contains six elements: year, month, day, hour,
+                 minute, second.",
+         "ex":  "startDate: { year: 2014, month: 06, day: 25,
+                              hour: 9, minute: 0, second: 0 }" },
+        {"arg": "general.endDate", "type": "PCFGSection",
+         "def": "None", "req": "False",
+         "doc": "The ending date of the Time Stream. Ignore all posterior
+                 dates. It contains six elements: year, month, day, hour,
+                 minute, second.",
+         "ex":  "endDate: { year: 2014, month: 06, day: 25,
+                            hour: 9, minute: 0, second: 0 }" },
+        {"arg": "general.startHourRange", "type": "PCFGSection",
+         "def": "None", "req": "False",
+         "doc": "Specific range within each day can be specified. All previous
+                 hours for each day will be ignored. Contains three elements:
+                 hour, minute, second",
+         "ex": "startHourRange: { hour: 0, minute: 0, second: 0}"},
+        {"arg": "general.endHourRange", "type": "PCFGSection",
+         "def": "None", "req": "False",
+         "doc": "A specific range within each day can be specified. All
+                 posterior hours for each day will be ignored. It contains
+                 three elements: hour, minute, second",
+         "ex": "endHourRange: { hour: 15, minute: 0, second: 0}"},
+        {"arg": "general.timeInterval", "type": "int",
+         "def": "None", "req": "False",
+         "doc": "A step interval starting from general.startDate. The interval
+                 is in seconds",
+         "ex": "timeInterval: 900"},
+        {"arg": "general.visualise", "type": "bool",
+         "def": "False", "req": "False",
+         "doc": "This is mostly for debugging. When True, the pipeline will
+                 pause at each component and visualize the step. This is
+                 discouraged for normal use as it stops the pipeline."},
+        {"arg": "general.metas", "type": "dict", "def": "{}", "req": "False",
+         "doc": "Each element detected in the image will have an id based on
+                 order of detection. This id will be the same for all images.
+                 general.metas allows the customization of this id into
+                 something more relevant. Each element in general.metas is a
+                 dictionary that contains the ImageId / CustomId relation.",
+         "ex": "metas:  tlpid : {1: 09A1, 2: 09A2, 3: 09A3, 4: 09A4}
+                        plantid: {1: 16161, 2: 16162, 3: 16163, 4: 16164}"},
+        {"arg": "general.inputRootPath", "type": "str",
+         "def": "None", "req": "True",
+         "doc": "The directory that holds the input Time Stream",
+         "ex": "~/Experiments/BVZ0036/BVZ0036-GC02R-C01~fullres-orig"},
+         {"arg": "general.outputRootPath", "type": "str",
+          "def": "None", "req": "False",
+          "doc": "Directory where resulting directories will be put",
+          "ex": "outputRootPath: BVZ0036-GC02R-C01~fullres"},
+        {"arg": "general.outputPrefix", "type": "str",
+         "def": "None", "req": "False",
+         "doc": "By default the output will have the same name as the input
+                 directory plus a relevant suffix. This variable overrides
+                 this behavior and uses a custom name. The output Time Stream
+                 suffix is still added.",
+         "ex": "outputPrefix: BVZ0036-GC02R-C01~fullres"},
+        {"arg": "general.outputPrefixPath", "type": "str",
+         "def": "None", "req": "False",
+         "doc": "Convenience variable. Should not be set",
+         "ex": ""}
+      ]
+    """
+    # Names of the two main subsections
+    pipelineStr = "pipeline"
+    generalStr = "general"
+    outstreamsStr = "outstreams"
+
+    def __init__(self, configFile, depth=2):
+        """PCFGConfig houses all configuration options
+
+        The pipeline configuration is made up of three main parts: the pipeline
+        list, the general dictionary and the outstream list. Anything that is
+        in level 0 not named general, pipeline or outstream will be put in
+        general.
 
         Args:
           _configFile: Full path of the configuration file
@@ -315,27 +417,208 @@ class PCFGConfig(PCFGSection):
         self._configFile = configFile
         self._depth = depth
 
-        # To load from another config format create a loadFrom function
-        for func in [self.loadFromYaml]:
-            try:
-                confDict = func()
-            except:
-                continue
-            break
+        confDict = PCFGConfig.loadFromFile(self._configFile)
+        tmpSubSec = PCFGConfig.createSection(confDict, self._depth, self._name)
+
+        # Force a zero level of three sub-sections (pipeline,general,outstream)
+        if not tmpSubSec.hasSubSecName(PCFGConfig.pipelineStr):
+            tmpSubSec.setVal(PCFGConfig.pipelineStr,
+                             PCFGSection(PCFGConfig.pipelineStr))
+        if not tmpSubSec.hasSubSecName(PCFGConfig.generalStr):
+            tmpSubSec.setVal(PCFGConfig.generalStr,
+                             PCFGSection(PCFGConfig.generalStr))
+        if not tmpSubSec.hasSubSecName(PCFGConfig.outstreamsStr):
+            tmpSubSec.setVal(PCFGConfig.outstreamsStr,
+                             PCFGSection(PCFGConfig.outstreamsStr))
+        for subSecName in tmpSubSec.listSubSecNames():
+            if subSecName != PCFGConfig.pipelineStr and \
+                    subSecName != PCFGConfig.generalStr and \
+                    subSecName != PCFGConfig.outstreamsStr:
+                subSec = tmpSubSec.getVal(subSecName, pop=True)
+                tmpSubSec.general.setVal(subSecName, subSec)
 
         # Equal __subsections to allow instance.element.element....
-        tmpSubSec = PCFGConfig.createSection(confDict, self._depth, "-")
         self.__dict__["__subsections"] = tmpSubSec.__dict__["__subsections"]
 
-    def loadFromYaml(self):
-        f = file(self._configFile)
-        yDict = yaml.load(f)
-        f.close()
+    def append(self, configFile, depth=2, overwrite=False):
+        if not os.path.exists(configFile) or not os.path.isfile(configFile):
+            raise PCFGExInvalidFile(configFile)
+        confDict = PCFGConfig.loadFromFile(configFile)
+        tmpSubSec = PCFGConfig.createSection(confDict, depth, "--")
 
-        return yDict
+        # Deal with general
+        if tmpSubSec.hasSubSecName(PCFGConfig.generalStr):
+            for index in tmpSubSec.general.itertree():
+                if (self.general.hasSubSecName(index) and overwrite) \
+                        or not self.general.hasSubSecName(index):
+                    self.general.setVal(index,
+                                        tmpSubSec.general.getVal(index,
+                                                                 pop=True))
+            # Use getVal(pop=True) to remove general
+            tmpSubSec.getVal(PCFGConfig.generalStr, pop=True)
+
+        # Deal with outstreams
+        if tmpSubSec.hasSubSecName(PCFGConfig.outstreamsStr):
+            for index in tmpSubSec.outstreams.itertree():
+                if (self.outstreams.hasSubSecName(index) and overwrite) \
+                        or not self.outstreams.hasSubSecName(index):
+                    self.outstreams.setVal(
+                        index, tmpSubSec.outstreams.getVal(index, pop=True))
+            # Use getVal(pop=True) to remove outstreams
+            tmpSubSec.getVal(PCFGConfig.outstreamsStr, pop=True)
+
+        # Deal with pipeline
+        if tmpSubSec.hasSubSecName(PCFGConfig.pipelineStr):
+            if overwrite:
+                self.pipeline = tmpSubSec.pipeline
+            else:
+                # pop to remove
+                tmpSubSec.getVal(PCFGConfig.pipelineStr, pop=True)
+
+        # Try to find components.
+        for plcName in self.pipeline.listSubSecNames():
+            plcSec = self.pipeline.getVal(plcName)
+            if tmpSubSec.hasSubSecName(plcSec.name):
+                tmpSec = tmpSubSec.getVal(plcSec.name, pop=True)
+                for index in tmpSec.itertree():
+                    if (plcSec.hasSubSecName(index) and overwrite) \
+                            or not plcSec.hasSubSecName(index):
+                        plcSec.setVal(index, tmpSec.getVal(index,
+                                                           pop=True))
+
+        # Set the remaining zero level secs into general. Do not overwrite.
+        for index in tmpSubSec.itertree():
+            if not self.general.hasSubSecName(index):
+                self.general.setVal(index, tmpSubSec.getVal(index, pop=True))
+
+    def validate(self):
+        """ Validate __subsections against argNames"""
+        # parse without spaces
+        argNames = re.sub("  +", "", PCFGConfig.argNames)
+        argNames = json.loads(argNames.replace("\n", " "))
+
+        for argName in argNames:
+            # Change to python types
+            argName["arg"] = str(argName["arg"])
+            argName["req"] = eval(argName["req"])
+            argName["type"] = eval(argName["type"])
+            argName["def"] = eval(argName["def"])
+
+            try:
+                val = self.getVal(argName["arg"])
+                if not isinstance(val, argName["type"]):
+                    raise PCFGExInvalidType(argName["type"], type(val))
+
+            except PCFGExInvalidSubsection:
+                if argName["req"]:
+                    # Make sure we have all the required variables
+                    raise PCFGExMissingRequiredArgument(argName["arg"])
+
+                # Init defaults when missing
+                self.setVal(argName["arg"], argName["def"])
+
+        return True
+
+    def autocomplete(self):
+        """ Guess and cast relevant values"""
+        # outputRootPath : Directory where resulting directories will be put
+        # outputPrefix : Prefix identifying all outputs from this "run"
+        # outputPrefixPath : Convenience var. outputRootPath/outputPrefix.
+        if not self.general.hasSubSecName("outputRootPath") \
+                and self.general.hasSubSecName("inputRootPath"):
+            self.general.setVal("outputRootPath",
+                                os.path.dirname(self.general.inputRootPath))
+
+        if not self.general.hasSubSecName("outputPrefix") \
+                and self.general.hasSubSecName("inputRootPath"):
+            irpabs = os.path.abspath(self.general.inputRootPath)
+            self.general.setVal("outputPrefix", os.path.basename(irpabs))
+
+        if not self.general.hasSubSecName("outputPrefixPath") \
+                and self.general.hasSubSecName("outputRootPath") \
+                and self.general.hasSubSecName("outputPrefix"):
+            self.general.setVal(
+                "outputPrefixPath",
+                os.path.join(self.general.outputRootPath,
+                             self.general.outputPrefix))
+
+        # FIXME: Casts are inactive becausea JSON not able to handle pyobjects
+        # dateKeys = ["year", "month", "day", "hour", "minute", "second"]
+        if self.general.hasSubSecName("startDate") \
+                and not isinstance(self.general.startDate, datetime.datetime):
+            pass  # inactive
+            # sd = self.general.startDate
+            # if not isinstance(sd, dict):
+            #     raise PCFGExInvalidType(dict, type(sd))
+            # # Check for missing keys
+            # if False in [x in sd.keys() for x in dateKeys]:
+            #     raise PCFGException(
+            #         "Missing one of {} in startDate".format(dateKeys))
+            # sd = datetime.datetime(sd.year, sd.month, sd.day
+            #                        sd.hour, sd.minute, sd.second)
+            # self.general.startDate = sd
+
+        if self.general.hasSubSecName("endDate") \
+                and not isinstance(self.general.endDate, datetime.datetime):
+            pass  # inactive
+            # ed = self.general.endDate
+            # if not isinstance(ed, dict):
+            #     raise PCFGExInvalidType(dict, type(ed))
+            # # Check for missing keys
+            # if False in [x in ed.keys() for x in dateKeys]:
+            #     raise PCFGException(
+            #         "Missing one of {} in endDate".format(dateKeys))
+            # ed = datetime.datetime(ed.year, ed.month, ed.day, \
+            #                        ed.hour, ed.minute, ed.second)
+            # self.general.endDate = ed
+
+        # timeKeys = ["hour", "minute", "second"]
+        if self.general.hasSubSecName("startHourRange") \
+                and not isinstance(self.general.startHourRange, datetime.time):
+            pass  # inactive
+            # sr = self.general.startHourRange
+            # if not isinstance(sr, dict):
+            #     raise PCFGExInvalidType(dict, type(sr))
+            # # Check for missing keys
+            # if False in [x in sr.keys() for x in timeKeys]:
+            #     raise PCFGException(
+            #         "Missing one of {} in startHourRange".format(timeKeys))
+            # sr = datetime.time(sr.hour, sr.minute, sr.second)
+            # self.general.startHourRange = sr
+
+        if self.general.hasSubSecName("endHourRange") \
+                and not isinstance(self.general.endHourRange, datetime.time):
+            pass  # inactive
+            # er = self.general.endHourRange
+            # if not isinstance(er, dict):
+            #     raise PCFGExInvalidType(dict, type(er))
+            # # Check for missing keys
+            # if False in [x in er.keys() for x in timeKeys]:
+            #     raise PCFGException(
+            #         "Missing one of {} in endHourRange".format(timeKeys))
+            # er = datetime.time(er.hour, er.minute, er.second)
+            # self.general.endHourRange = er
 
     def __str__(self):
         return "".join(self.listTree(withVals=True, endline="\n"))
+
+    @classmethod
+    def loadFromFile(self, configFile):
+        def loadFromYaml(configFile):
+            f = file(configFile)
+            yDict = yaml.load(f)
+            f.close()
+            return yDict
+
+        # To load from another config format create a loadFrom function
+        confDict = None
+        for func in [loadFromYaml]:
+            try:
+                confDict = func(configFile)
+            except:
+                continue
+            break
+        return confDict
 
     @classmethod
     def createSection(cls, confElems, depth, name):
@@ -363,14 +646,3 @@ class PCFGConfig(PCFGSection):
                 retVal.setVal(i, confElems[i])
 
         return retVal
-
-    @classmethod
-    def merge(cls, A, B):
-        """ A onto B. Elements of A will be create or replaced in B
-
-        Args:
-          A,B (PCFGConfig): Configuration instances
-        """
-
-        for aindex in A.itertree():
-            B.setVal(aindex, A.getVal(aindex))

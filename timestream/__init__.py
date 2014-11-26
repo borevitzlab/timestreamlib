@@ -182,9 +182,10 @@ def add_log_handler(stream=stderr, verbosity=None, level=None,
             or verbosity is None \
             or not isinstance(verbosity, str):
         fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
-    elif verbosity == LOG_INTROSPEC:
+    elif verbosity == LOGV.VVV:
         fmt = logging.Formatter(
-            '[%(asctime)s %(filename)s:%(lineno)s-%(funcName)20s()] %(message)s',
+            '[%(asctime)s %(filename)s:'
+            + '%(lineno)s-%(funcName)20s()] %(message)s',
             '%H:%M:%S')
     else:
         fmt = logging.Formatter(verbosity, '%H:%M:%S')
