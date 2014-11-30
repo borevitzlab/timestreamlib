@@ -363,7 +363,8 @@ class PCFGConfig(PCFGSection):
             "step. This is discouraged for normal use as it stops "
             "the pipeline.",
          "ex": "visualise: True"},
-        {"arg": "general.metas", "type": dict, "def": {}, "req": False,
+        {"arg": "general.metas", "type": PCFGSection,
+         "def": None, "req": False,
          "doc": "Each element detected in the image will have an id based "
             "on order of detection. This id will be the same for all "
             "images.general.metas allows the customization of this id "
