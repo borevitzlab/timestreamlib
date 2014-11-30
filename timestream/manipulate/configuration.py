@@ -534,59 +534,55 @@ class PCFGConfig(PCFGSection):
                              self.general.outputPrefix))
 
         # FIXME: Casts are inactive becausea JSON not able to handle pyobjects
-        # dateKeys = ["year", "month", "day", "hour", "minute", "second"]
+        dateKeys = ["year", "month", "day", "hour", "minute", "second"]
         if self.general.hasSubSecName("startDate") \
                 and not isinstance(self.general.startDate, datetime.datetime):
-            pass  # inactive
-            # sd = self.general.startDate
-            # if not isinstance(sd, dict):
-            #     raise PCFGExInvalidType(dict, type(sd))
-            # # Check for missing keys
-            # if False in [x in sd.keys() for x in dateKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in startDate".format(dateKeys))
+            sd = self.general.startDate
+            if not isinstance(sd, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(sd))
+            # Check for missing keys
+            if False in [x in sd.listSubSecNames() for x in dateKeys]:
+                raise PCFGException(
+                    "Missing one of {} in startDate".format(dateKeys))
             # sd = datetime.datetime(sd.year, sd.month, sd.day
             #                        sd.hour, sd.minute, sd.second)
             # self.general.startDate = sd
 
         if self.general.hasSubSecName("endDate") \
                 and not isinstance(self.general.endDate, datetime.datetime):
-            pass  # inactive
-            # ed = self.general.endDate
-            # if not isinstance(ed, dict):
-            #     raise PCFGExInvalidType(dict, type(ed))
-            # # Check for missing keys
-            # if False in [x in ed.keys() for x in dateKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in endDate".format(dateKeys))
+            ed = self.general.endDate
+            if not isinstance(ed, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(ed))
+            # Check for missing keys
+            if False in [x in ed.listSubSecNames() for x in dateKeys]:
+                raise PCFGException(
+                    "Missing one of {} in endDate".format(dateKeys))
             # ed = datetime.datetime(ed.year, ed.month, ed.day, \
             #                        ed.hour, ed.minute, ed.second)
             # self.general.endDate = ed
 
-        # timeKeys = ["hour", "minute", "second"]
+        timeKeys = ["hour", "minute", "second"]
         if self.general.hasSubSecName("startHourRange") \
                 and not isinstance(self.general.startHourRange, datetime.time):
-            pass  # inactive
-            # sr = self.general.startHourRange
-            # if not isinstance(sr, dict):
-            #     raise PCFGExInvalidType(dict, type(sr))
-            # # Check for missing keys
-            # if False in [x in sr.keys() for x in timeKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in startHourRange".format(timeKeys))
+            sr = self.general.startHourRange
+            if not isinstance(sr, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(sr))
+            # Check for missing keys
+            if False in [x in sr.listSubSecNames() for x in timeKeys]:
+                raise PCFGException(
+                    "Missing one of {} in startHourRange".format(timeKeys))
             # sr = datetime.time(sr.hour, sr.minute, sr.second)
             # self.general.startHourRange = sr
 
         if self.general.hasSubSecName("endHourRange") \
                 and not isinstance(self.general.endHourRange, datetime.time):
-            pass  # inactive
-            # er = self.general.endHourRange
-            # if not isinstance(er, dict):
-            #     raise PCFGExInvalidType(dict, type(er))
-            # # Check for missing keys
-            # if False in [x in er.keys() for x in timeKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in endHourRange".format(timeKeys))
+            er = self.general.endHourRange
+            if not isinstance(er, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(er))
+            # Check for missing keys
+            if False in [x in er.listSubSecNames() for x in timeKeys]:
+                raise PCFGException(
+                    "Missing one of {} in endHourRange".format(timeKeys))
             # er = datetime.time(er.hour, er.minute, er.second)
             # self.general.endHourRange = er
 
