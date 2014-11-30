@@ -62,7 +62,8 @@ def genConfig(opts):
         tsConfPath = os.path.join(plConf.general.inputRootPath,
                                   '_data', 'timestream.yml')
     if os.path.isfile(tsConfPath):
-        plConf.append(tsConfPath, 1)
+        # 2 is the depth of the configuration file
+        plConf.append(tsConfPath, 2)
         plConf.general.setVal("tsConfPath", tsConfPath)
 
     # Add whatever came in the command line
