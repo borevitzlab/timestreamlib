@@ -135,7 +135,7 @@ def genContext(plConf):
 
         # timeseries output input path plus a suffix
         tsoutpath = os.path.abspath(plConf.general.outputPrefixPath) \
-                + '-' + outstream["name"]
+            + outstream["name"]
         if "outpath" in outstream.keys():
             tsoutpath = outstream["outpath"]
         if not os.path.exists(tsoutpath) \
