@@ -175,9 +175,11 @@ def genInputTimestream(plConf, existing_ts):
 
     # FIXME: This should not go here. It should be in the genConfig method.
     sr = plConf.general.startHourRange
-    sr = datetime.time(sr.hour, sr.minute, sr.second)
+    if sr is not None:
+        sr = datetime.time(sr.hour, sr.minute, sr.second)
     er = plConf.general.endHourRange
-    er = datetime.time(er.hour, er.minute, er.second)
+    if er is not None:
+        er = datetime.time(er.hour, er.minute, er.second)
     # initialise input timestream for processing
     ts = timestream.TimeStreamTraverser(
         ts_path=plConf.general.inputRootPath,
