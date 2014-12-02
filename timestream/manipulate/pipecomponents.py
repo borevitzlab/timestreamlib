@@ -1019,13 +1019,17 @@ class ResultingFeatureWriter(PipeComponent):
         fd.close()
 
 
-class ResultingImageWriter (PipeComponent):
+class ResultingImageWriter(PipeComponent):
     actName = "imagewrite"
     argNames = {
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
+        "sizes": [False,
+            "Sizes to output. Either scaling ratios, COLSxROWS or 'fullres'",
+            ["fullres"]],
         "addStats": [False, "List of statistics", []],
-        "masked": [False, "Whether to output masked images", False]}
+        "masked": [False, "Whether to output masked images", False]
+    }
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
@@ -1049,6 +1053,31 @@ class ResultingImageWriter (PipeComponent):
                 self.img.pixels = iph.getImage(
                     masked=self.masked, features=self.addStats,
                     inSuper=True)
+
+        # resizing. This is a fairly massive kludge at the moment, so FIXME
+        # eventually.
+        if len(self.sizes) != 1:
+            raise NotImplementedError("We don't support multiple sizes yet")
+        size = self.sizes[0]
+
+        if size != "fullres":
+            pixels = self.img.pixels  # for readablitiy below
+            # we've been given a ratio, use scaling
+            try:
+                size = float(size)
+                pixels = skimage.transform.rescale(pixels, size, order=3)
+            except ValueError:
+                try:
+                    cols, rows = size.lower().strip().split('x')
+                    cols = int(cols)
+                    rows = int(rows)
+                    pixels = skimage.transform.resize(pixels, (cols, rows),
+                                                      order=3)
+                except ValueError:
+                    raise ValueError("Invalid sizes parameter %s" %
+                                     repr(self.sizes))
+            # save the pixels back again
+            self.img._pixels = pixels
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
