@@ -782,10 +782,10 @@ class ResultingFeatureWriter(PipeComponent):
         super(ResultingFeatureWriter, self).__init__(**kwargs)
 
         if not context.hasSubSecName("outputPrefixPath"):
-            raise PCExBadContext(self.actName, outputPrefixPath,
+            raise PCExBadContext(self.actName, "outputPrefixPath",
                                  "Must define output prefix directory")
         if not context.hasSubSecName("outputPrefix"):
-            raise PCExBadContext(self.actName, outputPrefix,
+            raise PCExBadContext(self.actName, "outputPrefix",
                                  "Must define an output prefix")
         if self.ext is not "csv":
             raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
