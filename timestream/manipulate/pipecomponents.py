@@ -1057,7 +1057,8 @@ class ResultingImageWriter(PipeComponent):
         # resizing. This is a fairly massive kludge at the moment, so FIXME
         # eventually.
         if len(self.sizes) != 1:
-            raise NotImplementedError("We don't support multiple sizes yet")
+            raise PCExBadConfig(self.actName, self.meth,
+                                "We don't support multiple sizes yet")
         size = self.sizes[0]
 
         if size != "fullres":
@@ -1074,8 +1075,9 @@ class ResultingImageWriter(PipeComponent):
                     pixels = skimage.transform.resize(pixels, (cols, rows),
                                                       order=3)
                 except ValueError:
-                    raise ValueError("Invalid sizes parameter %s" %
-                                     repr(self.sizes))
+                    raise PCExBadConfig(self.actName, self.meth,
+                                        "Invalid sizes parameter %s" %
+                                        repr(self.sizes))
             # save the pixels back again
             self.img._pixels = pixels
 
