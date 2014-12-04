@@ -791,8 +791,8 @@ class ResultingFeatureWriter(PipeComponent):
             raise PCExBadConfig(self.actName, self.ext, "Invalid extension")
 
         if self.outname is None:
-            self.outname = self.ext
-        self.outputdir = context.outputPrefixPath + "-" + self.outname
+            self.outname = "-" + self.ext
+        self.outputdir = context.outputPrefixPath + self.outname
         self.outputPrefix = context.outputPrefix
 
         if not os.path.exists(self.outputdir):

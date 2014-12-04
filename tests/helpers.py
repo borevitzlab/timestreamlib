@@ -48,6 +48,8 @@ FILES = {
                                     "timestream-with-imgdata"),
     "not_a_timestream": path.join(TESTS_DIR, "data", "timestreams",
                                   "not-a-timestream"),
+    "timestream_good_images": path.join(TESTS_DIR, "data", "timestreams",
+                                        "timestream-good-images")
 }
 ZEROS_PIXELS = np.zeros((100, 100, 3), dtype="uint8")
 ZEROS_DATETIME = datetime.datetime(2013, 11, 12, 20, 53, 9)

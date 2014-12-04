@@ -62,7 +62,8 @@ def genConfig(opts):
         tsConfPath = os.path.join(plConf.general.inputRootPath,
                                   '_data', 'timestream.yml')
     if os.path.isfile(tsConfPath):
-        plConf.append(tsConfPath, 1)
+        # 2 is the depth of the configuration file
+        plConf.append(tsConfPath, 2)
         plConf.general.setVal("tsConfPath", tsConfPath)
 
     # Add whatever came in the command line
@@ -102,7 +103,7 @@ def initlogging(opts):
         vbsty = timestream.LOGV.VV
     elif opts["-v"] == 3:
         vbsty = timestream.LOGV.VVV
-    if opts["-s"]: # Silent will trump all
+    if opts["-s"]:  # Silent will trump all
         vbsty = timestream.LOGV.S
         return
 
@@ -116,6 +117,7 @@ def initlogging(opts):
         if outlog is os.devnull:
             raise RuntimeError("Error setting log to file {}".format(f))
 
+
 def genContext(plConf):
     if not plConf.hasSubSecName("outstreams") \
             or not plConf.hasSubSecName("general"):
@@ -124,7 +126,7 @@ def genContext(plConf):
     # Initialize the context
     ctx = pipeconf.PCFGSection("--")
 
-    #create new timestream for output data
+    # create new timestream for output data
     for k, outstream in plConf.outstreams.asDict().iteritems():
         ts_out = timestream.TimeStream()
         ts_out.data["settings"] = plConf.asDict()
@@ -134,7 +136,7 @@ def genContext(plConf):
 
         # timeseries output input path plus a suffix
         tsoutpath = os.path.abspath(plConf.general.outputPrefixPath) \
-                + '-' + outstream["name"]
+            + outstream["name"]
         if "outpath" in outstream.keys():
             tsoutpath = outstream["outpath"]
         if not os.path.exists(tsoutpath) \
@@ -152,6 +154,7 @@ def genContext(plConf):
 
     return ctx
 
+
 def genExistingTS(ctx):
     existing_ts = []
     for tsname in ctx.outts.listSubSecNames():
@@ -161,22 +164,25 @@ def genExistingTS(ctx):
     existing_ts = list(set([item for sl in existing_ts for item in sl]))
     return existing_ts
 
+
 def genInputTimestream(plConf, existing_ts):
     # FIXME: This should not go here. It should be in the genConfig method.
     sd = plConf.general.startDate
     if sd is not None:
-        sd = datetime.datetime(sd.year, sd.month, sd.day, \
+        sd = datetime.datetime(sd.year, sd.month, sd.day,
                                sd.hour, sd.minute, sd.second)
     ed = plConf.general.endDate
     if ed is not None:
-        ed = datetime.datetime(ed.year, ed.month, ed.day, \
+        ed = datetime.datetime(ed.year, ed.month, ed.day,
                                ed.hour, ed.minute, ed.second)
 
     # FIXME: This should not go here. It should be in the genConfig method.
     sr = plConf.general.startHourRange
-    sr = datetime.time(sr.hour, sr.minute, sr.second)
+    if sr is not None:
+        sr = datetime.time(sr.hour, sr.minute, sr.second)
     er = plConf.general.endHourRange
-    er = datetime.time(er.hour, er.minute, er.second)
+    if er is not None:
+        er = datetime.time(er.hour, er.minute, er.second)
     # initialise input timestream for processing
     ts = timestream.TimeStreamTraverser(
         ts_path=plConf.general.inputRootPath,
@@ -190,6 +196,7 @@ def genInputTimestream(plConf, existing_ts):
     # FIXME: asDict because it cannot be handled by json.
     ts.data["settings"] = plConf.asDict()
     return ts
+
 
 # Avoid repeating code in cli and gui
 def initPipeline(LOG, opts):
@@ -213,7 +220,7 @@ def initPipeline(LOG, opts):
 
     # initialise input timestream for processing
     ts = genInputTimestream(plConf, existing_ts)
-    ctx.setVal("ints",ts)
+    ctx.setVal("ints", ts)
     LOG.info(str(ts))
 
     # initialise processing pipeline
@@ -221,10 +228,13 @@ def initPipeline(LOG, opts):
 
     return (plConf, ctx, pl, ts)
 
+
 # Enclose in a class to be able to stop it
 class PipelineRunner():
+
     def __init__(self):
         self.running = False
+
     def runPipeline(self, plConf, ctx, ts, pl, LOG, prsig=None, stsig=None):
         self.running = True
         for i in range(len(ts.timestamps)):
@@ -241,7 +251,7 @@ class PipelineRunner():
                 img = pcex
 
             try:
-                result = pl.process(ctx, [img], plConf.general.visualise)
+                pl.process(ctx, [img], plConf.general.visualise)
             except PCException as bip:
                 LOG.info(bip.message)
                 continue
@@ -251,6 +261,7 @@ class PipelineRunner():
         LOG.info("Done")
         if stsig is not None:
             stsig.emit()
+
 
 def maincli(opts):
     try:
@@ -265,20 +276,28 @@ def maincli(opts):
     except RuntimeError as re:
         raise DocoptExit(str(re))
 
+
 class PipelineRunnerGUI(QtGui.QMainWindow):
     class TextEditStream:
         def __init__(self, sig):
             self._sig = sig
+
         def write(self, m):
             self._sig.emit(m)
+
     class TextEditSignal(QtCore.QObject):
         sig = QtCore.pyqtSignal(str)
+
     class ProgressSignal(QtCore.QObject):
-        sig = QtCore.pyqtSignal(int) # offset of progress
+        sig = QtCore.pyqtSignal(int)  # offset of progress
+
     class ThreadStopped(QtCore.QObject):
         sig = QtCore.pyqtSignal()
+
     class PipelineThread(QtCore.QThread):
-        def __init__(self, plConf, ctx, ts, pl, log, prsig, stsig, parent=None):
+
+        def __init__(self, plConf, ctx, ts, pl,
+                     log, prsig, stsig, parent=None):
             QtCore.QThread.__init__(self, parent)
             self._plConf = plConf
             self._ctx = ctx
@@ -289,18 +308,22 @@ class PipelineRunnerGUI(QtGui.QMainWindow):
             self._stsig = stsig
             self._pr = None
             self._running = False
+
         def setRunning(self, val):
             self._running = val
             if self._pr is not None:
                 self._pr.running = self._running
+
         def run(self):
             self._running = True
             self._pr = PipelineRunner()
             self._pr.runPipeline(self._plConf, self._ctx, self._ts,
-                    self._pl, self._log, prsig=self._prsig, stsig=self._stsig)
+                                 self._pl, self._log, prsig=self._prsig,
+                                 stsig=self._stsig)
+
     def __init__(self, opts):
         QtGui.QMainWindow.__init__(self)
-        self._ui = uic.loadUi("run-pipeline.ui")
+        self._ui = uic.loadUi("run_pipeline.ui")
         self._opts = opts
         self.tesig = PipelineRunnerGUI.TextEditSignal()
         self.tesig.sig.connect(self._outputLog)
@@ -438,13 +461,15 @@ class PipelineRunnerGUI(QtGui.QMainWindow):
         self._ui.pbpl.setMaximum(len(ts.timestamps))
         self._ui.pbpl.reset()
 
-        self._plthread = PipelineRunnerGUI.PipelineThread(plConf, ctx, ts, pl,
-                LOG, self.prsig.sig, self.stsig.sig, parent=self)
+        self._plthread = PipelineRunnerGUI.PipelineThread(
+            plConf, ctx, ts, pl, LOG, self.prsig.sig,
+            self.stsig.sig, parent=self)
         self._plthread.start()
+
 
 def maingui(opts):
     app = QtGui.QApplication(sys.argv)
-    win = PipelineRunnerGUI(opts)
+    PipelineRunnerGUI(opts)
     app.exec_()
     app.deleteLater()
     sys.exit()
@@ -511,4 +536,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

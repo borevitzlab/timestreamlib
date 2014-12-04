@@ -50,6 +50,11 @@ from timestream.util import (
     dict_unicode_to_str,
 )
 
+try:
+        WindowsError
+except NameError:
+        WindowsError = None
+
 #: Default timestream manifest extension
 MANIFEST_EXT = "tsm"
 LOG = logging.getLogger("timestreamlib")
@@ -368,7 +373,7 @@ def read_image(path):
         # Read using skimage's io libary. The freeimage plugin is the most
         # feature rich and works cross platform.
         return skimage.io.imread(path, plugin="freeimage")
-    except (ValueError, RuntimeError) as exc:
+    except (ValueError, RuntimeError, WindowsError) as exc:
         LOG.error(str(exc))
         raise RIException(path)
 

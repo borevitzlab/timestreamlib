@@ -21,6 +21,7 @@ import sys
 import yaml
 import os.path
 import random
+import collections
 import numpy as np
 from PyQt4 import QtGui, QtCore, uic
 from timestream import TimeStreamTraverser, TimeStream
@@ -474,9 +475,12 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
                 msg = "There are no meta ids in Timestream %s" % tst.path
                 raise RuntimeError(msg)
+            if len(tst.timestamps) < 10:
+                msg = "Timestream %s has less than 10 imgs" % tst.path
+                raise RuntimeError(msg)
             # if 10 random img don't have ipms, we assume we can't derandomize
             tmsps = [tst.timestamps[x]
-                        for x in random.sample(xrange(len(tst.timestamps)), 10)]
+                     for x in random.sample(xrange(len(tst.timestamps)), 10)]
             for i in range(len(tmsps)):
                 tmsp = tmsps[i]
                 img = tst.getImgByTimeStamp(tmsp)
@@ -578,18 +582,7 @@ class DerandomizeGUI(QtGui.QMainWindow):
         self._currDir = os.path.dirname(str(csvPath))
         csvName = os.path.split(str(csvPath))[1].split(".")[0]
 
-        # 2. Insert Csv
-        self._ui.csvlist.insertRow(0)
-        i = QtGui.QTableWidgetItem("-")
-        i.setTextAlignment(QtCore.Qt.AlignCenter)
-        self._ui.csvlist.setItem(0,0,i)
-
-        i = QtGui.QTableWidgetItem(csvName)
-        i.setTextAlignment(QtCore.Qt.AlignLeft)
-        i.setData(QtCore.Qt.UserRole, csvName)
-        self._ui.csvlist.setItem(0,1,i)
-
-        # 3. csv per column
+        # 2. Get CSV as columns
         f = file(csvPath, "r")
         csvreader = csv.reader(f, delimiter=",")
         csvCol = {}
@@ -599,6 +592,13 @@ class DerandomizeGUI(QtGui.QMainWindow):
         for i in range(len(hIndexes)):
             hIndexes[i] = unicode(hIndexes[i], "utf-8", errors="ignore")
             csvCol[hIndexes[i]] = []
+
+        # Headers in Csv must be unique
+        if True in [x > 1 for x in collections.Counter(hIndexes).values()]:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error while Reading CSV")
+            errmsg.showMessage("Headers in CSV need to be unique")
+            return
 
         rowNum = 0
         for l in csvreader:
@@ -617,7 +617,18 @@ class DerandomizeGUI(QtGui.QMainWindow):
             if h not in colNames:
                 colNames.append(h)
 
-        # Add Csv name
+        # 3. Insert Csv to csvlist
+        self._ui.csvlist.insertRow(0)
+        i = QtGui.QTableWidgetItem("-")
+        i.setTextAlignment(QtCore.Qt.AlignCenter)
+        self._ui.csvlist.setItem(0, 0, i)
+
+        i = QtGui.QTableWidgetItem(csvName)
+        i.setTextAlignment(QtCore.Qt.AlignLeft)
+        i.setData(QtCore.Qt.UserRole, csvName)
+        self._ui.csvlist.setItem(0, 1, i)
+
+        # 4. Put csv to csv table
         fromRow = self._ui.csvtable.rowCount()
         l = [csvName] * rowNum
         self._addListTable_asCol(0, fromRow, l, self._ui.csvtable)
