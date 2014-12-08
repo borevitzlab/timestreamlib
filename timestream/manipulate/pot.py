@@ -1,5 +1,5 @@
 # Copyright 2006-2014 Tim Brown/TimeScience LLC
-# Copyright 2013-2014 Kevin Murray
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
 # Copyright 2014- The Australian National Univesity
 # Copyright 2014- Joel Granados
 #
