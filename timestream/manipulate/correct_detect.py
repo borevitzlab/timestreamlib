@@ -1,12 +1,30 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun 16 15:45:22 2014
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-@author: Chuong Nguyen, chuong.v.nguyen@gmail.com
+"""
+.. module:: timestream.manipulate.correct_detect
+    :platform: Unix, Windows
+    :synopsis: Image correction and feature detection
+
+.. moduleauthor:: Chuong Nguyen, Joel Granados
 """
 
 from __future__ import absolute_import, division
-
 import cv2
 import logging
 import warnings
@@ -14,20 +32,9 @@ import matplotlib.pylab as plt
 import numpy as np
 from scipy import optimize
 
+__author__  = 'Chuong Nguyen'
 
 LOG = logging.getLogger("timestreamlib")
-
-"""REVIEW COMMENTARY:
-
-KDM says:
-    - Use regex where appropriate, don't directly use string manipulation to
-      find numbers in strings.
-    - Let's move all the YML reading stuff to a new module at
-      timestream.parse.yml
-    - Remove commented out sections if they're not needed anymore, otherwise
-      uncomment them & use control flow constructs to run them conditionally.
-
-"""
 
 
 # RED GRN BLU

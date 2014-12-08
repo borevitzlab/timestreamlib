@@ -1,4 +1,7 @@
-# Copyright 2014 Kevin Murray
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +21,7 @@
     :platform: Unix, Windows
     :synopsis: A python library to manipulate TimeStreams
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray, Joel Granados, Chuong Nguyen
 """
 
 from copy import deepcopy
