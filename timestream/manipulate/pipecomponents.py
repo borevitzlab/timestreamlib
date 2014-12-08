@@ -1102,13 +1102,16 @@ class ResultingImageWriter(PipeComponent):
         # resizing. This is a fairly massive kludge at the moment, so FIXME
         # eventually.
         size = self.sizes[0]
-        pixels = self.img.pixels  # for readablitiy below
-        if isinstance(size, tuple):
-            # order=3 means bicubic interpolation.
-            pixels = skimage.transform.resize(pixels, size, order=3)
-        else:
-            pixels = skimage.transform.rescale(pixels, size, order=3)
-        self.img._pixels = pixels
+
+        # size == 1.0 means do nothing.
+        if size != 1.0:
+            pixels = self.img.pixels  # for readablitiy below
+            if isinstance(size, tuple):
+                # order=3 means bicubic interpolation.
+                pixels = skimage.transform.resize(pixels, size, order=3)
+            else:
+                pixels = skimage.transform.rescale(pixels, size, order=3)
+            self.img._pixels = pixels
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
