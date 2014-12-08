@@ -1037,6 +1037,51 @@ class ResultingImageWriter(PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
+        # FIXME: we eventually need to suport many sizes
+        if len(self.sizes) != 1:
+            raise PCExBadConfig(self.actName, self.meth,
+                                "We don't support multiple sizes yet")
+
+        # pre-make this exception as it is used frequently below
+        bad_size_exc = PCExBadConfig(self.actName, self.meth,
+                                     "Invalid sizes parameter %s" %
+                                     repr(self.sizes))
+
+        # we support strings, AS WELL as the easier to parse float/tuple
+        # straight from YAML
+        if isinstance(self.sizes[0], str):
+            if self.sizes[0].lower() == "fullres":
+                self.sizes[0] = 1.0  # scale to 100%, i.e. do nothing
+            if 'x' in self.sizes[0].lower():
+                try:
+                    # split on 'x', and convert to ints. Will raise ValueError
+                    # if they're not ints or there's != 2 items
+                    cols, rows = map(int,
+                                     self.sizes[0].lower().strip().split('x'))
+                    self.sizes[0] = (cols, rows)
+                except ValueError:
+                    raise bad_size_exc
+
+        # convert lists to tuples, as YML returns lists
+        if isinstance(self.sizes[0], list):
+            self.sizes[0] = tuple(self.sizes[0])
+
+        # ensure we have ints if we're specifying the resolution manually. Has
+        # to happen after the above call that converts lists to tuples, so we
+        # catch those is this conversion too.
+        if isinstance(self.sizes[0], tuple):
+            # format is (cols, rows), e.g. (1920, 1080)
+            if len(self.sizes[0]) != 2:
+                raise bad_size_exc
+            self.sizes[0] = tuple(map(int, self.sizes[0]))
+
+        # By now, we've converted all allowed inputs to either a tuple or a
+        # float, so we error if we're not one of those
+        if not isinstance(self.sizes[0], float) and
+                not isinstance(self.sizes[0], tuple):
+            raise bad_size_exc
+
+
     def __exec__(self, context, *args):
         """
         We change self.img.pixels just for the ts_out.write_image call.
@@ -1056,30 +1101,14 @@ class ResultingImageWriter(PipeComponent):
 
         # resizing. This is a fairly massive kludge at the moment, so FIXME
         # eventually.
-        if len(self.sizes) != 1:
-            raise PCExBadConfig(self.actName, self.meth,
-                                "We don't support multiple sizes yet")
         size = self.sizes[0]
-
-        if size != "fullres":
-            pixels = self.img.pixels  # for readablitiy below
-            # we've been given a ratio, use scaling
-            try:
-                size = float(size)
-                pixels = skimage.transform.rescale(pixels, size, order=3)
-            except ValueError:
-                try:
-                    cols, rows = size.lower().strip().split('x')
-                    cols = int(cols)
-                    rows = int(rows)
-                    pixels = skimage.transform.resize(pixels, (cols, rows),
-                                                      order=3)
-                except ValueError:
-                    raise PCExBadConfig(self.actName, self.meth,
-                                        "Invalid sizes parameter %s" %
-                                        repr(self.sizes))
-            # save the pixels back again
-            self.img._pixels = pixels
+        pixels = self.img.pixels  # for readablitiy below
+        if isinstance(size, tuple):
+            # order=3 means bicubic interpolation.
+            pixels = skimage.transform.resize(pixels, size, order=3)
+        else:
+            pixels = skimage.transform.rescale(pixels, size, order=3)
+        self.img._pixels = pixels
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
