@@ -24,6 +24,10 @@ class TestAllFilesWithExt(TestCase):
     _multiprocess_can_split_ = True
     maxDiff = None
 
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+
     def test_with_timestream_ext_jpg(self):
         res = all_files_with_ext(helpers.FILES["timestream"], "jpg")
         self.assertTrue(isgenerator(res))
@@ -70,11 +74,19 @@ class TestAllFilesWithExt(TestCase):
         with self.assertRaises(ValueError):
             list(all_files_with_ext(".", "jpg", cs="No"))
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestAllFilesWithExts(TestCase):
     """Test function timestream.parse.all_files_with_exts"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_with_timestream_ext_jpg(self):
         res = all_files_with_exts(helpers.FILES["timestream"],
@@ -94,11 +106,19 @@ class TestAllFilesWithExts(TestCase):
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"JPG": helpers.TS_FILES_JPG})
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestIterImages(TestCase):
     """Test function timestream.parse.ts_iter_images"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_good_timestream(self):
         """Test ts_iter_images with a timestream with a manifold"""
@@ -106,11 +126,19 @@ class TestIterImages(TestCase):
         self.assertTrue(isgenerator(res))
         self.assertListEqual(list(res), helpers.TS_FILES_JPG)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestGuessManifest(TestCase):
     """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_good_ts(self):
         got = ts_guess_manifest(helpers.FILES["timestream"])
@@ -122,11 +150,19 @@ class TestGuessManifest(TestCase):
         self.assertTrue(isinstance(got, dict))
         self.assertDictEqual(got, helpers.TS_DICT)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestGetImage(TestCase):
     """Test function timestream.parse.ts_get_image"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_get_image_good_str(self):
         """Test ts_get_image with a str date on a good timestream"""
@@ -173,6 +209,10 @@ class TestGetImage(TestCase):
             # bad subsecond param
             ts_get_image(helpers.FILES["timestream"],
                          helpers.TS_DATES[0], n="this should be an int")
+
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
 
 
 class TestParseDate(TestCase):
