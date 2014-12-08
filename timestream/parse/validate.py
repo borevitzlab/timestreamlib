@@ -16,9 +16,9 @@
 """
 .. module:: timestream.parse.validate
     :platform: Unix, Windows
-    :synopsis: Validate timestream JSON manifests
+    :synopsis: Validate timestream metadata
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray
 """
 
 from os import path

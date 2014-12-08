@@ -1,4 +1,6 @@
-# Copyright 2014 Kevin Murray
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray
+# Copyright 2014- The Australian National Univesity
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +20,9 @@
     :platform: Unix, Windows
     :synopsis: Access image metadata such as EXIF tags.
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray
 """
+
 import datetime
 import exifread as er
 from string import (
