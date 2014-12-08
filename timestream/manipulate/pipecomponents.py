@@ -1024,8 +1024,8 @@ class ResultingImageWriter(PipeComponent):
     argNames = {
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
-        "sizes": [False,
-            "Sizes to output. Either scaling ratios, COLSxROWS or 'fullres'",
+        "size": [False,
+            "Size to output. Either scaling ratios, COLSxROWS or 'fullres'",
             ["fullres"]],
         "addStats": [False, "List of statistics", []],
         "masked": [False, "Whether to output masked images", False]
@@ -1037,11 +1037,6 @@ class ResultingImageWriter(PipeComponent):
     def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
-        # FIXME: we eventually need to suport many sizes
-        if len(self.sizes) != 1:
-            raise PCExBadConfig(self.actName, self.meth,
-                                "We don't support multiple sizes yet")
-
         # pre-make this exception as it is used frequently below
         bad_size_exc = PCExBadConfig(self.actName, self.meth,
                                      "Invalid sizes parameter %s" %
@@ -1049,36 +1044,36 @@ class ResultingImageWriter(PipeComponent):
 
         # we support strings, AS WELL as the easier to parse float/tuple
         # straight from YAML
-        if isinstance(self.sizes[0], str):
-            if self.sizes[0].lower() == "fullres":
-                self.sizes[0] = 1.0  # scale to 100%, i.e. do nothing
-            if 'x' in self.sizes[0].lower():
+        if isinstance(self.size, str):
+            if self.size.lower() == "fullres":
+                self.size = 1.0  # scale to 100%, i.e. do nothing
+            if 'x' in self.size.lower():
                 try:
                     # split on 'x', and convert to ints. Will raise ValueError
                     # if they're not ints or there's != 2 items
                     cols, rows = map(int,
-                                     self.sizes[0].lower().strip().split('x'))
-                    self.sizes[0] = (cols, rows)
+                                     self.size.lower().strip().split('x'))
+                    self.size = (cols, rows)
                 except ValueError:
                     raise bad_size_exc
 
         # convert lists to tuples, as YML returns lists
-        if isinstance(self.sizes[0], list):
-            self.sizes[0] = tuple(self.sizes[0])
+        if isinstance(self.size, list):
+            self.size = tuple(self.size)
 
         # ensure we have ints if we're specifying the resolution manually. Has
         # to happen after the above call that converts lists to tuples, so we
         # catch those is this conversion too.
-        if isinstance(self.sizes[0], tuple):
+        if isinstance(self.size, tuple):
             # format is (cols, rows), e.g. (1920, 1080)
-            if len(self.sizes[0]) != 2:
+            if len(self.size) != 2:
                 raise bad_size_exc
-            self.sizes[0] = tuple(map(int, self.sizes[0]))
+            self.size = tuple(map(int, self.size))
 
         # By now, we've converted all allowed inputs to either a tuple or a
         # float, so we error if we're not one of those
-        if not isinstance(self.sizes[0], float) and
-                not isinstance(self.sizes[0], tuple):
+        if not isinstance(self.size, float) and
+                not isinstance(self.size, tuple):
             raise bad_size_exc
 
 
@@ -1099,18 +1094,14 @@ class ResultingImageWriter(PipeComponent):
                     masked=self.masked, features=self.addStats,
                     inSuper=True)
 
-        # resizing. This is a fairly massive kludge at the moment, so FIXME
-        # eventually.
-        size = self.sizes[0]
-
         # size == 1.0 means do nothing.
-        if size != 1.0:
+        if self.size != 1.0:
             pixels = self.img.pixels  # for readablitiy below
-            if isinstance(size, tuple):
+            if isinstance(self.size, tuple):
                 # order=3 means bicubic interpolation.
-                pixels = skimage.transform.resize(pixels, size, order=3)
+                pixels = skimage.transform.resize(pixels, self.size, order=3)
             else:
-                pixels = skimage.transform.rescale(pixels, size, order=3)
+                pixels = skimage.transform.rescale(pixels, self.size, order=3)
             self.img._pixels = pixels
 
         ts_out.write_image(self.img)
