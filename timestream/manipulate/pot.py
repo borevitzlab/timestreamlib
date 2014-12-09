@@ -16,7 +16,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import timestream.manipulate.plantSegmenter as tm_ps
@@ -344,12 +343,14 @@ class ImagePotHandler(object):
 
     def increaseRect(self, leftby=5, topby=5, rightby=5, bottomby=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([-leftby, -topby, rightby, bottomby])
+        r = self._rect.asList() + np.array([-leftby, -topby, rightby,
+                                            bottomby])
         self.rect = r
 
-    def reduceRect(self, leftby=5, tobby=5, rightby=5, bottom=5):
+    def reduceRect(self, leftby=5, topby=5, rightby=5, bottomby=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([leftby, topby, -rightby, -bottomby])
+        r = self._rect.asList() + np.array([leftby, topby, -rightby,
+                                            -bottomby])
         self.rect = r
 
     def calcFeatures(self, feats):
@@ -367,7 +368,7 @@ class ImagePotHandler(object):
         fc = self.fc
         for featName in feats:
             # calc the ones we don't have
-            if not featName in self._features.keys():
+            if featName not in self._features.keys():
                 featFunc = getattr(fc, featName)
                 try:
                     self._features[featName] = featFunc(msk, img=self._image)
