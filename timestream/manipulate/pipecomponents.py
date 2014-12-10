@@ -1072,7 +1072,7 @@ class ResultingImageWriter(PipeComponent):
 
         # By now, we've converted all allowed inputs to either a tuple or a
         # float, so we error if we're not one of those
-        if not isinstance(self.size, float) and
+        if not isinstance(self.size, float) and \
                 not isinstance(self.size, tuple):
             raise bad_size_exc
 
