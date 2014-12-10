@@ -1,0 +1,11 @@
+pipeline:
+- name: imagewrite
+  mess: '---Write image---'
+  outstream: -small
+  size: [50,30]
+
+outstreams:
+  - { name: -small }
+
+general:
+  visualise: False
