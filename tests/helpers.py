@@ -23,6 +23,8 @@ SKIP_NEED_FILE = "Test requires file {0}"
 
 PKG_DIR = path.dirname(path.dirname(__file__))
 TESTS_DIR = path.dirname(__file__)
+PIPELINES_DIR = path.join(path.dirname(TESTS_DIR), 'pipelines')
+SCRIPT_DIR = path.join(path.dirname(TESTS_DIR), 'scripts')
 
 FILES = {
     "basic_jpg": path.join(TESTS_DIR, "data", "cam_images", "IMG_0001.JPG"),
@@ -52,6 +54,8 @@ FILES = {
     "timestream_good_images": path.join(TESTS_DIR, "data", "timestreams",
                                         "timestream-good-images")
 }
+TMPDIR = FILES['tmp_dir']
+
 ZEROS_PIXELS = np.zeros((100, 100, 3), dtype="uint8")
 ZEROS_DATETIME = datetime.datetime(2013, 11, 12, 20, 53, 9)
 
@@ -152,7 +156,7 @@ def imgs_common_tsdir(act, fullpath, skip=None):
     if fullpath.endswith(os.sep):
         fullpath = fullpath[:-1]
     dirname = path.basename(fullpath)
-    outimg = np.ones((35, 52, 3))
+    outimg = np.ones((35, 52, 3), dtype='uint8')
 
     if act == "setup":
         for h in ["03", "04", "05", "06"]:
