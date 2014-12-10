@@ -363,7 +363,8 @@ class PCFGConfig(PCFGSection):
             "step. This is discouraged for normal use as it stops "
             "the pipeline.",
          "ex": "visualise: True"},
-        {"arg": "general.metas", "type": dict, "def": {}, "req": False,
+        {"arg": "general.metas", "type": PCFGSection,
+         "def": None, "req": False,
          "doc": "Each element detected in the image will have an id based "
             "on order of detection. This id will be the same for all "
             "images.general.metas allows the customization of this id "
@@ -533,59 +534,55 @@ class PCFGConfig(PCFGSection):
                              self.general.outputPrefix))
 
         # FIXME: Casts are inactive becausea JSON not able to handle pyobjects
-        # dateKeys = ["year", "month", "day", "hour", "minute", "second"]
+        dateKeys = ["year", "month", "day", "hour", "minute", "second"]
         if self.general.hasSubSecName("startDate") \
                 and not isinstance(self.general.startDate, datetime.datetime):
-            pass  # inactive
-            # sd = self.general.startDate
-            # if not isinstance(sd, dict):
-            #     raise PCFGExInvalidType(dict, type(sd))
-            # # Check for missing keys
-            # if False in [x in sd.keys() for x in dateKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in startDate".format(dateKeys))
+            sd = self.general.startDate
+            if not isinstance(sd, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(sd))
+            # Check for missing keys
+            if False in [x in sd.listSubSecNames() for x in dateKeys]:
+                raise PCFGException(
+                    "Missing one of {} in startDate".format(dateKeys))
             # sd = datetime.datetime(sd.year, sd.month, sd.day
             #                        sd.hour, sd.minute, sd.second)
             # self.general.startDate = sd
 
         if self.general.hasSubSecName("endDate") \
                 and not isinstance(self.general.endDate, datetime.datetime):
-            pass  # inactive
-            # ed = self.general.endDate
-            # if not isinstance(ed, dict):
-            #     raise PCFGExInvalidType(dict, type(ed))
-            # # Check for missing keys
-            # if False in [x in ed.keys() for x in dateKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in endDate".format(dateKeys))
+            ed = self.general.endDate
+            if not isinstance(ed, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(ed))
+            # Check for missing keys
+            if False in [x in ed.listSubSecNames() for x in dateKeys]:
+                raise PCFGException(
+                    "Missing one of {} in endDate".format(dateKeys))
             # ed = datetime.datetime(ed.year, ed.month, ed.day, \
             #                        ed.hour, ed.minute, ed.second)
             # self.general.endDate = ed
 
-        # timeKeys = ["hour", "minute", "second"]
+        timeKeys = ["hour", "minute", "second"]
         if self.general.hasSubSecName("startHourRange") \
                 and not isinstance(self.general.startHourRange, datetime.time):
-            pass  # inactive
-            # sr = self.general.startHourRange
-            # if not isinstance(sr, dict):
-            #     raise PCFGExInvalidType(dict, type(sr))
-            # # Check for missing keys
-            # if False in [x in sr.keys() for x in timeKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in startHourRange".format(timeKeys))
+            sr = self.general.startHourRange
+            if not isinstance(sr, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(sr))
+            # Check for missing keys
+            if False in [x in sr.listSubSecNames() for x in timeKeys]:
+                raise PCFGException(
+                    "Missing one of {} in startHourRange".format(timeKeys))
             # sr = datetime.time(sr.hour, sr.minute, sr.second)
             # self.general.startHourRange = sr
 
         if self.general.hasSubSecName("endHourRange") \
                 and not isinstance(self.general.endHourRange, datetime.time):
-            pass  # inactive
-            # er = self.general.endHourRange
-            # if not isinstance(er, dict):
-            #     raise PCFGExInvalidType(dict, type(er))
-            # # Check for missing keys
-            # if False in [x in er.keys() for x in timeKeys]:
-            #     raise PCFGException(
-            #         "Missing one of {} in endHourRange".format(timeKeys))
+            er = self.general.endHourRange
+            if not isinstance(er, PCFGSection):
+                raise PCFGExInvalidType(PCFGSection, type(er))
+            # Check for missing keys
+            if False in [x in er.listSubSecNames() for x in timeKeys]:
+                raise PCFGException(
+                    "Missing one of {} in endHourRange".format(timeKeys))
             # er = datetime.time(er.hour, er.minute, er.second)
             # self.general.endHourRange = er
 
@@ -646,13 +643,26 @@ class PCFGConfig(PCFGSection):
     def createSection(cls, confElems, depth, name):
         """ Initialize configuration sections from dictionary.
 
-        Stop recursion when value different than dict or list
+        continue recursion when (i) value is dict indexed by str only and (ii)
+        is list of name outstreams or pipeline.
         """
+
+        # FIXME: Introduce a new global section called components. Its function
+        # is to list components and ignore the order which they appear.
+        # Components shall be used when the user wants to add additional config
+        # parameters to the components present in pipeline. This is much better
+        # than directly listing them in timestream.yml. We create lists only
+        # for pipeline or outstreams so we don't have to change the config
+        # format.
         retVal = None
-        if isinstance(confElems, dict):
+        if isinstance(confElems, dict) \
+            and False not in [isinstance(x, str)
+                              for x in confElems.keys()]:  # all str keys
             retVal = PCFGSection(name)
             inds = confElems.keys()
-        elif isinstance(confElems, list):
+        elif isinstance(confElems, list) and \
+                (name == PCFGConfig.pipelineStr
+                 or name == PCFGConfig.outstreamsStr):
             retVal = PCFGListSection(name)
             inds = range(len(confElems))
         elif confElems is None:
