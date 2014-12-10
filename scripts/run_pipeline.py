@@ -30,7 +30,6 @@ import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
 import datetime
 from docopt import (docopt, DocoptExit)
-from PyQt4 import (QtGui, QtCore, uic)
 
 
 def genConfig(opts):
@@ -277,202 +276,210 @@ def maincli(opts):
         raise DocoptExit(str(re))
 
 
-class PipelineRunnerGUI(QtGui.QMainWindow):
-    class TextEditStream:
-        def __init__(self, sig):
-            self._sig = sig
+try:
+    from PyQt4 import (QtGui, QtCore, uic)
 
-        def write(self, m):
-            self._sig.emit(m)
+    class PipelineRunnerGUI(QtGui.QMainWindow):
+        class TextEditStream:
+            def __init__(self, sig):
+                self._sig = sig
 
-    class TextEditSignal(QtCore.QObject):
-        sig = QtCore.pyqtSignal(str)
+            def write(self, m):
+                self._sig.emit(m)
 
-    class ProgressSignal(QtCore.QObject):
-        sig = QtCore.pyqtSignal(int)  # offset of progress
+        class TextEditSignal(QtCore.QObject):
+            sig = QtCore.pyqtSignal(str)
 
-    class ThreadStopped(QtCore.QObject):
-        sig = QtCore.pyqtSignal()
+        class ProgressSignal(QtCore.QObject):
+            sig = QtCore.pyqtSignal(int)  # offset of progress
 
-    class PipelineThread(QtCore.QThread):
+        class ThreadStopped(QtCore.QObject):
+            sig = QtCore.pyqtSignal()
 
-        def __init__(self, plConf, ctx, ts, pl,
-                     log, prsig, stsig, parent=None):
-            QtCore.QThread.__init__(self, parent)
-            self._plConf = plConf
-            self._ctx = ctx
-            self._ts = ts
-            self._pl = pl
-            self._log = log
-            self._prsig = prsig
-            self._stsig = stsig
-            self._pr = None
-            self._running = False
+        class PipelineThread(QtCore.QThread):
 
-        def setRunning(self, val):
-            self._running = val
-            if self._pr is not None:
-                self._pr.running = self._running
+            def __init__(self, plConf, ctx, ts, pl,
+                         log, prsig, stsig, parent=None):
+                QtCore.QThread.__init__(self, parent)
+                self._plConf = plConf
+                self._ctx = ctx
+                self._ts = ts
+                self._pl = pl
+                self._log = log
+                self._prsig = prsig
+                self._stsig = stsig
+                self._pr = None
+                self._running = False
 
-        def run(self):
-            self._running = True
-            self._pr = PipelineRunner()
-            self._pr.runPipeline(self._plConf, self._ctx, self._ts,
-                                 self._pl, self._log, prsig=self._prsig,
-                                 stsig=self._stsig)
+            def setRunning(self, val):
+                self._running = val
+                if self._pr is not None:
+                    self._pr.running = self._running
 
-    def __init__(self, opts):
-        QtGui.QMainWindow.__init__(self)
-        self._ui = uic.loadUi("run_pipeline.ui")
-        self._opts = opts
-        self.tesig = PipelineRunnerGUI.TextEditSignal()
-        self.tesig.sig.connect(self._outputLog)
-        self.prsig = PipelineRunnerGUI.ProgressSignal()
-        self.prsig.sig.connect(self._updateProgress)
-        self.stsig = PipelineRunnerGUI.ThreadStopped()
-        self.stsig.sig.connect(self._threadstopped)
+            def run(self):
+                self._running = True
+                self._pr = PipelineRunner()
+                self._pr.runPipeline(self._plConf, self._ctx, self._ts,
+                                     self._pl, self._log, prsig=self._prsig,
+                                     stsig=self._stsig)
 
-        # Hide the progress bar stuff
-        self._ui.pbpl.setVisible(False)
-        self._ui.bCancel.setVisible(False)
+        def __init__(self, opts):
+            QtGui.QMainWindow.__init__(self)
+            self._ui = uic.loadUi("run_pipeline.ui")
+            self._opts = opts
+            self.tesig = PipelineRunnerGUI.TextEditSignal()
+            self.tesig.sig.connect(self._outputLog)
+            self.prsig = PipelineRunnerGUI.ProgressSignal()
+            self.prsig.sig.connect(self._updateProgress)
+            self.stsig = PipelineRunnerGUI.ThreadStopped()
+            self.stsig.sig.connect(self._threadstopped)
 
-        # buttons
-        self._ui.bCancel.clicked.connect(self._cancelRunPipeline)
-        self._ui.bRunPipe.clicked.connect(self._runPipeline)
-        self._ui.bAddInput.clicked.connect(self._addInput)
-        self._ui.bAddOutput.clicked.connect(self._addOutput)
-        self._ui.bPipeConfig.clicked.connect(self._addPipeline)
-        self._ui.bTSConfig.clicked.connect(self._addTimeStream)
+            # Hide the progress bar stuff
+            self._ui.pbpl.setVisible(False)
+            self._ui.bCancel.setVisible(False)
 
-        # pipeline thread
-        self._plthread = None
-        self._ui.show()
+            # buttons
+            self._ui.bCancel.clicked.connect(self._cancelRunPipeline)
+            self._ui.bRunPipe.clicked.connect(self._runPipeline)
+            self._ui.bAddInput.clicked.connect(self._addInput)
+            self._ui.bAddOutput.clicked.connect(self._addOutput)
+            self._ui.bPipeConfig.clicked.connect(self._addPipeline)
+            self._ui.bTSConfig.clicked.connect(self._addTimeStream)
 
-    def _addDir(self):
-        D = QtGui.QFileDialog.getExistingDirectory(
-            self, "Select Directory", "",
-            QtGui.QFileDialog.ShowDirsOnly
-            | QtGui.QFileDialog.DontResolveSymlinks)
-        if D == "":  # Handle the cancel
-            return ""
+            # pipeline thread
+            self._plthread = None
+            self._ui.show()
 
-        D = os.path.realpath(str(D))
-        if not os.path.isdir(D):
-            errmsg = QtGui.QErrorMessage(self)
-            errmsg.showMessage("Directory {} does not exist".format(D))
-            return ""
-        else:
-            return D
+        def _addDir(self):
+            D = QtGui.QFileDialog.getExistingDirectory(
+                self, "Select Directory", "",
+                QtGui.QFileDialog.ShowDirsOnly
+                | QtGui.QFileDialog.DontResolveSymlinks)
+            if D == "":  # Handle the cancel
+                return ""
 
-    def _addFile(self):
-        F = QtGui.QFileDialog.getOpenFileName(
-            self, "Select YAML configuration", "", "CSV (*.yml *.yaml)")
-        if F == "":
-            return ""
+            D = os.path.realpath(str(D))
+            if not os.path.isdir(D):
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.showMessage("Directory {} does not exist".format(D))
+                return ""
+            else:
+                return D
 
-        if not os.path.isfile(F):
-            errmsg = QtGui.QErrorMessage(self)
-            errmsg.showMessage("{} is not a file".format(F))
-            return ""
-        else:
-            return F
+        def _addFile(self):
+            F = QtGui.QFileDialog.getOpenFileName(
+                self, "Select YAML configuration", "", "CSV (*.yml *.yaml)")
+            if F == "":
+                return ""
 
-    def _addInput(self):
-        tsdir = self._addDir()
-        if tsdir != "":
-            self._opts["-i"] = str(tsdir)
-            self._ui.leInput.setText(str(tsdir))
-        else:
-            del(self._opts["-i"])
-            self._ui.leInput.setText("")
-        return tsdir
+            if not os.path.isfile(F):
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.showMessage("{} is not a file".format(F))
+                return ""
+            else:
+                return F
 
-    def _addOutput(self):
-        outdir = self._addDir()
-        if outdir != "":
-            self._opts["-o"] = str(outdir)
-            self._ui.leOutput.setText(str(outdir))
-        else:
-            del(self._opts["-o"])
-            self._ui.leOutput.setText("Default")
-        return outdir
+        def _addInput(self):
+            tsdir = self._addDir()
+            if tsdir != "":
+                self._opts["-i"] = str(tsdir)
+                self._ui.leInput.setText(str(tsdir))
+            else:
+                del(self._opts["-i"])
+                self._ui.leInput.setText("")
+            return tsdir
 
-    def _addPipeline(self):
-        plfile = self._addFile()
-        if plfile != "":
-            self._opts["-p"] = str(plfile)
-            self._ui.lePipeConfig.setText(str(plfile))
-        else:
-            del(self._opts["-p"])
-            self._ui.lePipeConfig.setText("Default")
-        return plfile
+        def _addOutput(self):
+            outdir = self._addDir()
+            if outdir != "":
+                self._opts["-o"] = str(outdir)
+                self._ui.leOutput.setText(str(outdir))
+            else:
+                del(self._opts["-o"])
+                self._ui.leOutput.setText("Default")
+            return outdir
 
-    def _addTimeStream(self):
-        tsfile = self._addFile()
-        if tsfile != "":
-            self._opts["-t"] = str(tsfile)
-            self._ui.leTSConfig.setText(str(tsfile))
-        else:
-            del(self._opts["-t"])
-            self._ui.leTSConfig.setText("Default")
-        return tsfile
+        def _addPipeline(self):
+            plfile = self._addFile()
+            if plfile != "":
+                self._opts["-p"] = str(plfile)
+                self._ui.lePipeConfig.setText(str(plfile))
+            else:
+                del(self._opts["-p"])
+                self._ui.lePipeConfig.setText("Default")
+            return plfile
 
-    def _cancelRunPipeline(self):
-        if self._plthread is not None:
-            self._plthread.setRunning(False)
+        def _addTimeStream(self):
+            tsfile = self._addFile()
+            if tsfile != "":
+                self._opts["-t"] = str(tsfile)
+                self._ui.leTSConfig.setText(str(tsfile))
+            else:
+                del(self._opts["-t"])
+                self._ui.leTSConfig.setText("Default")
+            return tsfile
 
-    def _threadstopped(self):
-        self._ui.pbpl.setValue(self._ui.pbpl.maximum())
-        self._ui.pbpl.setVisible(False)
-        self._ui.bCancel.setVisible(False)
+        def _cancelRunPipeline(self):
+            if self._plthread is not None:
+                self._plthread.setRunning(False)
 
-    def _outputLog(self, m):
-        self._ui.teOutput.append(QtCore.QString(m))
+        def _threadstopped(self):
+            self._ui.pbpl.setValue(self._ui.pbpl.maximum())
+            self._ui.pbpl.setVisible(False)
+            self._ui.bCancel.setVisible(False)
 
-    def _updateProgress(self, i):
-        self._ui.pbpl.setValue(i)
-        QtGui.qApp.processEvents()
+        def _outputLog(self, m):
+            self._ui.teOutput.append(QtCore.QString(m))
 
-    def _runPipeline(self):
-        if self._plthread is not None and self._plthread._running:
-            return
+        def _updateProgress(self, i):
+            self._ui.pbpl.setValue(i)
+            QtGui.qApp.processEvents()
 
-        if "-i" not in self._opts.keys() or self._opts["-i"] is None:
-            retVal = self._addInput()
-            if retVal == "":
+        def _runPipeline(self):
+            if self._plthread is not None and self._plthread._running:
                 return
 
-        # log to QTextEdit
-        stream = PipelineRunnerGUI.TextEditStream(self.tesig.sig)
-        outlog = timestream.add_log_handler(
-            stream=stream,
-            verbosity=timestream.LOGV.VV)
-        if outlog is os.devnull:
-            errmsg = QtGui.QErrorMessage(self)
-            errmsg.showMessage("Error setting up output to TextEdit")
-            return
-        LOG = logging.getLogger("timestreamlib")
+            if "-i" not in self._opts.keys() or self._opts["-i"] is None:
+                retVal = self._addInput()
+                if retVal == "":
+                    return
 
-        plConf, ctx, pl, ts = initPipeline(LOG, self._opts)
+            # log to QTextEdit
+            stream = PipelineRunnerGUI.TextEditStream(self.tesig.sig)
+            outlog = timestream.add_log_handler(
+                stream=stream,
+                verbosity=timestream.LOGV.VV)
+            if outlog is os.devnull:
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.showMessage("Error setting up output to TextEdit")
+                return
+            LOG = logging.getLogger("timestreamlib")
 
-        self._ui.pbpl.setVisible(True)
-        self._ui.bCancel.setVisible(True)
-        self._ui.pbpl.setMinimum(0)
-        self._ui.pbpl.setMaximum(len(ts.timestamps))
-        self._ui.pbpl.reset()
+            plConf, ctx, pl, ts = initPipeline(LOG, self._opts)
 
-        self._plthread = PipelineRunnerGUI.PipelineThread(
-            plConf, ctx, ts, pl, LOG, self.prsig.sig,
-            self.stsig.sig, parent=self)
-        self._plthread.start()
+            self._ui.pbpl.setVisible(True)
+            self._ui.bCancel.setVisible(True)
+            self._ui.pbpl.setMinimum(0)
+            self._ui.pbpl.setMaximum(len(ts.timestamps))
+            self._ui.pbpl.reset()
+
+            self._plthread = PipelineRunnerGUI.PipelineThread(
+                plConf, ctx, ts, pl, LOG, self.prsig.sig,
+                self.stsig.sig, parent=self)
+            self._plthread.start()
 
 
-def maingui(opts):
-    app = QtGui.QApplication(sys.argv)
-    PipelineRunnerGUI(opts)
-    app.exec_()
-    app.deleteLater()
-    sys.exit()
+    def maingui(opts):
+        app = QtGui.QApplication(sys.argv)
+        PipelineRunnerGUI(opts)
+        app.exec_()
+        app.deleteLater()
+        sys.exit()
+
+except ImportError:
+    def maingui(opts):
+        print("PyQT4 must be installed to run the GUI. Please install first")
+        sys.exit(1)
 
 
 def maindoc(opts):
