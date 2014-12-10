@@ -13,15 +13,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+import glob
 from os import path
-import numpy
 import shutil
 import subprocess
-import sys
 import textwrap
 from unittest import TestCase
-import warnings
 
 from tests import helpers
 from tests.helpers import (
@@ -30,8 +27,6 @@ from tests.helpers import (
     SCRIPT_DIR,
     TMPDIR,
 )
-from timestream import TimeStreamImage
-from timestream.manipulate.pot import ImagePotMatrix
 
 
 class PipelineRunTestcase(TestCase):
@@ -48,7 +43,7 @@ class PipelineRunTestcase(TestCase):
                '-o', self.tmp_out,
                '-p', path.join(PIPELINES_DIR, ymlfile),
                '-s',
-        ]
+               ]
         subprocess.check_call(cmd, stderr=subprocess.STDOUT)
 
     def _run_yaml_str(self, ymlstr):
@@ -65,19 +60,26 @@ class PipelineRunTestcase(TestCase):
                '-o', self.tmp_out,
                '-p', ymlfile,
                '-s',
-        ]
+               ]
         subprocess.check_call(cmd, stderr=subprocess.STDOUT)
 
     def tearDown(self):
         if path.isdir(self.tmp_out):
             shutil.rmtree(self.tmp_out)
 
-class TestPipelinesInPLDir(PipelineRunTestcase):
 
-    def test_full(self):
-        self._run_pipeline_yaml('full.yml')
+class TestPipelinesInPLDir(PipelineRunTestcase):
+    """Ensure all demo pipelines work with test dataset"""
+
+    def test_all_demo_pipelines(self):
+        """Ensure all demo pipelines work with test dataset"""
+        for config in glob.glob(path.join(PIPELINES_DIR, '*.yml')):
+            self._run_pipeline_yaml(config)
+
 
 class TestResizingPipelines(PipelineRunTestcase):
+    """Test the resizing in ResultingImageWriter"""
+
     fs = """\
     pipeline:
     - name: imagewrite
@@ -96,15 +98,17 @@ class TestResizingPipelines(PipelineRunTestcase):
         self._run_yaml_str(self.fs % size)
 
     def test_resize_xy(self):
+        """Test the resizing in ResultingImageWriter with cols x rows"""
         self._test_resize_pl('[50,30]')
         self._test_resize_pl('50x30')
 
     def test_resize_float(self):
+        """Test the resizing in ResultingImageWriter with scaling factor"""
         self._test_resize_pl('1.5')
         self._test_resize_pl('0.5')
         self._test_resize_pl('0.1')
 
     def test_resize_fullsize(self):
+        """Test the resizing in ResultingImageWriter with no resizing"""
         self._test_resize_pl('1.0')
         self._test_resize_pl('fullres')
-
