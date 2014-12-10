@@ -1026,7 +1026,7 @@ class ResultingImageWriter(PipeComponent):
         "outstream": [True, "Name of stream to use"],
         "size": [False,
             "Size to output. Either scaling ratios, COLSxROWS or 'fullres'",
-            ["fullres"]],
+            "fullres"],
         "addStats": [False, "List of statistics", []],
         "masked": [False, "Whether to output masked images", False]
     }
@@ -1038,16 +1038,16 @@ class ResultingImageWriter(PipeComponent):
         super(ResultingImageWriter, self).__init__(**kwargs)
 
         # pre-make this exception as it is used frequently below
-        bad_size_exc = PCExBadConfig(self.actName, self.meth,
+        bad_size_exc = PCExBadConfig(self.actName, '',
                                      "Invalid sizes parameter %s" %
-                                     repr(self.sizes))
+                                     repr(self.size))
 
         # we support strings, AS WELL as the easier to parse float/tuple
         # straight from YAML
         if isinstance(self.size, str):
             if self.size.lower() == "fullres":
                 self.size = 1.0  # scale to 100%, i.e. do nothing
-            if 'x' in self.size.lower():
+            elif 'x' in self.size.lower():
                 try:
                     # split on 'x', and convert to ints. Will raise ValueError
                     # if they're not ints or there's != 2 items
@@ -1076,7 +1076,6 @@ class ResultingImageWriter(PipeComponent):
                 not isinstance(self.size, tuple):
             raise bad_size_exc
 
-
     def __exec__(self, context, *args):
         """
         We change self.img.pixels just for the ts_out.write_image call.
@@ -1102,7 +1101,7 @@ class ResultingImageWriter(PipeComponent):
                 pixels = skimage.transform.resize(pixels, self.size, order=3)
             else:
                 pixels = skimage.transform.rescale(pixels, self.size, order=3)
-            self.img._pixels = pixels
+            self.img._pixels = pixels.astype('uint8')
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
