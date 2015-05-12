@@ -478,7 +478,8 @@ class PotDetector (PipeComponent):
         "potPositions": [True, "Estimated pot positions"],
         "potSize": [True, "Estimated pot size"],
         "traySize": [True, "Estimated tray size"],
-        "settingPath": [True, "Path to setting files"]}
+        "settingPath": [True, "Path to setting files"],
+        "startingPotId": [False, "Starting offset for pot IDs", 1]}
 
     runExpects = [TimeStreamImage, list, list]
     runReturns = [TimeStreamImage]
@@ -585,7 +586,7 @@ class PotDetector (PipeComponent):
             pots=[],
             growM=growM,
             ipmPrev=ipmPrev)
-        potID = 1
+        potID = self.startingPotId
         for tray in self.potLocs2:
             trayID = 1
             for center in tray:
