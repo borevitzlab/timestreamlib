@@ -287,7 +287,7 @@ pipeline.yml example
 
     general:
       startDate: { year: 2014, month: 06, day: 25, hour: 9, minute: 0, second: 0}
-      enddate: {}
+      endDate: {}
       startHourRange: { hour: 9, minute: 0, second: 0}
       endHourRange: { hour: 15, minute: 0, second: 0}
       timeInterval: 900

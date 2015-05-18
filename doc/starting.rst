@@ -46,6 +46,18 @@ Windows
 
  * ``pyparsing``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#pyparsing>`_.
 
+ * ``voluptuous``: `<https://pypi.python.org/pypi/voluptuous>`_.
+
+ * ``coverage``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#coverage>`_.
+
+ * ``wand``: `<https://pypi.python.org/pypi/Wand>`_.
+
+ * ``exifread``: `<https://pypi.python.org/pypi/ExifRead>`_.
+
+ * ``pillow``: `<http://www.lfd.uci.edu/~gohlke/pythonlibs/#pillow`_.
+
+ * ``docopt``: `<https://pypi.python.org/pypi/docopt>`_.
+
 .. _installing-windows-timestreamlib:
 
 **Installing timestreamlib**
