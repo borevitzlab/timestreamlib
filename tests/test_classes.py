@@ -41,6 +41,8 @@ class TestTimeStreamStr(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def _check_ts_instance_ts_v1(self, ts_path):
@@ -63,6 +65,8 @@ class TestTimeStreamLoad(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
         helpers.imgs_common_tsdir("setup",
                                   helpers.FILES["timestream_datafldr"])
@@ -200,6 +204,8 @@ class TestTimeStreamImagePathAssing(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_ts_image_path_assign(self):
@@ -275,6 +281,8 @@ class TestTimeStreamIterByFiles(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_iter_by_files(self):
@@ -303,6 +311,8 @@ class TestTimeStreamIterByTimepoints(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
         helpers.imgs_common_tsdir("setup", helpers.FILES["timestream_gaps"],
                                   skip=[("04", "30"), ("05", "30")])
