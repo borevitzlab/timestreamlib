@@ -16,15 +16,14 @@
 import glob
 from os import path
 import shutil
-import subprocess
 import textwrap
 from unittest import TestCase
+from run_pipeline import maincli
 
 from tests import helpers
 from tests.helpers import (
     FILES,
     PIPELINES_DIR,
-    SCRIPT_DIR,
     TMPDIR,
 )
 
@@ -37,14 +36,15 @@ class PipelineRunTestcase(TestCase):
         self.tmp_out = path.join(TMPDIR, 'out')
 
     def _run_pipeline_yaml(self, ymlfile):
+        yml_opts = {'--comp': False, '--conf': False, '--doc': False,
+                    '--gui': False, '--help': False, '--logfile': None,
+                    '--recalculate': False, '--set': None,
+                    '-i': self.tmp_in,
+                    '-o': self.tmp_out,
+                    '-p': path.join(PIPELINES_DIR, ymlfile),
+                    '-s': True, '-t': None, '-v': 0}
 
-        cmd = ['python', path.join(SCRIPT_DIR, 'run_pipeline.py'),
-               '-i', self.tmp_in,
-               '-o', self.tmp_out,
-               '-p', path.join(PIPELINES_DIR, ymlfile),
-               '-s',
-               ]
-        subprocess.check_call(cmd, stderr=subprocess.STDOUT)
+        maincli(yml_opts)
 
     def _run_yaml_str(self, ymlstr):
         # NB: you have to start the 'pipeline:' bit on a new line, indented
@@ -55,13 +55,15 @@ class PipelineRunTestcase(TestCase):
         with open(ymlfile, 'w') as ymlfh:
             ymlfh.write(ymlstr + '\n')  # Extra newline, just in case
 
-        cmd = ['python', path.join(SCRIPT_DIR, 'run_pipeline.py'),
-               '-i', self.tmp_in,
-               '-o', self.tmp_out,
-               '-p', ymlfile,
-               '-s',
-               ]
-        subprocess.check_call(cmd, stderr=subprocess.STDOUT)
+        yml_opts = {'--comp': False, '--conf': False, '--doc': False,
+                    '--gui': False, '--help': False, '--logfile': None,
+                    '--recalculate': False, '--set': None,
+                    '-i': self.tmp_in,
+                    '-o': self.tmp_out,
+                    '-p': ymlfile,
+                    '-s': True, '-t': None, '-v': 0}
+
+        maincli(yml_opts)
 
     def tearDown(self):
         if path.isdir(self.tmp_out):
