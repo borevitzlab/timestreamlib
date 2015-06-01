@@ -436,7 +436,7 @@ class PCFGConfig(PCFGSection):
                              PCFGSection(PCFGConfig.generalStr))
         if not tmpSubSec.hasSubSecName(PCFGConfig.outstreamsStr):
             tmpSubSec.setVal(PCFGConfig.outstreamsStr,
-                             PCFGSection(PCFGConfig.outstreamsStr))
+                             PCFGListSection(PCFGConfig.outstreamsStr))
         for subSecName in tmpSubSec.listSubSecNames():
             if subSecName != PCFGConfig.pipelineStr and \
                     subSecName != PCFGConfig.generalStr and \
