@@ -252,7 +252,7 @@ class ColorCardDetector (PipeComponent):
             return([self.image, [None, None, None]])
         if not self.useWhiteBackground:
             self.imagePyramid = cd.createImagePyramid(self.image)
-            ccdImg = read_image(self.ccf)
+            ccdImg = read_image(self.ccf)[:, :, 0:3]
             if ccdImg is None:
                 raise PCExBreakInPipeline(self.actName,
                                           "Failed to read %s" % self.ccf)
@@ -431,6 +431,7 @@ class TrayDetector (PipeComponent):
             if trayImage is None:
                 LOG.error("Fail to read", trayFile)
             trayImage[:, :, 1] = 0  # suppress green channel
+            trayImage = trayImage[:, :, 0:3]  # supress Alpha channel
             trayPyramid = cd.createImagePyramid(trayImage)
             self.trayPyramids.append(trayPyramid)
 
