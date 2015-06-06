@@ -39,6 +39,12 @@ class PCFGException(Exception):
         return "Pipeline Configuration Error: %s" % self.message
 
 
+class PCFGExOnLoadConfig(PCFGException):
+
+    def __init__(self, path):
+        self.message = "Error loading %s configuration" % path
+
+
 class PCFGExInvalidSubsection(PCFGException):
 
     def __init__(self, name):
@@ -639,12 +645,18 @@ class PCFGConfig(PCFGSection):
 
         # To load from another config format create a loadFrom function
         confDict = None
+        confLoaded = False
         for func in [loadFromYaml]:
             try:
                 confDict = func(configFile)
+                confLoaded = True
             except:
                 continue
             break
+
+        if not confLoaded:
+            raise PCFGExOnLoadConfig(configFile)
+
         return confDict
 
     @classmethod

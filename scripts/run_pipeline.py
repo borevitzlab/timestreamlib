@@ -272,8 +272,8 @@ def maincli(opts):
 
         pr = PipelineRunner()
         pr.runPipeline(plConf, ctx, ts, pl, LOG)
-    except RuntimeError as re:
-        raise DocoptExit(str(re))
+    except Exception as e:
+        raise DocoptExit(str(e))
 
 
 try:
