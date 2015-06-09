@@ -1030,62 +1030,19 @@ class ResultingFeatureWriter(PipeComponent):
         fd.close()
 
 
-class ResultingImageWriter(PipeComponent):
+class ResultingImageWriter (PipeComponent):
     actName = "imagewrite"
     argNames = {
         "mess": [False, "Output Message", "Writing Image"],
         "outstream": [True, "Name of stream to use"],
-        "size": [False,
-            "Size to output. Either scaling ratios, COLSxROWS or 'fullres'",
-            "fullres"],
         "addStats": [False, "List of statistics", []],
-        "masked": [False, "Whether to output masked images", False]
-    }
+        "masked": [False, "Whether to output masked images", False]}
 
     runExpects = [TimeStreamImage]
     runReturns = [None]
 
     def __init__(self, context, **kwargs):
         super(ResultingImageWriter, self).__init__(**kwargs)
-
-        # pre-make this exception as it is used frequently below
-        bad_size_exc = PCExBadConfig(self.actName, '',
-                                     "Invalid sizes parameter %s" %
-                                     repr(self.size))
-
-        # we support strings, AS WELL as the easier to parse float/tuple
-        # straight from YAML
-        if isinstance(self.size, str):
-            if self.size.lower() == "fullres":
-                self.size = 1.0  # scale to 100%, i.e. do nothing
-            elif 'x' in self.size.lower():
-                try:
-                    # split on 'x', and convert to ints. Will raise ValueError
-                    # if they're not ints or there's != 2 items
-                    cols, rows = map(int,
-                                     self.size.lower().strip().split('x'))
-                    self.size = (cols, rows)
-                except ValueError:
-                    raise bad_size_exc
-
-        # convert lists to tuples, as YML returns lists
-        if isinstance(self.size, list):
-            self.size = tuple(self.size)
-
-        # ensure we have ints if we're specifying the resolution manually. Has
-        # to happen after the above call that converts lists to tuples, so we
-        # catch those is this conversion too.
-        if isinstance(self.size, tuple):
-            # format is (cols, rows), e.g. (1920, 1080)
-            if len(self.size) != 2:
-                raise bad_size_exc
-            self.size = tuple(map(int, self.size))
-
-        # By now, we've converted all allowed inputs to either a tuple or a
-        # float, so we error if we're not one of those
-        if not isinstance(self.size, float) and \
-                not isinstance(self.size, tuple):
-            raise bad_size_exc
 
     def __exec__(self, context, *args):
         """
@@ -1103,16 +1060,6 @@ class ResultingImageWriter(PipeComponent):
                 self.img.pixels = iph.getImage(
                     masked=self.masked, features=self.addStats,
                     inSuper=True)
-
-        # size == 1.0 means do nothing.
-        if self.size != 1.0:
-            pixels = self.img.pixels  # for readablitiy below
-            if isinstance(self.size, tuple):
-                # order=3 means bicubic interpolation.
-                pixels = skimage.transform.resize(pixels, self.size, order=3)
-            else:
-                pixels = skimage.transform.rescale(pixels, self.size, order=3)
-            self.img._pixels = pixels.astype('uint8')
 
         ts_out.write_image(self.img)
         ts_out.write_metadata()
@@ -1357,9 +1304,6 @@ class ResizeAndWriteImage (PipeComponent):
         "mess": [False, "Output Message", "Resizing and Writing Image"],
         "resolution": [False, "Resolution, scale factor or None", None],
         "outstream": [True, "Name of stream to use"],
-        "size": [False,
-            "Size to output. Either scaling ratios, COLSxROWS or 'fullres'",
-            "fullres"],
         "addStats": [False, "List of statistics", []],
         "masked": [False, "Whether to output masked images", False]
     }
