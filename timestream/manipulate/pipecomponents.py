@@ -113,7 +113,8 @@ class PipeComponent (object):
         # Only PCExceptions get propagated correctly through the pipeline. Here
         # we translate "general" exceptions into a PCException.
         try:
-            LOG.info(self.mess)
+            if len(self.mess) > 0:
+                LOG.info(self.mess)
             retVal = self.__exec__(context, *args)
         except RIException as rie:
             raise PCExCorruptImage(rie.path)
@@ -1346,3 +1347,37 @@ class DerandomizeTimeStreams (PipeComponent):
                 maxPotPerMid = len(self._mids[mid])
 
         return maxPotPerMid
+
+
+class ResizeAndWriteImage (PipeComponent):
+    actName = "resizeAndWriteImage"
+    # For now we have resolution and size because the image writer also wants
+    # to resize. We should remove size when we fix image write.
+    argNames = {
+        "mess": [False, "Output Message", "Resizing and Writing Image"],
+        "resolution": [False, "Resolution, scale factor or None", None],
+        "outstream": [True, "Name of stream to use"],
+        "size": [False,
+            "Size to output. Either scaling ratios, COLSxROWS or 'fullres'",
+            "fullres"],
+        "addStats": [False, "List of statistics", []],
+        "masked": [False, "Whether to output masked images", False]
+    }
+
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(ResizeAndWriteImage, self).__init__(**kwargs)
+        kwargs["mess"] = ""
+        self.resizeImage = ResizeImage(context, **kwargs)
+        self.resultingImageWriter = ResultingImageWriter(context, **kwargs)
+
+    def __exec__(self, context, *args):
+        res = self.resizeImage(context, *[args[0].clone(copy_pixels=True)])
+        self.resultingImageWriter(context, *res)
+        return args
+
+    def show(self):
+        self.resizeImage.show()
+        self.resultingImageWriter.show()

@@ -40,6 +40,7 @@ from timestream.manipulate.pipecomponents import (
     ResultingImageWriter,
     DerandomizeTimeStreams,
     ResizeImage,
+    ResizeAndWriteImage,
 )
 
 
@@ -56,7 +57,8 @@ class ImagePipeline (object):
         FeatureExtractor.actName: FeatureExtractor,
         ResultingFeatureWriter.actName: ResultingFeatureWriter,
         DerandomizeTimeStreams.actName: DerandomizeTimeStreams,
-        ResizeImage.actName: ResizeImage
+        ResizeImage.actName: ResizeImage,
+        ResizeAndWriteImage.actName: ResizeAndWriteImage
     }
 
     def __init__(self, plConf, context):
