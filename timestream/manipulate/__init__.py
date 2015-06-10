@@ -113,3 +113,12 @@ class PCExCorruptImage(PCException):
     def __init__(self, path):
         """Raised when receiving an error on image read"""
         self.message = "Image at path %s is corrupted" % path
+
+
+class PCExUndefinedMeta(PCException):
+    id = 9
+    doc = """A meta id is undefined for a pot. Check metas in config."""
+
+    def __init__(self, potId, metaId):
+        """Raised when a pot is missing from the meta list"""
+        self.message = "Pot %s is missing %s" % (potId, metaId)

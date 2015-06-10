@@ -147,6 +147,7 @@ def genContext(plConf):
 
     ctx.setVal("outputPrefixPath", plConf.general.outputPrefixPath)
     ctx.setVal("outputPrefix", plConf.general.outputPrefix)
+    ctx.setVal("metas", plConf.general.metas)
 
     if not ctx.hasSubSecName("outts"):
         raise RuntimeError("Could not identify output timestreams")

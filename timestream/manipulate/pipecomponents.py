@@ -54,6 +54,7 @@ from timestream.manipulate import (
     PCExBadConfig,
     PCExBadContext,
     PCExCorruptImage,
+    PCExUndefinedMeta,
 )
 
 
@@ -591,12 +592,11 @@ class PotDetector (PipeComponent):
         potID = self.startingPotId
         for tray in self.potLocs2:
             trayID = 1
-            for center in tray:
-                r = tm_pot.ImagePotRectangle(
-                    center,
-                    tsi.pixels.shape,
-                    growM=growM)
-                p = tm_pot.ImagePotHandler(potID, r, tsi.ipm)
+            for c in tray:  # c => center
+                m = dict([[x, context.metas.getVal(x)[potID]]
+                        for x in context.metas.listSubSecNames()])
+                r = tm_pot.ImagePotRectangle(c, tsi.pixels.shape, growM=growM)
+                p = tm_pot.ImagePotHandler(potID, r, tsi.ipm, metaids=m)
                 p.setMetaId("trayID", trayID)
                 tsi.ipm.addPot(p)
                 potID += 1
@@ -779,7 +779,8 @@ class ResultingFeatureWriter(PipeComponent):
         "overwrite": [False, "Whether to overwrite out files", False],
         "ext": [False, "Output Extension", "csv"],
         "outname": [False, "String to append to outputPrefixPath", None],
-        "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_00"]
+        "timestamp": [False, "Timestamp format", "%Y_%m_%d_%H_%M_%S_00"],
+        "extraheaders": [False, "Extra headers to include.", []]
     }
 
     runExpects = [TimeStreamImage]
@@ -850,12 +851,7 @@ class ResultingFeatureWriter(PipeComponent):
         potIds = sorted(ipm.potIds)  # Sorted to easily append
         for fName, fPath in self._featFiles.iteritems():
             if not os.path.exists(fPath):  # we initialize it.
-                fd = open(fPath, "w+")
-                fd.write(ResultingFeatureWriter.tsHName)
-                for potId in potIds:
-                    fd.write(",%s" % potId)
-                fd.write("\n")
-                fd.close()
+                self._initHeaders(fPath, ipm, potIds)
 
             outputline = None
             if not self.overwrite:  # Search in previous csvs
@@ -993,6 +989,25 @@ class ResultingFeatureWriter(PipeComponent):
             os.remove(tsf)
 
         return l
+
+    def _initHeaders(self, fPath, ipm, potIds):
+        fd = open(fPath, "w+")
+        for eh in self.extraheaders:
+            outputline = str(eh)
+            for potId in potIds:
+                try:
+                    outputline += "," + str(ipm.getPot(potId).getMetaId(eh))
+                except IndexError:
+                    raise PCExUndefinedMeta(potId, eh)
+            outputline += "\n"
+            fd.write(outputline)
+
+        outputline = str(self.tsHName)
+        for potId in potIds:
+            outputline += "," + str(potId)
+        outputline += "\n"
+        fd.write(outputline)
+        fd.close()
 
     def _initPrevCsvIndex(self):
         """ Ths structure of self._prevCsvIndex:
