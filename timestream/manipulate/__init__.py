@@ -30,6 +30,7 @@ from sys import stderr
 
 class PCException(Exception):
     id = 0
+    doc = """Exception: General Pipeline Component Exception"""
 
     def __str__(self):
         return ("PipeComp_Error: %s" % self.message)
@@ -37,8 +38,10 @@ class PCException(Exception):
 
 class PCExBadRunExpects(PCException):
     id = 1
+    doc = """Exception: Faulty argument in component """
 
     def __init__(self, cls, attrKey=None):
+        """Exception thrown when a component receives a faulty argument"""
         self.message = "The call to %s should consider \n%s" % (
             cls.actName, cls.info())
         if attrKey is not None:
@@ -47,6 +50,7 @@ class PCExBadRunExpects(PCException):
 
 class PCExBadConfig(PCException):
     id = 2
+    doc = """Exception: Faulty configuration file"""
 
     def __init__(self, compName, confName, msg):
         """Exception used when the error is caused by a faulty config file"""
@@ -56,6 +60,7 @@ class PCExBadConfig(PCException):
 
 class PCExBadContext(PCException):
     id = 3
+    doc = """Exception: Faulty context"""
 
     def __init__(self, compName, contName, msg):
         """Exception used when the error is caused by a faulty input context"""
@@ -65,6 +70,7 @@ class PCExBadContext(PCException):
 
 class PCExBreakInPipeline(PCException):
     id = 4
+    doc = """Exception: Unknown cause"""
 
     def __init__(self, name, msg):
         """General Exception used when we can't give a good explanation."""
@@ -73,6 +79,7 @@ class PCExBreakInPipeline(PCException):
 
 class PCExMissingImage(PCException):
     id = 5
+    doc = """Exception: Can't find an image in timestream"""
 
     def __init__(self, imgTimestamp, path):
         """Raised when we can't find an image in a timestream"""
@@ -82,6 +89,7 @@ class PCExMissingImage(PCException):
 
 class PCExSkippedImage(PCException):
     id = 6
+    doc = """Exception: User skipped an image"""
 
     def __init__(self, imgTimestamp):
         """Raised when user skips an image"""
@@ -90,6 +98,7 @@ class PCExSkippedImage(PCException):
 
 class PCExExistingImage(PCException):
     id = 7
+    doc = """Exception: Image already calculated"""
 
     def __init__(self, imgTimestamp):
         """Raised when img is said to already be calculated"""
@@ -99,6 +108,7 @@ class PCExExistingImage(PCException):
 
 class PCExCorruptImage(PCException):
     id = 8
+    doc = """Exception: Error reading image"""
 
     def __init__(self, path):
         """Raised when receiving an error on image read"""

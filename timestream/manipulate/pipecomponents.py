@@ -1025,6 +1025,13 @@ class ResultingFeatureWriter(PipeComponent):
             fd.close()
 
     def _appendToAudit(self, ts, val):
+        if not os.path.exists(self._auditFile):
+            fd = open(self._auditFile, 'a')
+            fd.write("Code Meanings:\n")
+            for pcc in PCException.__subclasses__():
+                fd.write("    %d: %s\n" % (pcc.id, pcc.doc))
+            fd.close()
+
         fd = open(self._auditFile, 'a')
         fd.write("%s,%s\n" % (str(ts), val))
         fd.close()
