@@ -585,22 +585,20 @@ class PotDetector (PipeComponent):
             growM = round(np.median(sortDist) / 2)
 
         tsi.ipm = tm_pot.ImagePotMatrix(
-            tsi,
-            pots=[],
-            growM=growM,
-            ipmPrev=ipmPrev)
+            tsi, pots=[], growM=growM, ipmPrev=ipmPrev)
         potID = self.startingPotId
         for tray in self.potLocs2:
             trayID = 1
             for c in tray:  # c => center
                 m = dict([[x, context.metas.getVal(x)[potID]]
-                        for x in context.metas.listSubSecNames()])
+                        for x in context.metas.listSubSecNames()
+                        if potID in context.metas.getVal(x).keys()])
                 r = tm_pot.ImagePotRectangle(c, tsi.pixels.shape, growM=growM)
                 p = tm_pot.ImagePotHandler(potID, r, tsi.ipm, metaids=m)
                 p.setMetaId("trayID", trayID)
                 tsi.ipm.addPot(p)
                 potID += 1
-                trayID += 1
+            trayID += 1
 
         return([tsi])
 
