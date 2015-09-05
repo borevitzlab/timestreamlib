@@ -28,6 +28,7 @@ from __future__ import absolute_import, division, print_function
 
 from timestream.manipulate import PCException
 from timestream.manipulate.pipecomponents import (
+    ImageMarginAdder,
     ImageUndistorter,
     ColorCardDetector,
     ImageColorCorrector,
@@ -46,6 +47,7 @@ from timestream.manipulate.pipecomponents import (
 
 class ImagePipeline (object):
     complist = {
+        ImageMarginAdder.actName: ImageMarginAdder,
         ImageUndistorter.actName: ImageUndistorter,
         ColorCardDetector.actName: ColorCardDetector,
         ImageColorCorrector.actName: ImageColorCorrector,

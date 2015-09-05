@@ -162,6 +162,41 @@ class PipeComponent (object):
         pass
 
 
+class ImageMarginAdder(PipeComponent):
+    actName = "addMargin"
+    argNames = {
+        "mess": [True, "Adding a margin to the image"],
+        "pixsize": [True, "Margin size in pixels", 0],
+        "padval": [False, "Padding value", 0]}
+
+    runExpects = [TimeStreamImage]
+    runReturns = [TimeStreamImage]
+
+    def __init__(self, context, **kwargs):
+        super(ImageMarginAdder, self).__init__(**kwargs)
+
+    def __exec__(self, context, *args):
+        tsi = args[0]
+        # Stack 3 dimensioned with added margins.
+        tsi.pixels = np.dstack(
+            (np.lib.pad(tsi.pixels[:, :, 0], self.pixsize, self.padlocal),
+            np.lib.pad(tsi.pixels[:, :, 1], self.pixsize, self.padlocal),
+            np.lib.pad(tsi.pixels[:, :, 2], self.pixsize, self.padlocal)))
+        self.image = tsi.pixels
+        return [tsi]
+
+    def padlocal(self, vector, pad_width, iaxis, kwargs):
+        vector[:pad_width[0]] = self.padval
+        vector[-pad_width[1]:] = self.padval
+        return vector
+
+    def show(self):
+        plt.figure()
+        plt.imshow(self.image)
+        plt.title('Image with Additional Margin')
+        plt.show()
+
+
 class ImageUndistorter (PipeComponent):
     actName = "undistort"
     argNames = {
