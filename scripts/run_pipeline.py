@@ -169,20 +169,20 @@ def genInputTimestream(plConf, existing_ts):
     # FIXME: This should not go here. It should be in the genConfig method.
     sd = plConf.general.startDate
     if sd is not None:
-        sd = datetime.datetime(sd.year, sd.month, sd.day,
-                               sd.hour, sd.minute, sd.second)
+        sd = datetime.datetime(int(sd.year), int(sd.month), int(sd.day),
+                               int(sd.hour), int(sd.minute), int(sd.second))
     ed = plConf.general.endDate
     if ed is not None:
-        ed = datetime.datetime(ed.year, ed.month, ed.day,
-                               ed.hour, ed.minute, ed.second)
+        ed = datetime.datetime(int(ed.year), int(ed.month), int(ed.day),
+                               int(ed.hour), int(ed.minute), int(ed.second))
 
     # FIXME: This should not go here. It should be in the genConfig method.
     sr = plConf.general.startHourRange
     if sr is not None:
-        sr = datetime.time(sr.hour, sr.minute, sr.second)
+        sr = datetime.time(int(sr.hour), int(sr.minute), int(sr.second))
     er = plConf.general.endHourRange
     if er is not None:
-        er = datetime.time(er.hour, er.minute, er.second)
+        er = datetime.time(int(er.hour), int(er.minute), int(er.second))
     # initialise input timestream for processing
     ts = timestream.TimeStreamTraverser(
         ts_path=plConf.general.inputRootPath,
