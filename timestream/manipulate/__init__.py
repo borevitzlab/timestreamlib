@@ -117,8 +117,64 @@ class PCExCorruptImage(PCException):
 
 class PCExUndefinedMeta(PCException):
     id = 9
-    doc = """A meta id is undefined for a pot. Check metas in config."""
+    doc = """Exception: MetaId is undefined for a pot. Check metas config."""
 
     def __init__(self, potId, metaId):
         """Raised when a pot is missing from the meta list"""
         self.message = "Pot %s is missing %s" % (potId, metaId)
+
+
+class PCExBadImage(PCException):
+    id = 10
+    doc = """Exception: Raised when an expected image variable is corrupted"""
+
+    def __init__(self, path):
+        self.message = "Image %s is corrupted" % path
+
+
+class PCExImageTooDark(PCException):
+    id = 11
+    doc = """Excetpion: Raised when image is too dart to detect"""
+
+    def __init__(self, path):
+        self.message = "Image %s is too dark" % path
+
+
+class PCExCannotFindColorCard(PCException):
+    id = 12
+    doc = """Excpetion: Raised when we cannot find the color card"""
+
+    def __init__(self, path):
+        self.message = "Cannot find color card in %s" % path
+
+
+class PCExCannotFindTray(PCException):
+    id = 13
+    doc = """Exception: Raised when the tray score is to low to accept"""
+
+    def __init__(self, trayNum, path):
+        self.message = "Cannot find tray number %s in %s" % (trayNum, path)
+
+
+class PCExSegmentation(PCException):
+    id = 14
+    doc = """Exception: Raised when there is an exception error"""
+
+    def __init__(self, potid, path):
+        self.message = "Cannot segment pot %s in %s" % (potid, path)
+
+
+class PCExCannotCalcTimestamp(PCException):
+    id = 15
+    doc = """Exception: Raised when we cannot calculate a timestamp"""
+
+    def __init__(self, path):
+        self.message = "Cannot calculate timestamp in %s" % path
+
+
+class PCExCannotFindFeatures(PCException):
+    id = 16
+    doc = """Exception: Raised when no features can be calculated"""
+
+    def __init__(self, path):
+        self.message = "Cannot find any features for %s" % path

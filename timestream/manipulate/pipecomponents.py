@@ -55,6 +55,12 @@ from timestream.manipulate import (
     PCExBadContext,
     PCExCorruptImage,
     PCExUndefinedMeta,
+    PCExBadImage,
+    PCExImageTooDark,
+    PCExCannotFindColorCard,
+    PCExCannotFindTray,
+    PCExCannotCalcTimestamp,
+    PCExCannotFindFeatures,
 )
 
 
@@ -225,7 +231,7 @@ class ImageUndistorter (PipeComponent):
         self.image = tsi.pixels
 
         if self.image is None:
-            raise PCExBreakInPipeline(self.actName, "Bad image %s" % tsi.path)
+            raise PCExBadImage(tsi.path)
 
         if self.UndistMapX is not None and self.UndistMapY is not None:
             self.imageUndistorted = cv2.remap(self.image.astype(np.uint8),
@@ -284,19 +290,16 @@ class ColorCardDetector (PipeComponent):
         self.image = tsi.pixels
         meanIntensity = np.mean(self.image)
         if meanIntensity < self.minIntensity:
-            # FIXME: this should be handled with an error.
-            LOG.warn('Image is too dark, skiping colorcard detection!')
-            return([self.image, [None, None, None]])
+            raise PCExImageTooDark(tsi.path)
         if not self.useWhiteBackground:
             self.imagePyramid = cd.createImagePyramid(self.image)
             ccdImg = read_image(self.ccf)[:, :, 0:3]
             if ccdImg is None:
-                raise PCExBreakInPipeline(self.actName,
-                                          "Failed to read %s" % self.ccf)
+                raise PCExBadImage(self.ccf)
             self.ccdPyramid = cd.createImagePyramid(ccdImg)
             # create image pyramid for multiscale matching
-            SearchRange = [self.ccdPyramid[0].shape[1]*1.5,
-                           self.ccdPyramid[0].shape[0]*1.5]
+            SearchRange = [self.ccdPyramid[0].shape[1] * 1.5,
+                           self.ccdPyramid[0].shape[0] * 1.5]
             score, loc, angle = cd.matchTemplatePyramid(
                 self.imagePyramid, self.ccdPyramid,
                 0, EstimatedLocation=self.colorcardPosition,
@@ -316,7 +319,7 @@ class ColorCardDetector (PipeComponent):
                 # for displaying
                 self.loc = loc
             else:
-                raise PCExBreakInPipeline(self.actName, "Cannot find color card")
+                raise PCExCannotFindColorCard(tsi.path)
         else:
             self.ccdParams = cd.estimateColorParametersFromWhiteBackground(
                 self.image, self.backgroundWindow, self.maxIntensity)
@@ -483,9 +486,8 @@ class TrayDetector (PipeComponent):
                 EstimatedLocation=self.trayPositions[i],
                 SearchRange=SearchRange)
             if score < 0.3:
-                # FIXME: Is there a better way to handler this?
-                raise PCExBreakInPipeline(self.actName, "Low tray matching score."
-                                          " Likely tray %d is missing." % i)
+                raise PCExCannotFindTray(i, tsi.path)
+
             self.trayLocs.append(loc)
 
         tsi.pixels = self.image
@@ -764,9 +766,10 @@ class PlantExtractor (PipeComponent):
                 cOut = os.fdopen(Out, "wb", sys.getsizeof(msk))
                 cOut.write(msk)
                 cOut.close()
-            except Exception as exc:
-                raise PCExBreakInPipeline("Unknown error segmenting %s %s" %
-                                          (iph.id, str(exc)))
+
+            except Exception:
+                os._exit(1)
+
             finally:
                 os._exit(0)
             # Child Section
@@ -774,9 +777,13 @@ class PlantExtractor (PipeComponent):
         for iph, pid, In in childPids:
             pIn = os.fdopen(In, "rb")
             msk = cPickle.loads(pIn.read())
-            os.waitpid(pid, 0)
+            p, status = os.waitpid(pid, 0)
             pIn.close()
-            iph.mask = msk
+            if (status is not 1):
+                iph.mask = msk
+            # FIXME: We need to handle the case where there is a seg error
+            # The challange is to put this in the audit file without a
+            # global exception.
 
         return
 
@@ -870,15 +877,15 @@ class ResultingFeatureWriter(PipeComponent):
         ts = self._guessTimeStamp(img)
         if ts is None:
             self._appendToAudit(ResultingFeatureWriter.errStr,
-                                PCExBreakInPipeline.id)
-            raise PCExBreakInPipeline(self.actName,
-                                      "Could not calculate time stamp")
+                                PCExCannotCalcTimestamp.id)
+
+            raise PCExCannotCalcTimestamp(img.path)
 
         # 2. If we have no features
         if ipm is None or len(ipm.potFeatures) < 1:
-            self._appendToAudit(ts, PCExBreakInPipeline.id)
-            raise PCExBreakInPipeline(self.actName,
-                                      "Did not find any features.")
+            self._appendToAudit(ts, PCExCannotFindFeatures.id)
+
+            raise PCExCannotFindFeatures(img.path)
 
         # 3. Write features
         potIds = sorted(ipm.potIds)  # Sorted to easily append
