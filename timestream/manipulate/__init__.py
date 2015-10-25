@@ -178,3 +178,12 @@ class PCExCannotFindFeatures(PCException):
 
     def __init__(self, path):
         self.message = "Cannot find any features for %s" % path
+
+
+class PCExPotRectangleDimsOutOfImage(PCException):
+    id = 17
+    doc = """Exception: Raised when the pot rectangle outside image"""
+
+    def __init__(self, tray, pot, imageSize):
+        self.message = "Pot %s of Tray %s is out of image (%s)" % \
+            (tray, pot, imageSize)

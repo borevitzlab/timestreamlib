@@ -61,6 +61,7 @@ from timestream.manipulate import (
     PCExCannotFindTray,
     PCExCannotCalcTimestamp,
     PCExCannotFindFeatures,
+    PCExPotRectangleDimsOutOfImage,
 )
 
 
@@ -564,7 +565,7 @@ class PotDetector (PipeComponent):
             StartY = trayLoc[1] + self.traySize[1] // 2 - StepY // 2
             SearchRange = [self.potPyramid[0].shape[1] // 4,
                            self.potPyramid[0].shape[0] // 4]
-#            SearchRange = [32, 32]
+            # SearchRange = [32, 32]
             locX = np.zeros(potGridSize)
             locY = np.zeros(potGridSize)
             for k in range(potGridSize[0]):
@@ -630,7 +631,13 @@ class PotDetector (PipeComponent):
                 m = dict([[x, context.metas.getVal(x)[potID]]
                         for x in context.metas.listSubSecNames()
                         if potID in context.metas.getVal(x).keys()])
-                r = tm_pot.ImagePotRectangle(c, tsi.pixels.shape, growM=growM)
+                try:
+                    r = tm_pot.ImagePotRectangle(c, tsi.pixels.shape,
+                        growM=growM)
+                except:
+                    raise PCExPotRectangleDimsOutOfImage(potID, c,
+                        tsi.pixels.shape)
+
                 p = tm_pot.ImagePotHandler(potID, r, tsi.ipm, metaids=m)
                 p.setMetaId("trayID", trayID)
                 tsi.ipm.addPot(p)
