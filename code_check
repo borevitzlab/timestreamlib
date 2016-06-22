@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+set -x
+
+test -n "$(which flake8)" && \
+	flake8 \
+	--exit-zero \
+	--max-line-length=85 \
+	timestream \
+	tests \
+	--ignore E202,E203,E226,E231
+

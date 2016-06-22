@@ -4,6 +4,7 @@ import numpy as np
 import os
 from os import path
 import shutil
+import skimage.io
 
 
 LOG = logging.getLogger("timestreamlib")
@@ -22,6 +23,8 @@ SKIP_NEED_FILE = "Test requires file {0}"
 
 PKG_DIR = path.dirname(path.dirname(__file__))
 TESTS_DIR = path.dirname(__file__)
+PIPELINES_DIR = path.join(path.dirname(TESTS_DIR), 'pipelines')
+SCRIPT_DIR = path.join(path.dirname(TESTS_DIR), 'scripts')
 
 FILES = {
     "basic_jpg": path.join(TESTS_DIR, "data", "cam_images", "IMG_0001.JPG"),
@@ -48,18 +51,25 @@ FILES = {
                                     "timestream-with-imgdata"),
     "not_a_timestream": path.join(TESTS_DIR, "data", "timestreams",
                                   "not-a-timestream"),
+    "timestream_good_images": path.join(TESTS_DIR, "data", "timestreams",
+                                        "timestream-good-images")
 }
+TMPDIR = FILES['tmp_dir']
+
 ZEROS_PIXELS = np.zeros((100, 100, 3), dtype="uint8")
 ZEROS_DATETIME = datetime.datetime(2013, 11, 12, 20, 53, 9)
 
+TS_FILES_JPG_PRE = \
+    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_"
 TS_FILES_JPG = [
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_03/good-timestream_2013_10_30_03_00_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_03/good-timestream_2013_10_30_03_30_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_04/good-timestream_2013_10_30_04_00_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_04/good-timestream_2013_10_30_04_30_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_05/good-timestream_2013_10_30_05_00_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_05/good-timestream_2013_10_30_05_30_00_00.JPG",
-    "timestreams/good-timestream/2013/2013_10/2013_10_30/2013_10_30_06/good-timestream_2013_10_30_06_00_00_00.JPG",
+    TS_FILES_JPG_PRE + "03/good-timestream_2013_10_30_03_00_00_00.JPG",
+    TS_FILES_JPG_PRE + "03/good-timestream_2013_10_30_03_30_00_00.JPG",
+    TS_FILES_JPG_PRE + "04/good-timestream_2013_10_30_04_00_00_00.JPG",
+    TS_FILES_JPG_PRE + "04/good-timestream_2013_10_30_04_30_00_00.JPG",
+    TS_FILES_JPG_PRE + "05/good-timestream_2013_10_30_05_00_00_00.JPG",
+    TS_FILES_JPG_PRE + "05/good-timestream_2013_10_30_05_30_00_00.JPG",
+    TS_FILES_JPG_PRE + "06/good-timestream_2013_10_30_06_00_00_00.JPG",
+    TS_FILES_JPG_PRE + "06/good-timestream_2013_10_30_06_30_00_00.JPG",
 ]
 TS_JPG_DTYPE = 'uint8'
 TS_JPG_SHAPE = (35, 52, 3)
@@ -67,7 +77,7 @@ TS_JPG_SHAPE = (35, 52, 3)
 TS_DICT_PARSED = {
     "name": "good-timestream",
     "start_datetime": datetime.datetime(2013, 10, 30, 3, 0),
-    "end_datetime": datetime.datetime(2013, 10, 30, 6, 0),
+    "end_datetime": datetime.datetime(2013, 10, 30, 6, 30),
     "version": 1,
     "image_type": "jpg",
     "extension": "JPG",
@@ -78,7 +88,7 @@ TS_DICT_PARSED = {
 TS_DICT = {
     "name": "good-timestream",
     "start_datetime": "2013_10_30_03_00_00",
-    "end_datetime": "2013_10_30_06_00_00",
+    "end_datetime": "2013_10_30_06_30_00",
     "version": 1,
     "image_type": "jpg",
     "extension": "JPG",
@@ -86,16 +96,15 @@ TS_DICT = {
     "missing": [],
 }
 
-TS_STR = """TimeStream called good-timestream
-	path: {}
-	name: good-timestream
-	version: 1
-	start_datetime: 2013-10-30 03:00:00
-	end_datetime: 2013-10-30 06:00:00
-	image_type: jpg
-	extension: JPG
-	interval: 1800
-""".format(FILES["timestream"])
+TS_STR = "TimeStream called good-timestream\n" \
+         + "	path: {}\n".format(FILES["timestream"]) \
+         + "	name: good-timestream\n" \
+         + "	version: 1\n" \
+         + "	start_datetime: 2013-10-30 03:00:00\n" \
+         + "	end_datetime: 2013-10-30 06:30:00\n" \
+         + "	image_type: jpg\n" \
+         + "	extension: JPG\n" \
+         + "	interval: 1800\n" \
 
 TS_FILES_JPG = [path.join(TESTS_DIR, "data", x) for x in TS_FILES_JPG]
 
@@ -117,6 +126,7 @@ TS_DATES_PARSED = [
     datetime.datetime(2013, 10, 30, 5, 0),
     datetime.datetime(2013, 10, 30, 5, 30),
     datetime.datetime(2013, 10, 30, 6, 0),
+    datetime.datetime(2013, 10, 30, 6, 30),
 ]
 TS_GAPS_DATES_PARSED = [
     datetime.datetime(2013, 10, 30, 3, 0),
@@ -124,6 +134,7 @@ TS_GAPS_DATES_PARSED = [
     datetime.datetime(2013, 10, 30, 4, 0),
     datetime.datetime(2013, 10, 30, 5, 0),
     datetime.datetime(2013, 10, 30, 6, 0),
+    datetime.datetime(2013, 10, 30, 6, 30),
 ]
 
 if path.exists(FILES["empty_dir"]):
@@ -139,3 +150,32 @@ def make_tmp_file():
     global NUM_TEMPS
     NUM_TEMPS += 1
     return path.join(FILES["tmp_dir"], "{:05d}.tmp".format(NUM_TEMPS))
+
+
+def imgs_common_tsdir(act, fullpath, skip=None):
+    if fullpath.endswith(os.sep):
+        fullpath = fullpath[:-1]
+    dirname = path.basename(fullpath)
+    outimg = np.ones((35, 52, 3), dtype='uint8')
+
+    if act == "setup":
+        for h in ["03", "04", "05", "06"]:
+            D = path.join(fullpath, "2013", "2013_10", "2013_10_30",
+                          "2013_10_30_" + h)
+            if not path.isdir(D):
+                os.makedirs(D)
+            for m in ["00", "30"]:
+                if skip is not None and (h, m) in skip:
+                    continue
+                F = path.join(D, dirname + "_2013_10_30_"
+                              + h + "_" + m + "_00_00.JPG")
+                skimage.io.imsave(F, outimg)
+
+    elif act == "teardown":
+        top = path.join(fullpath, "2013")
+        for root, dirs, files in os.walk(top, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(top)

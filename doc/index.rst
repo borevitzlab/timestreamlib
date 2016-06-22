@@ -6,6 +6,10 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
+    starting
+
+    config
+
     spec
 ..    api
 ..    todo

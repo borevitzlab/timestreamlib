@@ -1,4 +1,4 @@
-# Copyright 2014 Kevin Murray
+# Copyright 2014 Kevin Murray/Bioinfinio
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 """
 .. module:: timestream.parse.validate
     :platform: Unix, Windows
-    :synopsis: Validate timestream JSON manifests
+    :synopsis: Validate timestream metadata
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray
 """
 
 from os import path

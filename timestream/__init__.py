@@ -1,4 +1,7 @@
-# Copyright 2014 Kevin Murray
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,21 +21,20 @@
     :platform: Unix, Windows
     :synopsis: A python library to manipulate TimeStreams
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray, Joel Granados, Chuong Nguyen
 """
 
 from copy import deepcopy
-import cv2
 import datetime as dt
 import json
 import logging
 import numpy as np
 import os
 from os import path
+import skimage.io
 from sys import stderr
 from timestream.manipulate.pot import ImagePotMatrix
 import cPickle
-
 from timestream.parse.validate import (
     validate_timestream_manifest,
 )
@@ -40,12 +42,13 @@ from timestream.parse import (
     _is_ts_v1,
     _is_ts_v2,
     _ts_date_to_path,
-    ts_guess_manifest_v1,
     all_files_with_ext,
-    ts_parse_date_path,
-    ts_parse_date,
-    ts_format_date,
     iter_date_range,
+    read_image,
+    ts_format_date,
+    ts_guess_manifest_v1,
+    ts_parse_date,
+    ts_parse_date_path,
 )
 from timestream.parse.validate import (
     IMAGE_EXT_TO_TYPE,
@@ -54,29 +57,147 @@ from timestream.parse.validate import (
 from timestream.util.imgmeta import (
     get_exif_date,
 )
-
+from timestream.manipulate import (
+    PCExSkippedImage,
+    PCExMissingImage,
+    PCExExistingImage
+)
 
 # versioneer
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-LOG = logging.getLogger("timestreamlib")
 NOW = dt.datetime.now()
 
 
-def setup_module_logging(level=logging.DEBUG, handler=logging.StreamHandler,
-                         stream=stderr):
-    """Setup debug console logging. Designed for interactive use."""
+def enum(**enums):
+    return type("Enum", (), enums)
+LOGV = enum(V="V", VV="VV", VVV="VVV", S="S")  # Verbosity
+NOEOL = logging.INFO + 1
+logging.addLevelName(NOEOL, 'NOEOL')
+
+
+class NoEOLStreamHandler(logging.StreamHandler):
+    """A StreamHandler subclass that optionally doesn't print an EOL."""
+
+    def __init__(self, stream=None):
+        super(NoEOLStreamHandler, self).__init__(stream)
+
+    def emit(self, record):
+        """
+        Emit a record. If level == NOEOL, don't add an EOL.
+        """
+        try:
+            # KDM: I've added this block, to get StreamHandler handle standard
+            # log levels.
+            if record.levelno != NOEOL:
+                return super(NoEOLStreamHandler, self).emit(record)
+            msg = self.format(record)
+            stream = self.stream
+            # KDM: this is the only other change from StreamHandler
+            # in StreamHandler, this is fs = "%s\n". We remove the EOL if
+            # log level is NOEOL. Everything else is the same.
+            fs = "%s"
+            if not logging._unicode:  # if no unicode support...
+                stream.write(fs % msg)
+            else:
+                try:
+                    if (isinstance(msg, unicode) and
+                            getattr(stream, 'encoding', None)):
+                        ufs = fs.decode(stream.encoding)
+                        try:
+                            stream.write(ufs % msg)
+                        except UnicodeEncodeError:
+                            # Printing to terminals sometimes fails. For example,
+                            # with an encoding of 'cp1251', the above write will
+                            # work if written to a stream opened or wrapped by
+                            # the codecs module, but fail when writing to a
+                            # terminal even when the codepage is set to cp1251.
+                            # An extra encoding step seems to be needed.
+                            stream.write((ufs % msg).encode(stream.encoding))
+                    else:
+                        stream.write(fs % msg)
+                except UnicodeError:
+                    stream.write(fs % msg.encode("UTF-8"))
+            self.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+
+def add_log_handler(stream=stderr, verbosity=None, level=None,
+                    handler=NoEOLStreamHandler):
+    """Add a logging handler to the timestreamlib logger
+
+    Predefined verbosities
+      LOGV.S:: Silent. Remove all handlers from logger
+      LOGV.V: No timestamp, INFO if level is None
+      LOGV.VV: With timestamp, DEBUG if level is None
+      LOGV.VVV: Timestamp and Function name, DEBUG if level is None
+      format string: Regular format string. DEBUG if level is None
+    """
     log = logging.getLogger("timestreamlib")
-    fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
+    log.setLevel(logging.DEBUG)
+
+    if verbosity == LOGV.S:
+        log.handlers = []
+        return os.devnull
+
+    # 1. Init handler
     if stream is None:
-        stream = open("/dev/null", "w")
+        stream = open(os.devnull, "w")
+
+    elif isinstance(stream, str):  # is filepath, try to open it.
+        try:
+            stream = path.realpath(stream)
+            if not path.exists(path.dirname(stream)):
+                os.makedirs(path.dirname(stream))
+            stream = open(stream, "a")
+        except:
+            stream = open(os.devnull, "w")
+
+    else:
+        try:  # don't change stream if its a file descriptor
+            stream.write
+        except AttributeError:
+            stream = open(os.devnull, "w")
     cons = handler(stream=stream)
+
+    # 2. Init level
+    if level is None or not isinstance(level, int):
+        try:
+            level = {
+                LOGV.V:logging.INFO,
+                LOGV.VV:logging.DEBUG,
+                LOGV.VVV:logging.DEBUG,
+                None:logging.DEBUG
+            }[verbosity]
+        except:
+            level = logging.DEBUG
     cons.setLevel(level)
+
+    # 3. Init format
+    if verbosity == LOGV.V:
+        fmt = logging.Formatter('%(message)s')
+    elif verbosity == LOGV.VV \
+            or verbosity is None \
+            or not isinstance(verbosity, str):
+        fmt = logging.Formatter('%(asctime)s: %(message)s', '%H:%M:%S')
+    elif verbosity == LOGV.VVV:
+        fmt = logging.Formatter(
+            '[%(asctime)s %(filename)s:'
+            + '%(lineno)s-%(funcName)20s()] %(message)s',
+            '%H:%M:%S')
+    else:
+        fmt = logging.Formatter(verbosity, '%H:%M:%S')
     cons.setFormatter(fmt)
     log.addHandler(cons)
-    log.setLevel(level)
+
+    return str(stream)
+
+LOG = logging.getLogger("timestreamlib")
 
 
 class TimeStream(object):
@@ -151,14 +272,10 @@ class TimeStream(object):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
-        ts_path = ts_path.rstrip(os.sep)
-        # This is required to ensure that path.dirname() of timestreams with
-        # relative paths rooted at the current directory returns ".", not "",
-        # or the timestream itself.
-        dotslash = ".{}".format(os.sep)
-        if not ts_path.startswith(os.sep):
-            if not ts_path.startswith(dotslash):
-                ts_path = "{}{}".format(dotslash, ts_path)
+        if not path.isabs(ts_path):
+            msg = "Path to Time Stream must be absolute"
+            LOG.error(msg)
+            raise ValueError(msg)
         self._path = ts_path
         self.data_dir = path.join(self._path, "_data")
         if (not path.isdir(self.data_dir)) and path.isdir(ts_path):
@@ -190,22 +307,19 @@ class TimeStream(object):
             self.data = {}
         self.read_metadata()
 
-    def create(self, ts_path, version=1, ext="png", type=None, start=NOW,
+    def create(self, ts_path, version=1, ext="jpg", type=None, start=NOW,
                end=NOW, name=None):
         self.version = version
         if not isinstance(ts_path, str):
             msg = "Timestream path must be a str"
             LOG.error(msg)
             raise TypeError(msg)
+        if not path.isabs(ts_path):
+            msg = "Path to Time Stream must be absolute"
+            LOG.error(msg)
+            raise TypeError(msg)
         # Basename will trip over the trailing slash, if given.
         ts_path = ts_path.rstrip(os.sep)
-        # This is required to ensure that path.dirname() of timestreams with
-        # relative paths rooted at the current directory returns ".", not "",
-        # or the timestream itself.
-        dotslash = ".{}".format(os.sep)
-        if not ts_path.startswith(os.sep):
-            if not ts_path.startswith(dotslash):
-                ts_path = "{}{}".format(dotslash, ts_path)
         if not path.exists(path.dirname(ts_path)):
             msg = "Cannot create {}. Parent dir doesn't exist".format(ts_path)
             LOG.error(msg)
@@ -295,41 +409,20 @@ class TimeStream(object):
             raise NotImplementedError("v2 timestreams not implemented yet")
 
     def write_pickled_image(self, image, overwrite=False):
-        if not isinstance(image, TimeStreamImage):
-            msg = "image must be instance of TimeStreamImage"
-            LOG.error(msg)
-            raise TypeError(msg)
-
         pPath = path.join(self.data_dir,
                           _ts_date_to_path(self.name, "p", image.datetime, 0))
 
-        if path.isfile(pPath) and not overwrite:
-            msg = "File {} exists and overwrite is {}".format(pPath, overwrite)
-            LOG.error(msg)
-            raise RuntimeError(msg)
-
-        # lose all the unnecessaries
-        image.strip()
-
-        if not path.exists(path.dirname(pPath)):
-            os.makedirs(path.dirname(pPath))
-
-        f = file(pPath, "w")
-        cPickle.dump(image, f)
-        f.close()
+        TimeStreamImage.pickledump(image, pPath, overwrite=overwrite)
 
     def load_pickled_image(self, datetime):
-        retImg = None
         pPath = path.join(self.data_dir,
                           _ts_date_to_path(self.name, "p", datetime, 0))
+        retImg = None
         if path.isfile(pPath):
-            f = file(pPath, "r")
-            retImg = cPickle.load(f)
-            f.close()
-
-            if not isinstance(retImg, TimeStreamImage):
+            try:
+                retImg = TimeStreamImage.pickleload(pPath)
+            except:
                 retImg = None
-
         return retImg
 
     def write_metadata(self):
@@ -474,7 +567,7 @@ class TimeStreamTraverser(TimeStream):
 
     def __init__(self, ts_path=None, version=None, interval=None,
                  start=None, end=None, start_hour=None, end_hour=None,
-                 ignored_timestamps=[]):
+                 ignore_ts=[], existing_ts=[], err_on_access=False):
         """Class to got back and forth on a TimeStream
 
         Use This class when you need to traverse the timestream both forwards
@@ -487,7 +580,10 @@ class TimeStreamTraverser(TimeStream):
           end(datetime): End of time stream
           start_hour(datetime): Starting hour within every day of time stream
           end_hour(datetime): Ending hour within every day of time stream
-          ignored_timestamps(list): List of ignore time stamps.0
+          ignore_ts(list): Timestamps to be ignored.
+          existing_ts(list): existing timestamps that should not be recalculated.
+          err_on_access: If false we make all error checks silently in __init__.
+                         If true we raise errors when accessing imgs.
 
         Attributes:
           _timestamps(list): List of strings that index all existing image files
@@ -497,6 +593,10 @@ class TimeStreamTraverser(TimeStream):
         """
         super(TimeStreamTraverser, self).__init__(version=version)
         self.load(ts_path)
+
+        self._err_on_access = err_on_access
+        self._ignore_ts = ignore_ts
+        self._existing_ts = existing_ts
 
         self._offset = 0
         self._timestamps = []
@@ -515,12 +615,8 @@ class TimeStreamTraverser(TimeStream):
         if end_hour is not None:
             end = dt.datetime.combine(end.date(), end_hour)
 
-        # iterate thru times
+        # iterate threw times
         for time in iter_date_range(start, end, interval):
-            # skip images in ignored_timestamps
-            if ts_format_date(time) in ignored_timestamps:
-                continue
-
             # apply hour range if given
             if start_hour is not None:
                 hrstart = dt.datetime.combine(time.date(), start_hour)
@@ -531,32 +627,66 @@ class TimeStreamTraverser(TimeStream):
                 if time > hrend:
                     continue
 
-            # If path exists add index to _timestamps
+            # skip images in ignore_ts
+            if ts_format_date(time) in self._ignore_ts:
+                if not self._err_on_access:
+                    continue
+
+            # skip images in existing_ts
+            if ts_format_date(time) in self._existing_ts:
+                if not self._err_on_access:
+                    continue
+
+            # Do not add if path dosn't exist
             relpath = _ts_date_to_path(self.name, self.extension, time, 0)
             img_path = path.join(self.path, relpath)
-            if path.exists(img_path):
-                self._timestamps.append(time)
+            if not path.exists(img_path):
+                if not self._err_on_access:
+                    continue
+
+            self._timestamps.append(time)
 
     def next(self):
         if self._offset == len(self._timestamps) - 1:
             self._offset = 0
+        else:
+            self._offset += 1
 
         return self.curr()
 
     def prev(self):
         if self._offset == 0:
             self._offset = len(self._timestamps) - 1
+        else:
+            self._offset -= 1
 
         return self.curr()
 
     def curr(self):
         time = self._timestamps[self._offset]
-        relpath = _ts_date_to_path(self.name, self.extension, time, 0)
+        return (self.getImgByTimeStamp(time))
+
+    def getImgByTimeStamp(self, timestamp, update_index=False):
+        if timestamp not in self._timestamps:
+            raise RuntimeError("Timestamp not found")
+
+        if update_index:
+            self._offset = self._timestamps.index(timestamp)
+
+        relpath = _ts_date_to_path(self.name, self.extension, timestamp, 0)
         img_path = path.join(self.path, relpath)
 
-        img = self.load_pickled_image(time)
+        if self._err_on_access:
+            if ts_format_date(timestamp) in self._ignore_ts:
+                raise PCExSkippedImage(timestamp)
+            if ts_format_date(timestamp) in self._existing_ts:
+                raise PCExExistingImage(timestamp)
+            if not path.exists(img_path):
+                raise PCExMissingImage(timestamp, img_path)
+
+        img = self.load_pickled_image(timestamp)
         if img is None:
-            img = TimeStreamImage(dt=time)
+            img = TimeStreamImage(dt=timestamp)
 
         img.parent_timestream = self
         img.path = img_path
@@ -568,6 +698,10 @@ class TimeStreamTraverser(TimeStream):
             img.data = {}
 
         return img
+
+    @property
+    def timestamps(self):
+        return self._timestamps
 
 
 class TimeStreamImage(object):
@@ -656,7 +790,7 @@ class TimeStreamImage(object):
         if not path.exists(path.dirname(fpath)):
             os.makedirs(path.dirname(fpath))
 
-        cv2.imwrite(fpath, self._pixels[:, :, ::-1])
+        skimage.io.imsave(fpath, self._pixels)
 
         # Once we have written its ok to set property
         self.path = fpath
@@ -674,19 +808,11 @@ class TimeStreamImage(object):
                   "``path`` of TimeStreamImage must point to existing file"
             LOG.error(msg)
             raise ValueError(msg)
-
         try:
-            import skimage.io
-            try:
-                self._pixels = skimage.io.imread(fpath, plugin="freeimage")
-            except (RuntimeError, ValueError) as exc:
-                LOG.error(str(exc))
-                self._pixels = None
-        except ImportError:
-            LOG.warn("Couln't load scikit image io module. " +
-                     "Raw images will not be loaded correctly")
-            self._pixels = cv2.imread(fpath)[:, :, ::-1]
-
+            self._pixels = read_image(fpath)
+        except (RuntimeError, ValueError) as exc:
+            LOG.error(str(exc))
+            self._pixels = None
         self.path = fpath
 
     @property
@@ -788,10 +914,8 @@ class TimeStreamImage(object):
         The path of the image must be set before the pixels property is
         accessed, or things will error out with RuntimeError.
 
-        The colour dimension maps to:
-            [:,:,RGB]
-        not what OpenCV gives us, which is:
-            [:,:,BGR]
+        The colour dimension maps to: [:,:,RGB]
+        not what OpenCV gives us, which is: [:,:,BGR]
         So we convert OpenCV back to reality and sanity.
         """
         if self._pixels is None:
@@ -801,7 +925,7 @@ class TimeStreamImage(object):
                 LOG.error(msg)
                 raise RuntimeError(msg)
 
-            self.read(self._path)
+            self.read(fpath=self._path)
         return self._pixels
 
     @pixels.setter
@@ -841,6 +965,9 @@ class TimeStreamImage(object):
         # make sure we strip away everythin that is unneeded.
         tsi.strip()
 
+        if not path.exists(path.dirname(filepath)):
+            os.makedirs(path.dirname(filepath))
+
         f = file(filepath, "w")
         cPickle.dump(tsi, f)
         f.close()
@@ -855,8 +982,12 @@ class TimeStreamImage(object):
             msg = "File {} not found".format(filepath)
             LOG.error(msg)
             raise RuntimeError(msg)
+        if not path.isfile(filepath):
+            msg = "{} is not a regular file".format(filepath)
+            LOG.error(msg)
+            raise RuntimeError(msg)
 
-        f = file(filepath, "w")
+        f = file(filepath, "r")
         tsi = cPickle.load(f)
         f.close()
 

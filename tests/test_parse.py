@@ -2,6 +2,7 @@ import datetime as dt
 from inspect import (
     isgenerator,
 )
+import numpy as np
 import os
 from unittest import TestCase
 
@@ -13,14 +14,19 @@ from timestream.parse import (
     ts_iter_images,
     ts_get_image,
     ts_parse_date,
+    read_image,
+    RIException,
 )
 
 
 class TestAllFilesWithExt(TestCase):
-
     """Test function timestream.parse.all_files_with_ext"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_with_timestream_ext_jpg(self):
         res = all_files_with_ext(helpers.FILES["timestream"], "jpg")
@@ -68,12 +74,19 @@ class TestAllFilesWithExt(TestCase):
         with self.assertRaises(ValueError):
             list(all_files_with_ext(".", "jpg", cs="No"))
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestAllFilesWithExts(TestCase):
-
     """Test function timestream.parse.all_files_with_exts"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_with_timestream_ext_jpg(self):
         res = all_files_with_exts(helpers.FILES["timestream"],
@@ -93,12 +106,19 @@ class TestAllFilesWithExts(TestCase):
         self.assertTrue(isinstance(res, dict))
         self.assertDictEqual(res, {"JPG": helpers.TS_FILES_JPG})
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestIterImages(TestCase):
-
     """Test function timestream.parse.ts_iter_images"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_good_timestream(self):
         """Test ts_iter_images with a timestream with a manifold"""
@@ -106,12 +126,19 @@ class TestIterImages(TestCase):
         self.assertTrue(isgenerator(res))
         self.assertListEqual(list(res), helpers.TS_FILES_JPG)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestGuessManifest(TestCase):
-
     """Tests for timestream.parse.ts_guess_manifest"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_good_ts(self):
         got = ts_guess_manifest(helpers.FILES["timestream"])
@@ -123,12 +150,19 @@ class TestGuessManifest(TestCase):
         self.assertTrue(isinstance(got, dict))
         self.assertDictEqual(got, helpers.TS_DICT)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestGetImage(TestCase):
-
     """Test function timestream.parse.ts_get_image"""
     _multiprocess_can_split_ = True
     maxDiff = None
+
+    @classmethod
+    def setUpClass(cls):
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
 
     def test_get_image_good_str(self):
         """Test ts_get_image with a str date on a good timestream"""
@@ -176,9 +210,12 @@ class TestGetImage(TestCase):
             ts_get_image(helpers.FILES["timestream"],
                          helpers.TS_DATES[0], n="this should be an int")
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestParseDate(TestCase):
-
     """Test function timestream.parse.ts_parse_date"""
 
     def test_parse_date_valid(self):
@@ -203,3 +240,17 @@ class TestParseDate(TestCase):
         date_str = "2013_12_11"
         with self.assertRaises(ValueError):
             ts_parse_date(date_str)
+
+
+class TestReadImage(TestCase):
+    """Test function timestream.parse.read_image"""
+
+    def test_read_image_missing(self):
+        """check a warning is raised on non-existant image"""
+        with self.assertRaises(RIException):
+            read_image("nonexistant_image.jpg")
+
+    def test_read_image_zeros(self):
+        """check read_image reads in a png correctly"""
+        path = helpers.FILES["zeros_jpg"]
+        np.testing.assert_array_equal(read_image(path), helpers.ZEROS_PIXELS)

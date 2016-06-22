@@ -1,32 +1,40 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun 16 15:45:22 2014
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-@author: Chuong Nguyen, chuong.v.nguyen@gmail.com
+"""
+.. module:: timestream.manipulate.correct_detect
+    :platform: Unix, Windows
+    :synopsis: Image correction and feature detection
+
+.. moduleauthor:: Chuong Nguyen, Joel Granados
 """
 
 from __future__ import absolute_import, division
-
 import cv2
 import logging
+import warnings
 import matplotlib.pylab as plt
 import numpy as np
 from scipy import optimize
 
+__author__  = 'Chuong Nguyen'
 
-LOG = logging.getLogger("CONSOLE")
-
-"""REVIEW COMMENTARY:
-
-KDM says:
-    - Use regex where appropriate, don't directly use string manipulation to
-      find numbers in strings.
-    - Let's move all the YML reading stuff to a new module at
-      timestream.parse.yml
-    - Remove commented out sections if they're not needed anymore, otherwise
-      uncomment them & use control flow constructs to run them conditionally.
-
-"""
+LOG = logging.getLogger("timestreamlib")
 
 
 # RED GRN BLU
@@ -39,7 +47,7 @@ CameraTrax_24ColorCard = \
       147., 71., 60., 25., 150., 166., 245., 204., 162., 120., 84., 52.]]
 CameraTrax_24ColorCard180deg = \
     [[50., 84., 120., 162., 203., 242., 0., 190., 241., 173., 77., 49.,
-     229., 162., 93., 194., 58., 223., 98., 129., 94., 91., 196., 115.],
+      229., 162., 93., 194., 58., 223., 98., 129., 94., 91., 196., 115.],
      [50., 84., 120., 163., 203., 243., 135., 85., 201., 57., 153., 66.,
       158., 190., 60., 82., 92., 124., 190., 128., 108., 122., 147., 83.],
      [52., 84., 120., 162., 204., 245., 166., 150., 25., 60., 71., 147.,
@@ -463,11 +471,15 @@ def getColorMatchingErrorVectorised(Arg, Colors, Captured_Colors):
     ColorConstant = Arg[9:12].reshape([3, 1])
     ColorGamma = Arg[12:15]
 
-    TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
-    Corrected_Colors = np.zeros_like(TempRGB)
-    Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
-    Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
-    Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
+    # We get warnings when base of power is negative. Ignore them as they
+    # probably are not significant in the least square search
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        TempRGB = np.dot(ColorMatrix, Captured_Colors) + ColorConstant
+        Corrected_Colors = np.zeros_like(TempRGB)
+        Corrected_Colors[0, :] = 255.0*np.power(TempRGB[0, :]/255.0, ColorGamma[0])
+        Corrected_Colors[1, :] = 255.0*np.power(TempRGB[1, :]/255.0, ColorGamma[1])
+        Corrected_Colors[2, :] = 255.0*np.power(TempRGB[2, :]/255.0, ColorGamma[2])
 
     Diff = Colors - Corrected_Colors
     ErrorList = np.sqrt(np.sum(Diff * Diff, axis=0)).tolist()
@@ -573,10 +585,10 @@ def matchTemplateLocation(Image, Template, EstimatedLocation,
         CroppedHalfWidth = Image.shape[1] // 2 - 1
     if CroppedHalfHeight > Image.shape[0] // 2 - 1:
         CroppedHalfHeight = Image.shape[0] // 2 - 1
-    srchTLCnr = [EstimatedLocation[0] - CroppedHalfWidth,
-                 EstimatedLocation[1] - CroppedHalfHeight]
-    srchBRCnr = [EstimatedLocation[0] + CroppedHalfWidth,
-                 EstimatedLocation[1] + CroppedHalfHeight]
+    srchTLCnr = [max(EstimatedLocation[0]-CroppedHalfWidth, 0),
+                 max(EstimatedLocation[1]-CroppedHalfHeight, 0)]
+    srchBRCnr = [min(EstimatedLocation[0]+CroppedHalfWidth, Image.shape[1]),
+                 min(EstimatedLocation[1]+CroppedHalfHeight, Image.shape[0])]
     return matchTemplateWindow(Image, Template, srchTLCnr, srchBRCnr)
 
 

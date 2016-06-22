@@ -1,4 +1,6 @@
-# Copyright 2014 Kevin Murray
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
+# Copyright 2014- The Australian National Univesity
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,11 +20,11 @@
     :platform: Unix, Windows
     :synopsis: Submodule which parses timestream formats.
 
-.. moduleauthor:: Kevin Murray <spam@kdmurray.id.au>
+.. moduleauthor:: Kevin Murray
 """
 
+
 import collections
-import cv2
 from datetime import (
     datetime,
     timedelta,
@@ -35,6 +37,7 @@ import json
 import logging
 import os
 from os import path
+import skimage.io
 from voluptuous import MultipleInvalid
 from warnings import warn
 
@@ -49,6 +52,11 @@ from timestream.util import (
     PARAM_TYPE_ERR,
     dict_unicode_to_str,
 )
+
+try:
+        WindowsError
+except NameError:
+        WindowsError = None
 
 #: Default timestream manifest extension
 MANIFEST_EXT = "tsm"
@@ -155,7 +163,10 @@ def ts_guess_manifest_v1(ts_path):
     for iii in range(len(times) - 1):
         interval = times[iii + 1] - times[iii]
         intervals.append(interval.seconds)
-    retval["interval"] = max(min(intervals), 1)
+    if len(intervals) < 1:
+        retval["interval"] = 1
+    else:
+        retval["interval"] = max(min(intervals), 1)
     retval["name"] = path.basename(ts_path.rstrip(os.sep))
     # This is dodgy isn't it :S
     retval["missing"] = []
@@ -343,19 +354,39 @@ def _ts_date_to_path(ts_name, ts_ext, date, n=0):
     return date.strftime(pth)
 
 
+class RIException(Exception):
+
+    # FIXME: Hack to propagate image error exception. Find a better place for
+    # exception and method. read_image in a parse module????? Returning None is
+    # not the right thing to do as it is valid to have a TimeStreamImage with
+    # none pixels (when creating a new image).
+    def __init__(self, path):
+        self.path = path
+
+    def __str__(self):
+        return "Error reading {}".format(self.path)
+
+
+def read_image(path):
+    """Reads a image in various formats at path ``path`` into an numpy array
+    and returns the array. Returns None on error, logging the error and raising
+    a warning.
+    """
+    try:
+        # Read using skimage's io libary. The freeimage plugin is the most
+        # feature rich and works cross platform.
+        return skimage.io.imread(path, plugin="freeimage")
+    except (ValueError, RuntimeError, WindowsError) as exc:
+        LOG.error(str(exc))
+        raise RIException(path)
+
+
 def ts_iter_numpy(fname_iter):
     """Take each image filename from ``fname_iter`` and yield the image as a
-    numpy array, via ``cv2.imread``. The image is returned as a tuple of
-    ``(img_path, img_matrix)``.
+    numpy array. The image is returned as a tuple of ``(path, array)``.
     """
     for img in fname_iter:
-        try:
-            import skimage.io as imgio
-            yield (img, imgio.imread(img, plugin="freeimage"))
-        except ImportError:
-            LOG.warn("Couln't load scikit image io module. " +
-                     "Raw images not supported")
-            yield (img, cv2.imread(img))
+        yield (img, read_image(img))
 
 
 def _is_ts_v2(ts_path):

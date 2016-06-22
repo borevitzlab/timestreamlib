@@ -1,64 +1,418 @@
-#!/usr/bin/python
-# coding=utf-8
-# Copyright (C) 2014
-# Author(s): Joel Granados <joel.granados@gmail.com>
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+.. module:: timestream.manipulate.plantSegmenter
+    :platform: Unix, Windows
+    :synopsis: Submodule which parses timestream formats.
+
+.. moduleauthor:: Joel Granados
+"""
 
 import numpy as np
 from scipy import signal
+from scipy import ndimage
 from skimage.measure import regionprops
 from skimage.measure import label
 import cv2
 import inspect
 
 
+class StatParamValue(object):
+    """Besides the actual value, instance will have range of validity"""
+
+    def __init__(self, name, value, rMin=0.0, rMax=1.0):
+        self._name = name
+        self._value = value
+        self._min = rMin
+        self._max = rMax
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def range(self):
+        return [self._min, self._max]
+
+    def drawParamInImg(self, img, x=0, y=0, nMax=3, tMax=11,
+                       font=cv2.FONT_HERSHEY_SIMPLEX, color=(255,255,255),
+                       tScale=1):
+        """Draw param name and value on image
+
+        Arguments:
+          img(np.array): The image to draw to.
+          x,y(int): Coordinates to draw to.
+          nMax(int): Maximum size of name
+          tMax(int): Maximum of total text
+          font(cv2FONT): The font to be used
+          color(tuple): Font color
+          tScale(float): Scaling of the font
+        """
+        txt = self._name[0:nMax]+":"+str(self._value)
+        txt = txt[0:tMax]
+        cv2.putText(img, txt, (x,y), font, tScale, color, 3)
+
+
+class StatParamMinCircle(StatParamValue):
+    """The value is the radius and we add center"""
+
+    def __init__(self, name, radius, center=(0,0), rMin=0.0, rMax=float("Inf")):
+        super(StatParamMinCircle, self).__init__(name, radius,
+                                                 rMin=rMin, rMax=rMax)
+        self._center = center
+        self._radius = self._value
+
+    @property
+    def radius(self):
+        return self._value
+
+    @property
+    def center(self):
+        return self._center
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._radius > 0 and self._center[0] >= 0 and self._center[1] >= 0:
+            # FIXME: Why is the center returned by cv2.minEnclosingCircle need
+            #        to be swapped for cv2.circle??????
+            c = (self._center[1], self._center[0])
+            cv2.circle(img, c, self._radius, color)
+
+
+class StatParamPerimeter(StatParamValue):
+    """The value is the sum of the perimeter. Also perimeter coords"""
+
+    def __init__(self, name, plen, xycoords, rMin=0.0, rMax=float("Inf")):
+        super(StatParamPerimeter, self).__init__(name, plen,
+                                                 rMin=rMin, rMax=rMax)
+        self._length = self._value
+        self._coords = xycoords
+
+    @property
+    def length(self):
+        return self._length
+
+    @property
+    def coords(self):
+        return self._coords
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._length > 0:
+            img[self._coords[0], self._coords[1], :] = 255
+
+
+class StatParamLeafCount(StatParamValue):
+    """The number of leaves on a rosette. Also leaf coordinates"""
+
+    def __init__(self, name, centerCoords, radius=5, rMin=0.0, rMax=float("Inf")):
+        super(StatParamLeafCount, self).__init__(name, len(centerCoords),
+                                                 rMin=rMin, rMax=rMax)
+        self._centers = centerCoords
+        self._radius = radius
+
+    @property
+    def centers(self):
+        return self._centers
+
+    def drawParamInImg(self, img, color=(255,255,255), *args, **kwargs):
+        if self._centers > 0:
+            for c in self._centers:
+                cv2.circle(img, (int(c[0]), int(c[1])), self._radius, color)
+
+
 class StatParamCalculator(object):
 
-    def area(self, mask):
+    # FIXME: this should be the same as in pipecompoment.ResultingFeatureWriter.
+    #       Find a place to put this string so its in the general scope.
+    errStr = "NaN"
+
+    def area(self, mask, img=None):
+        retVal = 0.0
         area = regionprops(mask.astype("int8"), ["Area"])
-        if len(area) == 0:
-            return (0.0)
-        return (area[0]["Area"])
+        if len(area) > 0:
+            retVal = area[0]["Area"]
 
-    def perimeter(self, mask):
+        return StatParamValue("area", retVal, rMax=float("Inf"))
+
+    def perimeter(self, mask, img=None):
+        retVal = 0.0
         perim = regionprops(mask.astype("int8"), ["Perimeter"])
-        if len(perim) == 0:
-            return (0.0)
-        return (perim[0]["Perimeter"])
 
-    def roundness(self, mask):
+        bmsk = ndimage.binary_erosion(mask, np.ones((3,3)), border_value=0)
+        bmsk = mask - bmsk
+        xycoords = np.where(bmsk == 1)
+        if len(perim) > 0:
+            retVal = perim[0]["Perimeter"]
+
+        return StatParamPerimeter("perimeter", retVal, xycoords)
+
+    def roundness(self, mask, img=None):
         # (4 (pi) * AREA) / PERIM^2
-        retVal = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
-        if len(retVal) == 0:
-            return (0.0)
-        area = retVal[0]["Area"]
-        perim = retVal[0]["Perimeter"]
-        return ((4 * np.pi * area) / np.power(perim, 2))
+        retVal = 0.0
+        roundness = regionprops(mask.astype("int8"), ["Area", "Perimeter"])
+        if len(roundness) > 0:
+            area = roundness[0]["Area"]
+            perim = roundness[0]["Perimeter"]
+            retVal = (4 * np.pi * area) / np.power(perim, 2)
 
-    def compactness(self, mask):
+        return StatParamValue("roundness", retVal, rMax=float("Inf"))
+
+    def compactness(self, mask, img=None):
         # In skimage its called solidity
+        retVal = StatParamCalculator.errStr
         compactness = regionprops(mask.astype("int8"), ["Solidity"])
-        if len(compactness) == 0:
-            return (0.0)  # FIXME: is this the best default?
-        return (compactness[0]["Solidity"])
+        if len(compactness) > 0:
+            retVal = compactness[0]["Solidity"]
 
-    def eccentricity(self, mask):
+        return StatParamValue("compactness", retVal, rMax=float("Inf"))
+
+    def eccentricity(self, mask, img=None):
+        # In skimage eccentricity ratio between minor and  major axis length of
+        # the ellipse with the same second moment as the region.
+        retVal = StatParamCalculator.errStr
         ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
-        if len(ecce) == 0:
-            return (0.0)  # FIXME: is this the best default?
-        return (ecce[0]["Eccentricity"])
+        if len(ecce) > 0:
+            retVal = ecce[0]["Eccentricity"]
+
+        return StatParamValue("eccentricity", retVal)
+
+    def rms(self, mask, img=None):
+        # RMS: Rotational Mass Symmetry. For PSI (Photon Systems Instruments) is
+        #      the ratio between foci and major axis of the ellipse with the
+        #      same second moment as the region. We calc with eccentricity
+        retVal = StatParamCalculator.errStr
+        ecce = regionprops(mask.astype("int8"), ["Eccentricity"])
+        if len(ecce) > 0:
+            retVal = 1 - (ecce[0]["Eccentricity"])**2
+
+        return StatParamValue("rms", retVal)
+
+    def mincircle(self, mask, img=None):
+        r = 0.0
+        c = (0,0)
+        a, b = np.where(mask == 1)
+        if len(a) > 0 and len(b) > 0:
+            ab = np.transpose(np.vstack((a,b)))
+            c, r = cv2.minEnclosingCircle(ab)
+            c = (int(c[0]), int(c[1]))
+            r = int(r)
+
+        return StatParamMinCircle("mincircle", r, c, rMax=float('Inf'))
+
+    def leafcount1(self, mask, img=None):
+        # each leaf is located at a maxima of the distance transform. This
+        # function implements the paper "3-D Histogram-Based Segmentation and
+        # Leaf Detection for Rosette Plants" Jean-Michel Pape et. al. 2014
+        # FIXME: We are missing some leafs when because there are isthmus in the
+        #        distance transform that are leaves but are not a max.
+
+        # 1. Calc the distance transform
+        dt = cv2.distanceTransform(mask.astype("uint8"), cv2.cv.CV_DIST_C, 5)
+
+        # 2. Mark non-max coordinates
+        #    Potential maxima where 8-neighbor max <= pixel.
+        sel = np.ones([3, 3]).astype("uint8")
+        sel[1, 1] = 0
+        maximas = dt - cv2.dilate(dt.astype("uint8"), sel)
+
+        # Potential maximas >= 0
+        maximas[np.where(maximas >= 0)] = 1
+
+        # No max where dtDiff is negative nor mask == 0.
+        maximas[np.where(maximas < 0)] = 0
+        maximas[np.where(mask == 0)] = 0
+
+        # 3. Prune connected components.
+        cc, ccNum = label(maximas, return_num=True)
+        sel = np.ones([3, 3]).astype("uint8")
+        for i in range(1, ccNum):
+            ccmsk = (cc == i).astype("float32")
+            ccCoords = np.where(ccmsk == 1)
+            perim = cv2.dilate(ccmsk, sel) - ccmsk
+            perimCoords = np.where(perim == 1)
+            if np.min(dt[ccCoords]) <= np.max(dt[perimCoords]):
+                # No max if connected component has an adjacent max or equal.
+                cc[ccCoords] = 0
+
+        # 4. Find leaf centers.
+        centers = []
+        for rp in regionprops(cc):
+            c = rp["centroid"]
+            centers.append((c[1], c[0]))
+
+        return StatParamLeafCount("leafcount1", centers)
+
+    def height(self, mask, img=None):
+        '''
+        Plant height
+        Only used for images taken from the side of a plant.
+        '''
+        bbox = regionprops(mask.astype("int8"), ["bbox"])
+        if len(bbox) == 0:
+            return StatParamValue("height", 0.0)  # FIXME: is this the best default?
+        min_row, min_col, max_row, max_col = bbox[0]["bbox"]
+        return StatParamValue("height", max_row - min_row,
+                              rMax=float("Inf"))
+
+    def height2(self, mask, img=None):
+        '''
+        Plant top and bottom are at 5% and 95% respectively of green pixel
+        integration. This is supposed to provide a more less noisy height
+        Only used for images taken from the side of a plant.
+        '''
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i, :])
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("height2", 0.0, rMax=float("Inf"))
+
+        # Plant top when reaching 5% of total green pixels
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.05:
+                PlantTop = i
+                break
+        # Plant bottom when reaching 5% of total green pixels
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.95:
+                PlantBottom = i
+                break
+
+        return StatParamValue("height2", PlantBottom-PlantTop,
+                              rMax=float("Inf"))
+
+    def wilting(self, mask, img=None):
+        '''
+        Plant wilting is at 50% of green pixel integration.
+        Only used for images taken from the side of a plant.
+        '''
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i, :])
+
+        # get range of plant height
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixels[i] != 0:
+                PlantTop = i
+                break
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]-1, -1, -1):
+            if GreenPixels[i] != 0:
+                PlantBottom = i
+                break
+
+        # get wilting height
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("wilting", 0.0, rMax=float("Inf"))
+
+        WiltedHeight = PlantTop
+        for i in range(PlantTop, PlantBottom):
+            if GreenPixelsCumSum[i] >= 0.5:
+                WiltedHeight = i
+                break
+        Wilting = float(PlantBottom-WiltedHeight)
+        return StatParamValue("wilting", Wilting)
+
+    def wilting2(self, mask, img=None):
+        '''
+        This is a normalised wilting with the height calculated from
+        Plant top and bottom are at 5% and 95% respectively of
+        green pixels. Plant wilting is at 50% of green pixel integration.
+        Only used for images taken from the side of a plant.
+         '''
+        GreenPixels = np.zeros(mask.shape[0])
+        for i in range(mask.shape[0]):
+            GreenPixels[i] = np.sum(mask[i, :])
+        GreenPixelsCumSum = np.cumsum(GreenPixels)
+        if GreenPixelsCumSum[-1] != 0:
+            GreenPixelsCumSum = GreenPixelsCumSum/GreenPixelsCumSum[-1]
+        else:
+            return StatParamValue("wilting", 0.0, rMax=float("Inf"))
+
+        # Plant top when reaching 5% of total green pixels
+        PlantTop = 0
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.05:
+                PlantTop = i
+                break
+        # Plant bottom when reaching 5% of total green pixels
+        PlantBottom = mask.shape[0]
+        for i in range(mask.shape[0]):
+            if GreenPixelsCumSum[i] >= 0.95:
+                PlantBottom = i
+                break
+        # Plantt wilting height at 50% of total green pixels
+        WiltedHeight = PlantTop
+        for i in range(PlantTop, PlantBottom):
+            if GreenPixelsCumSum[i] >= 0.5:
+                WiltedHeight = i
+                break
+        if PlantBottom-PlantBottom != 0:
+            Wilting = float(PlantBottom - WiltedHeight)/float(PlantBottom-PlantTop)
+        else:
+            Wilting = 0.0
+        return StatParamValue("wilting2", Wilting)
+
+    def gcc(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        gcc = img[mask == 1]
+        if gcc.shape[0] != 0:
+            gcc = np.float32(gcc)
+            # What is the best way to calculate total GCC? 1. The relation of
+            # the means or 2. the mean of the relation.??? We go with 2.
+            #gcc = np.mean(gcc[:,1]) / np.mean(gcc[:,0])
+            #                          + np.mean(gcc[:,1])
+            #                          + np.mean(gcc[:,2])))
+            gcc = np.mean(gcc[:,1] / (gcc[:,0]+gcc[:,1]+gcc[:,2]+1))
+            retVal = gcc
+        return StatParamValue("ColorGCC", retVal)
+
+    def exg(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        exg = img[mask == 1]
+        if exg.shape[0] != 0:
+            exg = np.float32(exg)
+            exg = np.mean((2*exg[:,1]) - exg[:,0] - exg[:,2])
+            retVal = exg
+        return StatParamValue("ColorExG", retVal)
+
+    def hsv(self, mask, img=None):
+        retVal = StatParamCalculator.errStr
+        hsv = img[mask == 1]
+        if hsv.shape[0] != 0:
+            hsv = hsv.reshape((1,hsv.shape[0],hsv.shape[1]))
+            # FIXME: is it BGR2HSV or RGB2HSV
+            hsv = cv2.cvtColor(hsv, cv2.COLOR_BGR2HSV)
+            hsv = np.mean(hsv[0,:,1])
+            retVal = hsv
+        return StatParamValue("ColorHSV_H", retVal, rMax=360)
 
     @classmethod
     def statParamMethods(cls):
@@ -201,7 +555,7 @@ class FeatureCalculator(object):
         F = 4 * self.normRange(self._imgRGB[:, :, 1], rangeVal=(0, 255)) \
             - 3 * self.normRange(self._imgRGB[:, :, 2], rangeVal=(0, 255)) \
             - 1 * self.normRange(self._imgRGB[:, :, 0], rangeVal=(0, 255))
-        F = np.reshape(F, (F.shape[0], F.shape[0], 1))
+        F = np.reshape(F, (F.shape[0], F.shape[1], 1))
         return(F)
 
     def getFeatures(self, feats, norm=RELATIVE_NORM):

@@ -1,20 +1,28 @@
-#!/usr/bin/python
-# coding=utf-8
-# Copyright (C) 2014
-# Author(s): Joel Granados <joel.granados@gmail.com>
+# Copyright 2006-2014 Tim Brown/TimeScience LLC
+# Copyright 2013-2014 Kevin Murray/Bioinfinio
+# Copyright 2014- The Australian National Univesity
+# Copyright 2014- Joel Granados
 #
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+.. module:: timestream.manipulate.pot
+    :platform: Unix, Windows
+    :synopsis: Pot-level image manipulation
+
+.. moduleauthor:: Joel Granados, Chuong Nguyen
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -48,7 +56,7 @@ class ImagePotRectangle(object):
         self._imgwidth = imgSize[1]
         self._imgheight = imgSize[0]
 
-        if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.array))\
+        if not (isinstance(rectDesc, list) or isinstance(rectDesc, np.ndarray))\
                 or (len(rectDesc) != 2 and len(rectDesc) != 4):
             raise TypeError(
                 "Rectangle Descriptor must be a list of len 2 or 4")
@@ -118,9 +126,10 @@ class ImagePotHandler(object):
             segmented images. We create a new instance for every fc call.
           iphPrev(ImagePotHandler): Is the ImagePotHandler of the previous
             ImagePotMatrix with the same id as self.
-          image(ndarray): Return the cropped image (defined by rect) of
+          _image(ndarray): Return the cropped image (defined by rect) of
             self._ipm.image.
-          maskedImage: Return the segmented cropped image.
+          getImage: Return images that is either masked, cropped and/or with
+            feature strings
           mask,_mask(ndarray): binary image represenging the mask.
           features: Return the calculated features
 
@@ -240,45 +249,12 @@ class ImagePotHandler(object):
 
         # if bad segmentation
         if 1 not in msk and self.iphPrev is not None:
-            # We try previous mask. This is tricky because we need to fit the
-            # previous mask size into msk
+            # Use previous mask. Fit the previous mask size into msk
             pm = self.iphPrev.mask
-
-            vDiff = msk.shape[0] - pm.shape[0]
-            if vDiff < 0:  # reduce pm vertically
-                side = True
-                for i in range(abs(vDiff)):
-                    if side:
-                        pm = pm[1:, :]
-                    else:
-                        pm = pm[:-1, :]
-                    side = not side
-
-            if vDiff > 0:  # grow pm vertically
-                padS = np.array([1, 0])
-                for i in range(abs(vDiff)):
-                    pm = np.lib.pad(pm, (padS.tolist(), (0, 0)), 'constant',
-                                    constant_values=0)
-                    padS = -(padS - 1)  # other side
-
-            hDiff = msk.shape[1] - pm.shape[1]
-            if hDiff < 0:  # reduce pm horizontally
-                side = True
-                for i in range(abs(hDiff)):
-                    if side:
-                        pm = pm[:, 1:]
-                    else:
-                        pm = pm[:, :-1]
-                    side = not side
-
-            if hDiff > 0:  # grow pm horizontally
-                padS = np.array([1, 0])
-                for i in range(abs(hDiff)):
-                    pm = np.lib.pad(pm, ((0, 0), padS.tolist()), 'constant',
-                                    constant_values=0)
-                    padS = -(padS - 1)  # other side
-
-            msk = pm
+            msk[:] = 0
+            minHeight = np.min([pm.shape[0], msk.shape[0]])
+            minWidth = np.min([pm.shape[1], msk.shape[1]])
+            msk[0:minHeight ,0:minWidth ] = pm[0:minHeight ,0:minWidth ]
 
         return msk
 
@@ -288,13 +264,13 @@ class ImagePotHandler(object):
 
     @rect.setter
     def rect(self, r):
-        if isinstance(r, list):
+        if isinstance(r, np.ndarray):
             if len(r) != 4:
-                raise TypeError("Pass a list of len 4 to set a rectangle")
+                raise TypeError("Pass an ndarray of len 4 to set a rectangle")
             else:
                 self._rect = ImagePotRectangle(r, self._ipm.image.pixels.shape)
 
-        elif isinstance(ImagePotRectangle):
+        elif isinstance(r, ImagePotRectangle):
             # The right thing to do here is to create a new Imagepotrectangle so
             # we are sure we relate it to the correct image shape.
             self._rect = ImagePotRectangle(r.asList(),
@@ -323,43 +299,66 @@ class ImagePotHandler(object):
     def fc(self):
         return tm_ps.StatParamCalculator()
 
-    def maskedImage(self, inSuper=False):
-        """Returns segmented pixels on a black background
+    def getImage(self, masked=False, features=[], inSuper=False):
+        """Returns pot pixels
 
+        masked(boolean): If True, we replace background pixels with black
+        features(list): List of feature classes that should be added to the
+          perimeter of the pot image
         inSuper: When True we return the segmentation in the totality of
                  self._ipm.image. When False we return it in the rect.
         """
-        # We use the property to trigger creation if needed.
-        msk = self.mask
-        img = self._image
+        img = self._image.copy()
 
-        height, width, dims = img.shape
-        msk = np.reshape(msk, (height * width, 1), order="F")
-        img = np.reshape(img, (height * width, dims), order="F")
+        if masked:
+            # trigger creation if needed
+            msk = self.mask
 
-        retVal = np.zeros((height, width, dims), dtype=img.dtype)
-        retVal = np.reshape(retVal, (height * width, dims), order="F")
+            height, width, dims = img.shape
+            msk = np.reshape(msk, (height * width, 1), order="F")
 
-        Ind = np.where(msk)[0]
-        retVal[Ind, :] = img[Ind, :]
-        retVal = np.reshape(retVal, (height, width, dims), order="F")
+            tmpImg = np.zeros((height, width, dims), dtype=img.dtype)
+            tmpImg = np.reshape(tmpImg, (height * width, dims), order="F")
+
+            Ind = np.where(msk)[0]
+            imgR = np.reshape(img, (height * width, dims), order="F")
+            tmpImg[Ind, :] = imgR[Ind,:]
+            tmpImg = np.reshape(tmpImg, (height, width, dims), order="F")
+            img[::] = tmpImg[::]
+
+        if len(features) > 0:
+            # For every calculated feature we try to fit values in image.
+            # FIXME: We silently ingore elements in features that are not in
+            #        self._features
+            # FIXME: We should have a limit to the amount of features we put in
+            #        an image
+            x = img.shape[1] - 200
+            y = 50
+            for f in features:
+                if f in self._features.keys():
+                    feat = self._features[f]
+                    feat.drawParamInImg(img, x=x, y=y, tScale=1.2)
+                    y += 30
 
         if inSuper:
             superI = self._ipm.image.pixels.copy()
             superI[self._rect[1]:self._rect[3],
-                   self._rect[0]:self._rect[2], :] = retVal
-            retVal = superI
+                   self._rect[0]:self._rect[2], :] = img
+            del img
+            img = superI
 
-        return (retVal)
+        return img
 
-    def increaseRect(self, by=5):
+    def increaseRect(self, leftby=5, topby=5, rightby=5, bottomby=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([-by, -by, by, by])
+        r = self._rect.asList() + np.array([-leftby, -topby, rightby,
+                                            bottomby])
         self.rect = r
 
-    def reduceRect(self, by=5):
+    def reduceRect(self, leftby=5, topby=5, rightby=5, bottomby=5):
         # Using property to trigger assignment, checks and cleanup
-        r = self._rect.asList() + np.array([by, by, -by, -by])
+        r = self._rect.asList() + np.array([leftby, topby, -rightby,
+                                            -bottomby])
         self.rect = r
 
     def calcFeatures(self, feats):
@@ -376,10 +375,15 @@ class ImagePotHandler(object):
             raise RuntimeError("Cannot calculate feature of None")
         fc = self.fc
         for featName in feats:
-            # calc not-indexed feats
+            # calc the ones we don't have
             if featName not in self._features.keys():
                 featFunc = getattr(fc, featName)
-                self._features[featName] = featFunc(msk)
+                try:
+                    self._features[featName] = featFunc(msk, img=self._image)
+                except:
+                    self._features[featName] = tm_ps.StatParamValue(
+                        featName,
+                        tm_ps.StatParamCalculator.errStr)
 
     def getCalcedFeatures(self):
         return self._features
@@ -509,7 +513,7 @@ class ImagePotMatrix(object):
 
     def getPot(self, potId):
         if potId not in self._pots.keys():
-            raise IndexError("No pot id %d found" % potId)
+            raise IndexError("No pot id %s found" % str(potId))
 
         return self._pots[potId]
 
@@ -531,7 +535,7 @@ class ImagePotMatrix(object):
         """ Show segmented image with the plot squares on top. """
         sImage = self.image.pixels
         for key, pot in self._pots.iteritems():
-            sImage = sImage & pot.maskedImage(inSuper=True)
+            sImage = sImage & pot.getImage(masked=True, inSuper=True)
 
         plt.figure()
         plt.imshow(sImage.astype(np.uint8))
@@ -543,6 +547,8 @@ class ImagePotMatrix(object):
                      [r[1], r[1], r[3], r[3], r[1]],
                      linestyle="-", color="r")
 
+        a = plt.gca()
+        a.axis('tight')
         plt.title('Pot Rectangles')
         plt.show()
 

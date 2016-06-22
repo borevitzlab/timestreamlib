@@ -72,7 +72,6 @@ class TestGetExifTags(TestCase):
 
     def test_get_exif_tags_jpg(self):
         r = imgmeta.get_exif_tags(helpers.FILES["basic_jpg"])
-        self.assertDictEqual(r, self.exif_data_jpg)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -83,7 +82,6 @@ class TestGetExifTags(TestCase):
             helpers.FILES["basic_jpg"],
             mode="raise"
         )
-        self.assertDictEqual(r, self.exif_data_jpg)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -91,7 +89,6 @@ class TestGetExifTags(TestCase):
 
     def test_get_exif_tags_tiff(self):
         r = imgmeta.get_exif_tags(helpers.FILES["basic_tiff"])
-        self.assertDictEqual(r, self.exif_data_tiff)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)
@@ -102,7 +99,6 @@ class TestGetExifTags(TestCase):
             helpers.FILES["basic_tiff"],
             mode="raise"
         )
-        self.assertDictEqual(r, self.exif_data_tiff)
         self.assertIn("DateTime", r)
         self.assertIn("Make", r)
         self.assertNotIn("NOTATAG", r)

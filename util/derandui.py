@@ -18,10 +18,17 @@
 
 import csv
 import sys
+import yaml
 import os.path
+import random
+import collections
+import numpy as np
 from PyQt4 import QtGui, QtCore, uic
-from timestream import TimeStreamTraverser
-from collections import namedtuple
+from timestream import TimeStreamTraverser, TimeStream
+from collections import OrderedDict
+from timestream.manipulate.pipecomponents import DerandomizeTimeStreams
+import timestream.manipulate.configuration as pipeconf
+import timestream.manipulate.pipeline as pipeline
 
 class DerandomizeGUI(QtGui.QMainWindow):
     def __init__(self):
@@ -32,242 +39,633 @@ class DerandomizeGUI(QtGui.QMainWindow):
           _scene(QGraphicsScene): Where we put the pixmap
           _gvImg(GraphicsView): A GraphicsView implementation that adds fast pan
             and zoom.
-          _activeTS(TimeStreamTraverser): Holds all active instances related to a TS
         """
         QtGui.QMainWindow.__init__(self)
-
-        self._activeTS = None
         self._ui = uic.loadUi("derandui.ui")
 
-        # Setup Image viewer
-        # GraphicsView(GraphicsScene(GraphicsItem(Pixmap)))
-        self._scene = QtGui.QGraphicsScene()
-        self._gvImg = PanZoomGraphicsView()
-        self._gvImg.setScene(self._scene)
-        self.showImage(None)
-
-        # self._ui.csv and self._gvImg take up 50-50 of the vertical space
-        sp = self._gvImg.sizePolicy()
-        sp.setVerticalPolicy(QtGui.QSizePolicy.Preferred)
-        sp.setVerticalStretch(1)
-        self._gvImg.setSizePolicy(sp)
-        self._ui.vRight.addWidget(self._gvImg)
-
-        # Setup the timestream list
+        # Setup timestream & csvlist
         self._ui.tslist.horizontalHeader().resizeSection(0,20)
         self._ui.tslist.cellClicked.connect(self.onClickTimeStreamList)
         self.addTsItem = self._ui.tslist.item(0,0)
-        self._ui.tslist.setColumnHidden(2,True) # TimeStream 3rd column (hidden)
+        self._ui.bAddTs.clicked.connect(self._addTS)
+        self._ui.csvlist.horizontalHeader().resizeSection(0,20)
+        self._ui.csvlist.cellClicked.connect(self.onClickCsvList)
+        self.addCsvItem = self._ui.csvlist.item(0,0)
+        self._ui.bAddCsv.clicked.connect(self._addCsv)
 
-        # Setup the csv table, item(0,0) of _ui.csv will be a combobox
-        self._tscb = QComboBox_TS(self._ui.csv, self)
-        self._ui.csv.setCellWidget(0,0,self._tscb)
+        # Comboboxes & genMaster
+        self._origCbCsvMousePress = self._ui.cbCsv.mousePressEvent
+        self._ui.cbCsv.mousePressEvent = self._pressCbCsv
+        self._origCbTsMousePress = self._ui.cbTs.mousePressEvent
+        self._ui.cbTs.mousePressEvent = self._pressCbTs
+        self._origCbDerandMousePress = self._ui.cbderand.mousePressEvent
+        self._ui.cbderand.mousePressEvent = self._pressCbDerand
+        self._ui.cbderand.currentIndexChanged.connect(self._indexChangedCbDerand)
+        self._ui.bGenMaster.clicked.connect(self._genMaster)
 
-        # Button connection
-        self._ui.bOpenCsv.clicked.connect(self.selectCsv)
+        # Add Additional buttons
+        self._ui.bGenConf.clicked.connect(self._genConfig)
+        self._ui.bDerand.clicked.connect(self._derandomize)
+        self._ui.bPrevImg.clicked.connect(self._showPrev)
+
+        # Hide the progress bar stuff
+        self._ui.pbts.setVisible(False)
+        self._ui.bCancelClicked = False
+        self._ui.bCancel.setVisible(False)
+        self._ui.bCancel.clicked.connect(self._cancelDerand)
+
+        # keep track of current dir
+        self._currDir = ""
 
         self._ui.show()
+
+    def _showPrev(self):
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1 \
+                or self._ui.tslist.rowCount < 2 \
+                or self._ui.csvlist.rowCount < 2:
+            return
+
+        derandStruct = self._createDerandStruct()
+        if derandStruct is None:
+            return
+
+        # Get a random timestamp
+        tsI = self._ui.tslist.item(0,1)
+        tsD = tsI.data(QtCore.Qt.UserRole).toPyObject()
+        if len(tsD.timestamps) < 2:
+            return
+        timestamp = tsD.timestamps[random.randrange(0,len(tsD.timestamps))]
+
+        # Create the image
+        derandTS = DerandomizeTimeStreams(None, derandStruct=derandStruct)
+        img = derandTS.__exec__(None, timestamp)[0].pixels
+        h,w,d = img.shape
+        img2 = np.empty((h, w, 4), np.uint8, 'C')
+        img2[...,0] = img[...,2]
+        img2[...,1] = img[...,1]
+        img2[...,2] = img[...,0]
+        qimg = QtGui.QImage(img2.data,w,h,QtGui.QImage.Format_RGB32)
+
+        prevWidget = QtGui.QDialog(parent=self)
+        prevWidget.setGeometry(QtCore.QRect(0,0,700,700))
+        layout = QtGui.QVBoxLayout()
+        prevWidget.setLayout(layout)
+
+        # Setup Image viewer
+        scene = QtGui.QGraphicsScene()
+        gvImg = PanZoomGraphicsView(parent=self)
+        gvImg.setScene(scene)
+        pixmap = QtGui.QPixmap(qimg)
+        pixItem = scene.addPixmap(pixmap)
+        pixItem.setZValue(-100)
+        layout.addWidget(gvImg)
+
+        # Button to close
+        okb = QtGui.QPushButton("ok")
+        okb.clicked.connect(lambda: prevWidget.closeEvent(QtGui.QCloseEvent()))
+        okb.setFixedWidth(40)
+        layout.addWidget(okb)
+
+        prevWidget.exec_()
+
+    def _indexChangedCbDerand(self, ind):
+        if ind == -1:
+            return
+        c,_ = self._ui.cbderand.itemData(ind).toUInt()
+        self._ui.masterlist.sortItems(c, QtCore.Qt.DescendingOrder)
+
+    def _pressCbDerand(self, mouseEvent):
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1:
+            return
+        self._ui.cbderand.clear()
+        self._ui.cbderand.blockSignals(True)
+        for c in range(self._ui.masterlist.columnCount()):
+            hhi = self._ui.masterlist.horizontalHeaderItem(c)
+            self._ui.cbderand.addItem(hhi.text(), QtCore.QVariant(c))
+        self._ui.cbderand.blockSignals(False)
+
+        self._origCbDerandMousePress(mouseEvent)
+
+    def _pressCbCsv(self, mouseEvent):
+        if self._ui.csvtable.columnCount() < 2:
+            return
+        self._ui.cbCsv.clear()
+        for c in range(self._ui.csvtable.columnCount()):
+            hhi = self._ui.csvtable.horizontalHeaderItem(c)
+            self._ui.cbCsv.addItem(hhi.text(), QtCore.QVariant(c))
+
+        self._origCbCsvMousePress(mouseEvent)
+
+    def _pressCbTs(self, mouseEvent):
+        if self._ui.tstable.columnCount() < 2:
+            return
+        self._ui.cbTs.clear()
+        for c in range(self._ui.tstable.columnCount()):
+            hhi = self._ui.tstable.horizontalHeaderItem(c)
+            self._ui.cbTs.addItem(hhi.text(), QtCore.QVariant(c))
+
+        self._origCbTsMousePress(mouseEvent)
+
+    def _genMaster(self):
+        # 0. Make sure we can create the master.
+        errMsg = None
+        if self._ui.tstable.columnCount() < 2 \
+                or self._ui.csvtable.columnCount() < 2 \
+                or self._ui.tslist.rowCount() < 2 \
+                or self._ui.csvlist.rowCount() < 2:
+            errMsg = "Add a csv file and at least one Time Stream"
+        if self._ui.cbCsv.currentText() == "" \
+                or self._ui.cbCsv.currentText() == "CSV Name" \
+                or self._ui.cbTs.currentText() == "" \
+                or self._ui.cbTs.currentText() == "TS Name":
+            errMsg = "Please choose column relation"
+        if errMsg is not None:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error Generating Master")
+            errmsg.showMessage(errMsg)
+            return
+
+        # 1. Initialize table
+        self._ui.masterlist.setRowCount(0)
+        self._ui.masterlist.setColumnCount(0)
+        self._ui.masterlist.setColumnCount(self._ui.csvtable.columnCount()-1
+                + self._ui.tstable.columnCount()-1)
+
+        # set csv related headers
+        for c in range(1,self._ui.csvtable.columnCount()):
+            hName = self._ui.csvtable.horizontalHeaderItem(c).text()
+            i = QtGui.QTableWidgetItem()
+            i.setText(hName)
+            self._ui.masterlist.setHorizontalHeaderItem(c-1,i)
+
+        # set ts related headers
+        cOffset = self._ui.csvtable.columnCount()-1
+        for c in range(1,self._ui.tstable.columnCount()):
+            hName = self._ui.tstable.horizontalHeaderItem(c).text()
+            i = QtGui.QTableWidgetItem()
+            i.setText(hName)
+            self._ui.masterlist.setHorizontalHeaderItem(c-1+cOffset,i)
+
+
+        # 2. Copy csv table. Not col 0. Ignore row where selected col is "".
+        cInd = self._ui.cbCsv.currentIndex()
+        selColNum,_ = self._ui.cbCsv.itemData(cInd).toUInt()
+
+        masterR = 0
+        for csvR in range(self._ui.csvtable.rowCount()):
+            if self._ui.csvtable.item(csvR, selColNum).text() == "":
+                continue
+
+            self._ui.masterlist.insertRow(self._ui.masterlist.rowCount())
+            for csvC in range(1,self._ui.csvtable.columnCount()):
+                istr = self._ui.csvtable.item(csvR, csvC)
+                if istr is not None:
+                    istr = self._ui.csvtable.item(csvR, csvC).text()
+                else:
+                    istr = " "
+                i = QtGui.QTableWidgetItem()
+                i.setTextAlignment(QtCore.Qt.AlignCenter)
+                i.setText(istr)
+                i.setBackground(QtGui.QColor(220,220,220))
+                self._ui.masterlist.setItem(masterR, csvC-1, i)
+            masterR += 1
+
+        # 3. Copy tstable rows to masterlist that agree with Relation
+        cInd = self._ui.cbTs.currentIndex()
+        tsColNum,_ = self._ui.cbTs.itemData(cInd).toUInt()
+        cInd = self._ui.cbCsv.currentIndex()
+        masterColNum,_ = self._ui.cbCsv.itemData(cInd).toUInt()
+        masterColNum -= 1 # because we don't have CSV Name in master list.
+
+        # valRow: given the val, returns the row in tstable
+        valRow = {}
+        for csvR in range(self._ui.tstable.rowCount()):
+            val = self._ui.tstable.item(csvR, tsColNum)
+            if val is not None:
+                val = self._ui.tstable.item(csvR, tsColNum).text()
+            else:
+                val = " "
+            valRow[val] = csvR
+
+        # Copy all row values from tstable to masterlist.
+        for mRow in range(self._ui.masterlist.rowCount()):
+            masterVal = self._ui.masterlist.item(mRow, masterColNum).text()
+            if masterVal not in valRow.keys():
+                continue
+
+            # Copy all tstable columns from tsRow to masterlist
+            tsRow = valRow[masterVal]
+            for tsCol in range(1, self._ui.tstable.columnCount()):
+                tsI = self._ui.tstable.item(tsRow, tsCol)
+                tsT = tsI.text()
+                tsD = tsI.data(QtCore.Qt.UserRole)
+                i = QtGui.QTableWidgetItem()
+                i.setTextAlignment(QtCore.Qt.AlignCenter)
+                i.setText(tsT)
+                i.setData(QtCore.Qt.UserRole, tsD)
+                self._ui.masterlist.setItem(mRow, cOffset-1+tsCol, i)
+
+    def _cancelDerand(self):
+        self._ui.bCancelClicked = True
+
+    def _genConfig(self):
+        if self._ui.cbderand.currentIndex() < 0:
+            return
+
+        cFile = QtGui.QFileDialog.getSaveFileName(self, \
+                "Select Filename for Config File", self._currDir, \
+                options=QtGui.QFileDialog.DontResolveSymlinks)
+        if cFile == "": # Handle the cancel
+            return
+        self._currDir = os.path.dirname(str(cFile))
+
+        derandStruct = self._createDerandStruct()
+
+        # unique list of tsbasedir
+        tsts = {}
+        tsbds = list(set([x for _,l in derandStruct.iteritems() \
+                                for x in l.keys()]))
+        for i in range(len(tsbds)):
+            tsts[tsbds[i]] = i
+
+        for mid, midlist in derandStruct.iteritems():
+            for p, _ in midlist.iteritems():
+                newKey = tsts[p]
+                derandStruct[mid][newKey] = derandStruct[mid].pop(p)
+
+        # reverse tsts
+        tsts = {y:x for x,y in tsts.iteritems()}
+
+        f = file(cFile, "w")
+        yaml.dump([tsts, derandStruct], f)
+        f.close()
+
+    def _createDerandStruct(self):
+        if self._ui.masterlist.columnCount() < 1 \
+                or self._ui.masterlist.rowCount() < 1 \
+                or self._ui.cbderand.currentIndex() < 0:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error while generating derand struct")
+            errmsg.showMessage(
+                    "Generate Master and select derandomization column")
+            return
+
+        derandStruct = {}
+
+        # Column in master list where mids are located
+        cInd = self._ui.cbderand.currentIndex()
+        midCol,_ = self._ui.cbderand.itemData(cInd).toUInt()
+
+        # Data in the last column of master list should contain potId and ts
+        tsCol = self._ui.masterlist.columnCount()-1
+
+        for mRow in range(self._ui.masterlist.rowCount()):
+            midItem = self._ui.masterlist.item(mRow, midCol)
+            tsItem = self._ui.masterlist.item(mRow, tsCol)
+
+            if midItem is None or str(midItem.text()) is "" \
+                    or tsItem is None or str(tsItem.text()) is "" \
+                    or tsItem.data(QtCore.Qt.UserRole) is None:
+                continue
+
+            mid = str(midItem.text())
+            potid, tsbasedir = tsItem.data(QtCore.Qt.UserRole).toPyObject()
+
+            # Construct the pot string.
+            potStr = ""
+            for c in range(self._ui.masterlist.columnCount()):
+                i = self._ui.masterlist.item(mRow,c)
+                if not i.isSelected():
+                    continue
+                potStr = potStr+"|"+str(i.text().toUtf8())
+
+            if mid not in derandStruct.keys():
+                derandStruct[mid] = {}
+            if tsbasedir not in derandStruct[mid]:
+                derandStruct[mid][tsbasedir] = []
+            if (potid, potStr) not in derandStruct[mid][tsbasedir]:
+                derandStruct[mid][tsbasedir].append((potid,potStr))
+
+        return derandStruct
+
+    def _derandomize(self):
+        # 0. Get the output directory
+        tsoutpath = QtGui.QFileDialog.getExistingDirectory(self, \
+                    "Select Output Derandomization Directory", self._currDir, \
+                    QtGui.QFileDialog.ShowDirsOnly \
+                    | QtGui.QFileDialog.DontResolveSymlinks)
+        tsoutpath = str(tsoutpath)
+        if tsoutpath == "": # Handle the cancel
+            return
+        self._currDir = os.path.dirname(str(tsoutpath))
+
+        # 1. Gather all timestamps
+        timestamps = []
+        for r in range(self._ui.tslist.rowCount()-1):
+            i = self._ui.tslist.item(r,1)
+            tst = i.data(QtCore.Qt.UserRole).toPyObject()
+            timestamps = timestamps + tst.timestamps
+        timestamps = sorted(set(timestamps))
+
+        # 2. Get derandStruct
+        derandStruct = self._createDerandStruct()
+
+        # 3. Create pipeline components
+        plc = pipeconf.PCFGSection("--")
+        plc.setVal("pipeline._0.name", "derandomize")
+        plc.setVal("pipeline._0.derandStruct", derandStruct)
+        plc.setVal("pipeline._1.name", "imagewrite")
+        plc.setVal("pipeline._1.outstream", "outts")
+
+        outts = TimeStream()
+        outts.name = "derandomized"
+        outts.create(tsoutpath)
+
+        ctx = pipeconf.PCFGSection("--")
+        ctx.setVal("outts.outts", outts)
+
+        pl = pipeline.ImagePipeline(plc.pipeline, ctx)
+
+        # 4. Execute pipeline
+        self._ui.bCancelClicked = False
+        self._ui.pbts.setVisible(True)
+        self._ui.bCancel.setVisible(True)
+        self._ui.pbts.setMinimum(0)
+        self._ui.pbts.setMaximum(len(timestamps))
+        self._ui.pbts.reset()
+        for i in range(len(timestamps)):
+            self._ui.pbts.setValue(i)
+            QtGui.qApp.processEvents()
+            ts = timestamps[i]
+            try:
+                result = pl.process(ctx, [ts], True)
+            except Exception as e:
+                errmsg = QtGui.QErrorMessage(self)
+                errmsg.setWindowTitle("Error Derandomizing to ". \
+                        format(tsoutpath))
+                errmsg.showMessage(str(e))
+                break
+
+            if self._ui.bCancelClicked:
+                break
+
+        self._ui.pbts.setValue(self._ui.pbts.maximum())
+        self._ui.pbts.setVisible(False)
+        self._ui.bCancel.setVisible(False)
+
+
+    # col: Column to add the list
+    # row: Row where we will start adding
+    # l: List of values
+    # d: List of data
+    # t: Talbe to add to.
+    def _addListTable_asCol(self, col, row, l, t, d=None, colName=None):
+        if d is not None:
+            if len(l) is not len(d):
+                raise RuntimeError("Lengths do not agree")
+        # Grow Rows
+        fromRow = row
+        toRow = fromRow+len(l)
+        if t.rowCount() < toRow:
+            t.setRowCount(toRow)
+        rowNums = range(fromRow, toRow)
+
+        # Grow Cols
+        if t.columnCount() < col+1:
+            t.setColumnCount(col+1)
+
+        if colName is not None:
+            i = QtGui.QTableWidgetItem()
+            i.setText(QtCore.QString(str(colName)))
+            t.setHorizontalHeaderItem(col, i)
+
+        # add list as column
+        for ri in range(len(l)):
+            rowNum = rowNums[ri]
+            i = QtGui.QTableWidgetItem()
+            i.setText(str(l[ri]))
+            i.setTextAlignment(QtCore.Qt.AlignCenter)
+            if d is not None:
+                i.setData(QtCore.Qt.UserRole, d[ri])
+            t.setItem(rowNum, col, i)
+
+    def _addTS(self):
+        # 1. Get location of Time Stream
+        tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
+                "Select Time Stream", self._currDir, \
+                QtGui.QFileDialog.ShowDirsOnly \
+                | QtGui.QFileDialog.DontResolveSymlinks)
+        if tsdir == "": # Handle the cancel
+            return
+        self._currDir = os.path.dirname(str(tsdir))
+
+        tsbasedir = self._currDir
+        try: # See if TS has needed information.
+            tst = TimeStreamTraverser(str(tsdir))
+            if "settings" not in tst.data.keys():
+                msg = "settings needs to be defined in Timestream %s" \
+                        % tst.name
+                raise RuntimeError(msg)
+            if "metas" not in tst.data["settings"]["general"].keys():
+                msg = "metas needs to be defined in TS {} settings.".\
+                        format(tst.name)
+                raise RuntimeError(msg)
+            if len(tst.data["settings"]["general"]["metas"].keys()) < 1:
+                msg = "There are no meta ids in Timestream %s" % tst.path
+                raise RuntimeError(msg)
+            if len(tst.timestamps) < 10:
+                msg = "Timestream %s has less than 10 imgs" % tst.path
+                raise RuntimeError(msg)
+            # if 10 random img don't have ipms, we assume we can't derandomize
+            tmsps = [tst.timestamps[x]
+                     for x in random.sample(xrange(len(tst.timestamps)), 10)]
+            for i in range(len(tmsps)):
+                tmsp = tmsps[i]
+                img = tst.getImgByTimeStamp(tmsp)
+                if img.ipm is not None:
+                    break
+                if i == len(tmsps)-1:
+                    msg = "Not enough data in %s" % tst.path
+                    raise RuntimeError(msg)
+        except Exception as e:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error Opening Time Stream {}". \
+                    format(tsbasedir))
+            errmsg.showMessage(str(e))
+            return
+        tsbasedir = os.path.basename(tst.path)
+
+        # 2. Insert Time Stream
+        self._ui.tslist.insertRow(0)
+
+        i = QtGui.QTableWidgetItem("-")
+        i.setTextAlignment(QtCore.Qt.AlignCenter)
+        self._ui.tslist.setItem(0,0,i)
+
+        i = QtGui.QTableWidgetItem(tsbasedir)
+        i.setTextAlignment(QtCore.Qt.AlignLeft)
+        i.setData(QtCore.Qt.UserRole, tst)
+        self._ui.tslist.setItem(0,1,i)
+
+        # 3. Append Time Stream data to tstable
+        # Metadata IDs in tst.data
+        mids = tst.data["settings"]["general"]["metas"].keys()
+
+        # Pot Ids in tst.data. We make sure we have a set of potIds that are in
+        # every mid dict
+        potIds = set(tst.data["settings"]["general"]["metas"][mids[0]].keys())
+        for mid in mids:
+            potIds = potIds \
+                    & set(tst.data["settings"]["general"]["metas"][mid].keys())
+
+        # column names from Timestream and table
+        colNames = []
+        for c in range(self._ui.tstable.columnCount()):
+            hhi = self._ui.tstable.horizontalHeaderItem(c)
+            colNames.append(str(hhi.text()))
+        for mid in mids:
+            if mid not in colNames:
+                colNames.append(mid)
+
+        # Append from this row.
+        fromRow = self._ui.tstable.rowCount()
+
+        # Add Time Stream Name
+        l = [tsbasedir] * len(potIds)
+        self._addListTable_asCol(0, fromRow, l, self._ui.tstable)
+
+        for ci in range(len(colNames)):
+            mid = colNames[ci]
+            if mid not in mids:
+                continue
+
+            colNum = colNames.index(mid)
+            midDict = tst.data["settings"]["general"]["metas"][mid]
+            mvals = [midDict[x] for x in potIds]
+            mobjs = [(x,tst.path) for x in potIds]
+            self._addListTable_asCol(colNum, fromRow, mvals,
+                    self._ui.tstable, d=mobjs, colName=mid)
 
     def onClickTimeStreamList(self, row, column):
         # Adding
         if self._ui.tslist.item(row,column) is self.addTsItem:
-            tsdir = QtGui.QFileDialog.getExistingDirectory(self, \
-                    "Select Time Stream", "", \
-                    QtGui.QFileDialog.ShowDirsOnly \
-                    | QtGui.QFileDialog.DontResolveSymlinks)
-
-            if tsdir == "": # Handle the cancel
-                return
-
-            tsbasedir = os.path.basename(str(tsdir))
-
-            # Check to see if selected TS has needed information.
-            try:
-                tst = TimeStreamTraverser(str(tsdir))
-
-                if tst.curr().ipm is None:
-                    msg = "TimeStream {} needs an ImagePotMatrix.".\
-                            format(tst.name)
-                    raise RuntimeError(msg)
-            except Exception as e:
-                errmsg = QtGui.QErrorMessage(self)
-                errmsg.setWindowTitle("Error Opening Time Stream {}". \
-                        format(tsbasedir))
-                errmsg.showMessage(str(e))
-                return
-
-            self._ui.tslist.insertRow(0)
-
-            i = QtGui.QTableWidgetItem("-")
-            i.setTextAlignment(QtCore.Qt.AlignCenter)
-            self._ui.tslist.setItem(0,0,i)
-
-            i = QtGui.QTableWidgetItem(tsbasedir)
-            i.setTextAlignment(QtCore.Qt.AlignLeft)
-            i.setData(QtCore.Qt.UserRole, tst)
-            self._ui.tslist.setItem(0,1,i)
-
-            # Show if it is the first.
-            if self._activeTS is None:
-                self.selectRowTS(0)
+            self._addTS()
 
         # Deleting
         elif column == 0 \
                 and self._ui.tslist.item(row,column) is not self.addTsItem:
-            item = self._ui.tslist.item(row,1)
-            dtst = item.data(QtCore.Qt.UserRole).toPyObject()
+            i = self._ui.tslist.item(row,1)
+            tst = i.data(QtCore.Qt.UserRole).toPyObject()
+            tsbasedir = os.path.basename(tst.path)
+            for ri in reversed(range(self._ui.tstable.rowCount())):
+                item = self._ui.tstable.item(ri, 0)
+                if item.text() == tsbasedir:
+                    self._ui.tstable.removeRow(ri)
             self._ui.tslist.removeRow(row)
-            if self._activeTS is dtst:
-                self._activeTS = None
-                if self._ui.tslist.rowCount() > 1:
-                    nitem = self._ui.tslist.item(0,1)
-                    self._activeTS = nitem.data(QtCore.Qt.UserRole).toPyObject()
+            if self._ui.tslist.rowCount() < 2:
+                self._ui.tstable.clearContents()
+                self._ui.tstable.setColumnCount(1)
+                self._ui.masterlist.setColumnCount(0)
+                self._ui.masterlist.setRowCount(0)
+                self._ui.cbTs.clear()
+                self._ui.cbCsv.clear()
+                self._ui.cbderand.clear()
 
-            self._tscb.assignTst(self._activeTS)
+    def _addCsv(self):
+        # 1. Get location of csv file.
+        csvPath = QtGui.QFileDialog.getOpenFileName(self,
+                "Select CSV", self._currDir, "CSV (*.csv)")
+        if csvPath == "":
+            return
+        self._currDir = os.path.dirname(str(csvPath))
+        csvName = os.path.split(str(csvPath))[1].split(".")[0]
 
-        # Selecting
-        elif row != self._ui.tslist.rowCount()-1:
-            self.selectRowTS(row)
-
-        else:
-            pass
-
-    def selectRowTS(self, row):
-        # Clear all cell coloring
-        #FIXME: Clearing with a forloop, but there must be a better way!!!
-        for r in range(self._ui.tslist.rowCount()-1):
-            for c in range(2):
-                self._ui.tslist.item(r,c).setBackground(QtGui.QColor(255,255,255))
-
-        for c in range(2):
-            self._ui.tslist.item(row,c).setBackground(QtGui.QColor(100,100,200))
-
-        # select in self._activeTS
-        item = self._ui.tslist.item(row,1)
-        self._activeTS = item.data(QtCore.Qt.UserRole).toPyObject()
-
-        self._tscb.assignTst(self._activeTS)
-
-        # Show image of self._activeTS
-        img = self._activeTS.curr()
-        self.showImage(img.path)
-
-    def showImage(self, path=None):
-        if path is None:
-            pixmap = QtGui.QPixmap(500,500)
-        else:
-            pixmap = QtGui.QPixmap(path)
-
-        self._scene.clear()
-        pixItem = self._scene.addPixmap(pixmap)
-        pixItem.setZValue(-100)
-
-
-    def selectCsv(self):
-        self._csvfilename = QtGui.QFileDialog.getOpenFileName(self,
-                "Select CSV", "", "CSV (*.csv)")
-        f = file(self._csvfilename, "r")
+        # 2. Get CSV as columns
+        f = file(csvPath, "r")
         csvreader = csv.reader(f, delimiter=",")
-        csvFile = []
-        maxCols = 0
-        for row in csvreader:
-            csvFile.append(row)
-            if maxCols < len(row):
-                maxCols = len(row)
-                print maxCols
-        maxRows = len(csvFile)
-        f.close()
+        csvCol = {}
 
-        if self._ui.csv.rowCount() < maxRows:
-            self._ui.csv.setRowCount(maxRows)
-        if self._ui.csv.columnCount() < maxCols + 2:
-            self._ui.csv.setColumnCount(maxCols + 2)
-        for r in range(self._ui.csv.rowCount()):
-            for c in range(2, self._ui.csv.columnCount()):
-                try:
-                    item = QtGui.QTableWidgetItem(csvFile[r][c])
-                except:
-                    item = QtGui.QTableWidgetItem(" ")
-                self._ui.csv.setItem(r,c,item)
+        # first row is always header
+        hIndexes = csvreader.next() # header index
+        for i in range(len(hIndexes)):
+            hIndexes[i] = unicode(hIndexes[i], "utf-8", errors="ignore")
+            csvCol[hIndexes[i]] = []
 
-    def writeOnImage(self):
-        L = QtGui.QGraphicsTextItem('joel')
-        font=QtGui.QFont('White Rabbit')
-        font.setPointSize(30)
-        C = QtGui.QColor("red")
-        L.setFont(font)
-        L.setZValue(-100)
-        L.setPos(500,500)
-        L.setOpacity(1)
-        L.setDefaultTextColor(C)
-        L.setZValue(100)
-        self._scene.addItem(L)
-
-class QComboBox_TS(QtGui.QComboBox):
-    def __init__(self, csvTable, *args, **kwargs):
-        super(QComboBox_TS, self).__init__(*args, **kwargs)
-        self._csvTable = csvTable
-        self._tst = None
-        self.setEditText("Select TS MetaID")
-        self.currentIndexChanged.connect(self.onChange)
-
-    def assignTst(self, tst):
-        """Menu widget at position self._csvTable(0,0) and init column vals"""
-
-        # if we get a None it means to clear everything.
-        if tst is None:
-            self._tst = None
-            self.clear()
-            for r in range(1, self._csvTable.rowCount()):
-                item = QtGui.QTableWidgetItem(" ")
-                item.setTextAlignment(QtCore.Qt.AlignCenter)
-                self._csvTable.setItem(r, 0, item)
+        # Headers in Csv must be unique
+        if True in [x > 1 for x in collections.Counter(hIndexes).values()]:
+            errmsg = QtGui.QErrorMessage(self)
+            errmsg.setWindowTitle("Error while Reading CSV")
+            errmsg.showMessage("Headers in CSV need to be unique")
             return
 
-        #FIXME: We need to put the metaids in the TimeStream!!!!
-        self.clear() # start from an empty menu
+        rowNum = 0
+        for l in csvreader:
+            rowNum += 1
+            for hIndex in hIndexes:
+                lOffset = hIndexes.index(hIndex) # Line offset for hIndex
+                csvCol[hIndex].append(unicode(l[lOffset], "utf-8",
+                        errors="ignore"))
 
-        # Create an action per every metaid in TimeStream
-        self._tst = tst
-        img = self._tst.curr()
-        mids = img.ipm.getPot(img.ipm.potIds[0]).getMetaIdKeys()
-        mids.append("potid") # The default is original pot ids.
-        for mid in mids:
-            self.addItem(str(mid), QtCore.QVariant(mid))
+        # column names from csv file and table
+        colNames = []
+        for c in range(self._ui.csvtable.columnCount()):
+            hhi = self._ui.csvtable.horizontalHeaderItem(c)
+            colNames.append(str(hhi.text()))
+        for h in csvCol.keys():
+            if h not in colNames:
+                colNames.append(h)
 
-        # Append sufficient rows. first row is menu (+1)
-        if img.ipm.numPots+1 > self._csvTable.rowCount():
-            self._csvTable.setRowCount( img.ipm.numPots + 1)
+        # 3. Insert Csv to csvlist
+        self._ui.csvlist.insertRow(0)
+        i = QtGui.QTableWidgetItem("-")
+        i.setTextAlignment(QtCore.Qt.AlignCenter)
+        self._ui.csvlist.setItem(0, 0, i)
 
-        self.onChange(self.currentIndex())
+        i = QtGui.QTableWidgetItem(csvName)
+        i.setTextAlignment(QtCore.Qt.AlignLeft)
+        i.setData(QtCore.Qt.UserRole, csvName)
+        self._ui.csvlist.setItem(0, 1, i)
 
-    def onChange(self, index):
-        if self._tst is None:
-            return
+        # 4. Put csv to csv table
+        fromRow = self._ui.csvtable.rowCount()
+        l = [csvName] * rowNum
+        self._addListTable_asCol(0, fromRow, l, self._ui.csvtable)
 
-        img = self._tst.curr()
+        # Add each csv column to csv list
+        for key, l in csvCol.iteritems():
+            colNum = colNames.index(key)
+            self._addListTable_asCol(colNum, fromRow, l,
+                    self._ui.csvtable, colName=key)
 
-        # Fill first Column with active action mid
-        mid = str(self.itemData(index).toPyObject())
-        potIds = img.ipm.potIds
+    def onClickCsvList(self, row, column):
+        # Adding
+        if self._ui.csvlist.item(row,column) is self.addCsvItem:
+            self._addCsv()
 
-        for r in range(1, self._csvTable.rowCount()):
-            item = QtGui.QTableWidgetItem(" ")
-            if len(potIds) > 0:
-                pot = img.ipm.getPot(potIds.pop(0))
-                metaval = pot.id
-                if mid != "potid":
-                    metaval = pot.getMetaId(mid)
-                item.setText(str(metaval))
-
-            item.setTextAlignment(QtCore.Qt.AlignCenter)
-            self._csvTable.setItem(r, 0, item)
-
+        elif column == 0 \
+                and self._ui.csvlist.item(row,column) is not self.addCsvItem:
+            i = self._ui.csvlist.item(row,1)
+            csvname = i.data(QtCore.Qt.UserRole).toPyObject()
+            for ri in reversed(range(self._ui.csvtable.rowCount())):
+                i = self._ui.csvtable.item(ri,0)
+                if i.text() == csvname:
+                    self._ui.csvtable.removeRow(ri)
+            self._ui.csvlist.removeRow(row)
+            if self._ui.csvlist.rowCount() < 2:
+                self._ui.csvtable.clearContents()
+                self._ui.csvtable.setColumnCount(1)
+                self._ui.masterlist.setColumnCount(0)
+                self._ui.masterlist.setRowCount(0)
+                self._ui.cbTs.clear()
+                self._ui.cbCsv.clear()
+                self._ui.cbderand.clear()
 
 class PanZoomGraphicsView(QtGui.QGraphicsView):
 
-    def __init__(self):
-        super(PanZoomGraphicsView, self).__init__()
+    def __init__(self, parent=None):
+        super(PanZoomGraphicsView, self).__init__(parent=parent)
         self.setDragMode(QtGui.QGraphicsView.RubberBandDrag)
         self._isPanning = False
         self._mousePressed = False
@@ -323,8 +721,6 @@ class PanZoomGraphicsView(QtGui.QGraphicsView):
                 self.setCursor(QtCore.Qt.ArrowCursor)
         else:
             super(PanZoomGraphicsView, self).keyPressEvent(event)
-
-    #def mouseDoubleClickEvent(self, event): pass
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)

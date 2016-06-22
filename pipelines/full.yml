@@ -1,0 +1,32 @@
+pipeline:
+- name: undistort
+  mess: '---Perform optical undistortion---'
+- name: colorcarddetect
+  mess: '---Perform color card detection---'
+- name: colorcorrect
+  mess: '---Perform color correction---'
+- name: traydetect
+  mess: '---Perform tray detection---'
+- name: potdetect
+  mess: '---Perform pot detection---'
+- name: imagewrite
+  mess: '---Write image---'
+  outstream: -cor
+- name: plantextract
+  mess: ---Performing plant segmentation---
+- name: imagewrite
+  mess: ---Writing Image---
+  outstream: -seg
+  masked: True
+- name: featureextract
+  mess: ---Extract Plant Features---
+  features: ["all"]
+- name: writefeatures
+  mess: ---Writing Features---
+
+outstreams:
+  - { name: -seg }
+  - { name: -cor }
+
+general:
+  visualise: False

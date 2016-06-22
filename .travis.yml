@@ -12,20 +12,19 @@ before_install:
 # https://github.com/travis-ci/travis-cookbooks/issues/155
  - sudo rm -rf /dev/shm
  - sudo ln -s /run/shm /dev/shm
+# Some packages require installation from the pacakge manager
  - sudo apt-get update
- - sudo apt-get install -y ufraw-batch libhdf5-serial-dev libnetcdf-dev libatlas-base-dev gfortran
+ - sudo apt-get install -y libatlas-base-dev gfortran libfreeimage-dev
  - sudo apt-get install -y python-scipy python-matplotlib python-opencv python-dateutil python-pyparsing
- - pip install -q nose coverage
- - pip install -q coveralls six
- - pip install -q numpy==1.8.1
- - pip install -q cython==0.20.2
- - pip install -q pytz
- - pip install -q flake8
+ - pip install -q nose coverage coveralls six pytz flake8
+ - pip install -q numpy==1.8.1 cython==0.20.2 networkx==1.8 pillow==2.6.1
+# Travis times out before we can install most of these with pip, so we copy them from the package manager
  - cp /usr/share/pyshared/cv.py /usr/lib/pyshared/python2.7/cv2.so $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp /usr/share/pyshared/pyparsing.py $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp -r /usr/lib/python2.7/dist-packages/scipy $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp -r /usr/lib/python2.7/dist-packages/dateutil $VIRTUAL_ENV/lib/python2.7/site-packages/
  - cp -r /usr/share/pyshared/matplotlib /usr/share/pyshared/mpl_toolkits /usr/share/pyshared/pylab.py /usr/lib/pyshared/python2.7/matplotlib $VIRTUAL_ENV/lib/python2.7/site-packages/
+ # To be removed and replaced with the next release of scikit-image
  - pip install git+https://github.com/scikit-image/scikit-image.git
 
 install:
@@ -33,7 +32,6 @@ install:
 
 script:
  - ./run_tests
- - flake8 --max-line-length=85 timestream tests --exclude tests/helpers.py
 
 after_script:
  - coveralls

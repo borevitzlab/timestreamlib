@@ -39,6 +39,12 @@ class TestTimeStreamStr(TestCase):
 
     """Test str(instance) of TimeStream classes."""
 
+    @classmethod
+    def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+
     def _check_ts_instance_ts_v1(self, ts_path):
         """Check members of a TimeStream class instance"""
 
@@ -48,10 +54,30 @@ class TestTimeStreamStr(TestCase):
         inst.load(helpers.FILES["timestream"])
         self.assertEqual(str(inst), helpers.TS_STR)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestTimeStreamLoad(TestCase):
 
     """Test loading of TimeStream classes. Tests read_metadata as well."""
+
+    @classmethod
+    def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+        helpers.imgs_common_tsdir("setup",
+                                  helpers.FILES["timestream_datafldr"])
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream_gaps"],
+                                  skip=[("04", "30"), ("05", "30")])
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream_imgdata"])
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream_bad"])
+        shutil.move(
+            path.join(helpers.FILES["timestream_bad"], "2013"),
+            path.join(path.dirname(helpers.FILES["timestream_bad"]),
+                      "broken_year_dir_2013"))
 
     def _check_ts_instance_ts_v1(self, ts_path):
         """Check members of a TimeStream class instance"""
@@ -114,6 +140,20 @@ class TestTimeStreamLoad(TestCase):
             self.assertIn("has_data", inst.image_data[img_date_str])
             self.assertIs(inst.image_data[img_date_str]["has_data"], True)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+        helpers.imgs_common_tsdir("teardown",
+                                  helpers.FILES["timestream_datafldr"])
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream_gaps"])
+        helpers.imgs_common_tsdir("teardown",
+                                  helpers.FILES["timestream_imgdata"])
+        shutil.move(
+            path.join(path.dirname(helpers.FILES["timestream_bad"]),
+                      "broken_year_dir_2013"),
+            path.join(helpers.FILES["timestream_bad"], "2013"))
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream_bad"])
+
 
 class TestTimeStreamInit(TestCase):
 
@@ -162,6 +202,12 @@ class TestTimeStreamImagePathAssing(TestCase):
 
     """Test TimeStreamImage() path assignment"""
 
+    @classmethod
+    def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+
     def test_ts_image_path_assign(self):
         """Test TimeStreamImage. path assignment with valid parameters"""
         img = TimeStreamImage()
@@ -185,6 +231,10 @@ class TestTimeStreamImagePathAssing(TestCase):
         img.path = helpers.TS_FILES_JPG[0]
         self.assertEqual(img.path, helpers.TS_FILES_JPG[0])
         self.assertEqual(img.datetime, helpers.TS_DATES_PARSED[0])
+
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
 
 
 class TestTimeStreamImageClone(TestCase):
@@ -229,6 +279,12 @@ class TestTimeStreamIterByFiles(TestCase):
 
     """Test TimeStream().iter_by_files()"""
 
+    @classmethod
+    def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+
     def test_iter_by_files(self):
         """Test TimeStream().iter_by_files with a good timestream"""
         ts = TimeStream()
@@ -244,10 +300,22 @@ class TestTimeStreamIterByFiles(TestCase):
             self.assertEqual(image.pixels.dtype, helpers.TS_JPG_DTYPE)
             self.assertEqual(image.pixels.shape, helpers.TS_JPG_SHAPE)
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+
 
 class TestTimeStreamIterByTimepoints(TestCase):
 
     """Test TimeStream().iter_by_timepoints"""
+
+    @classmethod
+    def setUpClass(cls):
+        import warnings
+        warnings.simplefilter("ignore")
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream"])
+        helpers.imgs_common_tsdir("setup", helpers.FILES["timestream_gaps"],
+                                  skip=[("04", "30"), ("05", "30")])
 
     def test_iter_by_timepoints_full(self):
         """Test TimeStream().iter_by_timepoints with a complete timestream"""
@@ -303,6 +371,11 @@ class TestTimeStreamIterByTimepoints(TestCase):
             # will fail above, or be a problem in our data files which should
             # change the date and make the previous statement fail.
 
+    @classmethod
+    def tearDownClass(cls):
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream"])
+        helpers.imgs_common_tsdir("teardown", helpers.FILES["timestream_gaps"])
+
 
 class TestTimeStreamCreate(TestCase):
 
@@ -324,7 +397,9 @@ class TestTimeStreamCreate(TestCase):
         with self.assertRaises(ValueError):
             ts.create(self.tmp_path, version=3)
         with self.assertRaises(ValueError):
-            ts.create("not_a/valid/path")
+            ts.create("/not_a/valid/path")
+        with self.assertRaises(TypeError):
+            ts.create("relative/path")
         with self.assertRaises(TypeError):
             ts.create(123)
 
