@@ -29,6 +29,7 @@ import logging
 import timestream.manipulate.configuration as pipeconf
 import timestream.manipulate.pipeline as pipeline
 import datetime
+import matplotlib
 from docopt import (docopt, DocoptExit)
 
 
@@ -238,6 +239,7 @@ class PipelineRunner():
     def runPipeline(self, plConf, ctx, ts, pl, LOG, prsig=None, stsig=None):
         self.running = True
         for i in range(len(ts.timestamps)):
+            matplotlib.pyplot.close("all")
             if prsig is not None:
                 prsig.emit(i)
             timestamp = ts.timestamps[i]
@@ -274,6 +276,8 @@ def maincli(opts):
         pr = PipelineRunner()
         pr.runPipeline(plConf, ctx, ts, pl, LOG)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise DocoptExit(str(e))
 
 
