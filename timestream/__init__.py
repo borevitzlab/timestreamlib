@@ -298,12 +298,12 @@ class TimeStream(object):
         try:
             with open(self.image_db_path) as db_fh:
                 self.image_data = json.load(db_fh)
-        except IOError:
+        except (IOError, ValueError):
             self.image_data = {}
         try:
             with open(self.db_path) as db_fh:
                 self.data = json.load(db_fh)
-        except IOError:
+        except (IOError, ValueError):
             self.data = {}
         self.read_metadata()
 
